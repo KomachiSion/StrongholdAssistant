@@ -38,7 +38,8 @@ public sealed class PendingLayer : Canvas
             }
             else
             {
-                var anchor = geometry.Anchors[cell];
+                // 认人把人认到了不能放人的格子（如 m01 中间木箱）时没有锚点，不画；之前这里取不到会闪退（v1.0.1 玩家诊断包）
+                if (!geometry.Anchors.TryGetValue(cell, out var anchor)) continue;
                 x = anchor.X * width;
                 y = anchor.Y * height - 40 * height / 1080 - diameter / 2;
             }

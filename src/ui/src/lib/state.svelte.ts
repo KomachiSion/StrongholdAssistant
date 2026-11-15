@@ -7,7 +7,7 @@ import { cloud } from './sync.svelte'
 import { untrack } from 'svelte'
 import { currentStage, stageView, editStage } from './stages'
 import { ELITE_COVENANT, fillDefaults, defaultsFromLineup } from './opconfig'
-import type { AppInfo, Catalog, Connection, Covenant, CovenantGoal, Equipment, Lineup, LineupMember, MatchInfo, Operator, ScanStatus, Session, Settings, UpdateStatus } from './api'
+import type { AppInfo, Catalog, Connection, Covenant, CovenantGoal, Equipment, Lineup, LineupGroup, LineupMember, MatchInfo, Operator, ScanStatus, Session, Settings, UpdateStatus } from './api'
 
 export type Tab = 'match' | 'lineup' | 'codex' | 'history'
 export type LineupView = 'target' | 'mine' | 'plaza' | 'skland'
@@ -143,7 +143,7 @@ export class AppState {
     this.active ? this.active.members.filter((m) => !this.tracked.has(m.name)).length + lineupEquipment(this.active).filter((n) => !this.trackedEq.has(n)).length : 0,
   )
   /** 目标盟约的人数：按目标名单算（盟约在游戏里有没有生效，游戏里看得到） */
-  goalProgress = $derived(this.active ? goalProgress(this.active.goals, this.active.members, this.active.members.map((m) => m.name)) : [])
+  goalProgress = $derived(this.active ? goalProgress(this.active.goals, this.active.members, this.active.members.map((m) => m.name), this.active.groups) : [])
   /** 目标盟约里还能抓的其他干员：不在名单里、没被禁、可招募；覆盖目标盟约越多越靠前 */
   pickable = $derived.by(() => {
     const t = this.active
@@ -567,13 +567,19 @@ export interface GoalProgress {
 
 /** 目标盟约的人数进度。names 是要计数的干员（已持有的，或编辑时的名单）；名单里的转职盟约也算 */
 
-export function goalProgress(goals: CovenantGoal[], members: LineupMember[], names: Iterable<string>): GoalProgress[] {
+/**
+ * groups：「一组」干员（v1.0.1）。每组最多算「任选」的那几个：组里有这个盟约的人数和 need 取小的，加到人数里
+ * （按能凑到的算：任选 2、组里有 2 个不屈，不屈就 +2）
+ */
+export function goalProgress(goals: CovenantGoal[], members: LineupMember[], names: Iterable<string>, groups: LineupGroup[] = []): GoalProgress[] {
   const byName = new Map(members.map((m) => [m.name, m]))
   const all = [...names]
   const list = all.map((n) => covenantsOf(byName.get(n) ?? { name: n }))
+  const fromGroups = (id: string) =>
+    groups.reduce((s, g) => s + Math.min(g.need, g.members.filter((m) => (id === ELITE_COVENANT ? m.elite : covenantsOf(m).includes(id))).length), 0)
   return goals.map((g) => {
     const covenant = covenantById.get(g.id)!
-    const have = g.id === ELITE_COVENANT ? all.filter((n) => byName.get(n)?.elite).length : list.filter((cs) => cs.includes(g.id)).length
+    const have = (g.id === ELITE_COVENANT ? all.filter((n) => byName.get(n)?.elite).length : list.filter((cs) => cs.includes(g.id)).length) + fromGroups(g.id)
     const need = covenant.thresholds[g.level - 1]
     return { covenant, level: g.level, need, have, active: have >= covenant.thresholds[0], done: have >= need }
   })

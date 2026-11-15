@@ -158,7 +158,7 @@
     const base = useGoals ? rankForGoals(e.goals, app.catalog.operators) : [...app.catalog.operators].sort((a, b) => b.tier - a.tier)
     return base.filter((o) => (!q || o.name.includes(q)) && (!bond || o.core.includes(bond) || o.extra.includes(bond)) && (!tiers.length || tiers.includes(o.tier)))
   })
-  const progress = $derived(e ? goalProgress(e.goals, e.members, e.members.map((m) => m.name)) : [])
+  const progress = $derived(e ? goalProgress(e.goals, e.members, e.members.map((m) => m.name), e.groups) : [])
   const others = $derived(e ? otherBonds(e.goals, e.members) : [])
   let confirmDelete = $state(false)
   // 名字可以不填：默认用前三个目标盟约起名，保存时补上

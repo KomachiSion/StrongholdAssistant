@@ -7,7 +7,7 @@
 // - 出错时 HTTP 状态码非 2xx，响应体是 ApiError；message 是直接给用户看的中文。
 // - 需要登录的接口没登录返回 401，被封禁返回 403。
 
-import type { CovenantGoal, Lineup, LineupMember, LineupStage, Settings } from '../../ui/src/lib/api/types'
+import type { CovenantGoal, Lineup, LineupGroup, LineupMember, LineupStage, LineupUpgrade, Settings } from '../../ui/src/lib/api/types'
 
 export interface ApiError {
   /** 机器可读的错误码，例如 'rate_limited'、'bad_code'、'season_mismatch'、'nickname_taken'、'blocked_words' */
@@ -94,6 +94,10 @@ export interface PostLineup {
   strategyId: string | null
   /** 回合阶段（SA3，v0.7.0）；没有就不写。顶层的 goals / members / equipment 是成型阵容 */
   stages?: LineupStage[]
+  /** 成型阵容的「一组」干员（SA4，v1.0.1）；阶段的在各自的 stages[i].groups 里 */
+  groups?: LineupGroup[]
+  /** 升本计划（SA4，v1.0.1）：整套阵容一份 */
+  upgrades?: LineupUpgrade[]
 }
 
 export interface Post {

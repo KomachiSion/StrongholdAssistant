@@ -1,4 +1,4 @@
-// 敌人路线覆盖的绘制层（设计）：样式、依次循环、三种显示方式。参数和原型 src/ui/dev/route-overlay.html 一致；
+// 敌人路线覆盖的绘制层（设计）：样式、依次循环、三种显示方式、描线。参数和原型 src/ui/dev/route-overlay.html 一致；
 // 数据来自 HostApi.BoardRoutesChanged，快捷键来自 HostApi.RouteHotkeyChanged。
 using System.Windows;
 using System.Windows.Controls;
@@ -30,7 +30,28 @@ public sealed class RouteLayer : Canvas
     private TextBlock? _tagSub;
     private int _cycle;
     private bool _hotkeyDown, _hiddenByKey;
-    private readonly DispatcherTimer _cycleTimer = new(), _peekTimer = new();
+    private readonly DispatcherTimer _cycleTimer = new(), _peekTimer = new(), _cometTimer = new();
+
+    // ── 描线（v1.0.2，用户 2026-11-15 提）：游戏里路线是一笔画出来的，只画静态线时重合的段看不出谁从哪来。
+    // 每条路线从出生点沿路画到终点，前面一个发光的笔头；画完换回静态线。
+    // 依次循环：每轮到一条就画一遍；全部一起显示：出现时一起画，之后每隔 3.2 秒有笔头沿线再跑一遍
+    private const double TraceSpeed = 8; // 格 / 秒
+    private const int TraceMin = 600, TraceMax = 1500, CometMs = 3200;
+    private Canvas? _traceHost;
+    private Canvas? _allGroup;
+    private readonly List<(EnemyRoute Route, List<List<Point>> Polys)> _traceRoutes = [];
+    private readonly List<TraceJob> _traceJobs = [];
+    private DateTime _traceStart;
+    private Action? _traceDone;
+    private bool _rendering, _visible;
+    private double _k = 1;
+
+    private sealed class TraceJob
+    {
+        public required List<(List<Point> Pts, double Len, Polyline? Under, Polyline? Core)> Segs;
+        public required double Total, Ms;
+        public required Ellipse Glow, Head;
+    }
 
     /// <summary>有路线数据（不论此刻是否淡出）。覆盖层窗口据此决定要不要留着。</summary>
     public bool HasRoutes => _routes is not null;
@@ -48,6 +69,11 @@ public sealed class RouteLayer : Canvas
         {
             _peekTimer.Stop();
             if (!_hotkeyDown) Fade(false, 1200);
+        };
+        _cometTimer.Interval = TimeSpan.FromMilliseconds(CometMs);
+        _cometTimer.Tick += (_, _) =>
+        {
+            if (_visible && _traceJobs.Count == 0) StartTrace(_traceRoutes, TraceMax, line: false, done: null);
         };
     }
 
@@ -147,11 +173,17 @@ public sealed class RouteLayer : Canvas
         }
     }
 
-    private void Fade(bool show, int ms) =>
+    private void Fade(bool show, int ms)
+    {
         BeginAnimation(OpacityProperty, new DoubleAnimation(show ? Shown : 0, TimeSpan.FromMilliseconds(ms))
         {
             EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
         });
+        // 从隐藏到显示：重新画一遍，让玩家看到走向
+        bool replay = show && !_visible;
+        _visible = show;
+        if (replay) Replay();
+    }
 
     // ── 绘制 ───────────────────────────────────────────────────────────
 
@@ -163,13 +195,19 @@ public sealed class RouteLayer : Canvas
 
     private void Rebuild()
     {
+        StopTrace();
         Children.Clear();
         _cycleItems.Clear();
+        _traceRoutes.Clear();
+        _traceHost = null;
+        _allGroup = null;
         _tagSub = null;
         _cycleTimer.Stop();
+        _cometTimer.Stop();
         if (_routes is not { } data || !double.IsFinite(_size.Width) || !double.IsFinite(_size.Height)
             || _size.Width <= 0 || _size.Height <= 0) return;
         double k = _size.Height / 1080; // 线宽等按 1080p 设计，随画面缩放
+        _k = k;
         Point P(Point grid)
         {
             var (x, y) = data.Projection.Project(grid.X, grid.Y);
@@ -183,6 +221,11 @@ public sealed class RouteLayer : Canvas
             .Where(r => MatchesSide(r, _settings.Side, data.PlayerSide))
             .ToList();
 
+        foreach (var route in shown)
+        {
+            var shift = route.Boss ? BossShift : route.Motion == "fly" ? FlyShift : default;
+            _traceRoutes.Add((route, route.Segments.Select(seg => Units(seg, shift).Select(P).ToList()).ToList()));
+        }
         if (_settings.Overlap == "cycle" && shown.Count > 1)
         {
             foreach (var route in shown)
@@ -198,7 +241,10 @@ public sealed class RouteLayer : Canvas
             var group = new Canvas();
             Draw(group, shown, P, k);
             Children.Add(group);
+            _allGroup = group;
         }
+        _traceHost = new Canvas();
+        Children.Add(_traceHost);
         foreach (var spot in data.BossSpots) DrawSpot(new Point(spot.Col, spot.Row), P, k);
         DrawTag(data, shown, P, k);
 
@@ -209,15 +255,178 @@ public sealed class RouteLayer : Canvas
             _cycleTimer.Interval = TimeSpan.FromSeconds(_settings.CycleSeconds);
             _cycleTimer.Start();
         }
+        else DrawAll();
+    }
+
+    /// <summary>全部一起显示：静态线先藏起来，所有路线一起画，画完换回静态线；之后定时跑笔头。</summary>
+    private void DrawAll()
+    {
+        if (_allGroup is not { } group || _traceRoutes.Count == 0) return;
+        group.BeginAnimation(OpacityProperty, null);
+        group.Opacity = 0;
+        StartTrace(_traceRoutes, TraceMax, line: true, done: () =>
+            group.BeginAnimation(OpacityProperty, new DoubleAnimation(1, TimeSpan.FromMilliseconds(250))));
+        _cometTimer.Start();
+    }
+
+    private void Replay()
+    {
+        if (_cycleItems.Count > 0) ShowCycle();
+        else DrawAll();
     }
 
     private void ShowCycle()
     {
+        // 当前这条先压暗，一笔画完再亮起来
         for (int i = 0; i < _cycleItems.Count; i++)
             _cycleItems[i].Element.BeginAnimation(OpacityProperty,
-                new DoubleAnimation(i == _cycle ? 1 : Dim, TimeSpan.FromMilliseconds(400)));
+                new DoubleAnimation(Dim, TimeSpan.FromMilliseconds(i == _cycle ? 120 : 400)));
+        var current = _cycleItems[_cycle].Element;
+        if (_cycle < _traceRoutes.Count)
+            StartTrace([_traceRoutes[_cycle]], _settings.CycleSeconds * 1000 * .55, line: true, done: () =>
+                current.BeginAnimation(OpacityProperty, new DoubleAnimation(1, TimeSpan.FromMilliseconds(250))));
         if (_tagSub is not null)
             _tagSub.Text = $"{_cycle + 1}/{_cycleItems.Count} · {_cycleItems[_cycle].Label}";
+    }
+
+    private (Color Core, Color Under, Color Head, double Width) TraceStyle(EnemyRoute r) => r.Boss
+        ? (BossCore, BossUnder, Color.FromRgb(0xFF, 0xF3, 0xCF), 5 * _k)
+        : r.Motion == "fly"
+            ? (FlyCore, FlyUnder, Color.FromRgb(0xF1, 0xE6, 0xFF), LineWidth(r.Count, _k) * .5)
+            : (WalkCore, WalkUnder, Color.FromRgb(0xFF, 0xE3, 0xDF), LineWidth(r.Count, _k));
+
+    /// <summary>
+    /// 一起画这些路线：line=false 只跑笔头（彗星）。时长按格数，多段（首领传送）接着画。
+    /// 用 dash 长度 = 折线长度、偏移从全长减到 0 来「画出来」；WPF 的 dash 以线宽为单位
+    /// </summary>
+    private void StartTrace(IReadOnlyList<(EnemyRoute Route, List<List<Point>> Polys)> routes, double max, bool line, Action? done)
+    {
+        StopTrace();
+        if (_traceHost is not { } host) return;
+        host.BeginAnimation(OpacityProperty, null);
+        host.Opacity = 1;
+        foreach (var (route, polys) in routes)
+        {
+            var (core, under, headColor, w) = TraceStyle(route);
+            int steps = polys.Sum(p => Math.Max(0, p.Count - 1));
+            double ms = Math.Clamp(steps / TraceSpeed * 1000, TraceMin, Math.Max(TraceMin, Math.Min(TraceMax, max)));
+            var segs = new List<(List<Point>, double, Polyline?, Polyline?)>();
+            foreach (var pts in polys)
+            {
+                double len = 0;
+                for (int i = 1; i < pts.Count; i++) len += (pts[i] - pts[i - 1]).Length;
+                Polyline? u = null, c = null;
+                if (line && len > 0)
+                {
+                    u = Path(pts, under, w + 3.5 * _k, .75, [len / (w + 3.5 * _k), len / (w + 3.5 * _k)]);
+                    c = Path(pts, core, w, 1, [len / w, len / w]);
+                    u.StrokeDashOffset = len / u.StrokeThickness;
+                    c.StrokeDashOffset = len / c.StrokeThickness;
+                    u.StrokeDashCap = c.StrokeDashCap = PenLineCap.Flat;
+                    host.Children.Add(u);
+                    host.Children.Add(c);
+                }
+                segs.Add((pts, len, u, c));
+            }
+            double r = w * 1.6 + 4 * _k;
+            var glow = new Ellipse
+            {
+                Width = 2 * r, Height = 2 * r,
+                Fill = new SolidColorBrush(core) { Opacity = .55 },
+                Effect = new BlurEffect { Radius = 6 * _k },
+            };
+            double hr = w * .55 + 2 * _k;
+            var head = new Ellipse { Width = 2 * hr, Height = 2 * hr, Fill = new SolidColorBrush(headColor) };
+            host.Children.Add(glow);
+            host.Children.Add(head);
+            _traceJobs.Add(new TraceJob { Segs = segs, Total = segs.Sum(x => x.Item2), Ms = ms, Glow = glow, Head = head });
+        }
+        _traceStart = DateTime.UtcNow;
+        _traceDone = done;
+        if (!_rendering)
+        {
+            CompositionTarget.Rendering += OnTraceFrame;
+            _rendering = true;
+        }
+        OnTraceFrame(null, EventArgs.Empty);
+    }
+
+    private void OnTraceFrame(object? sender, EventArgs e)
+    {
+        double elapsed = (DateTime.UtcNow - _traceStart).TotalMilliseconds;
+        bool all = true;
+        foreach (var job in _traceJobs)
+        {
+            double t = Math.Min(1, elapsed / job.Ms);
+            if (t < 1) all = false;
+            double d = t * job.Total;
+            bool placed = false;
+            foreach (var (pts, len, under, core) in job.Segs)
+            {
+                double got = Math.Clamp(d, 0, len);
+                if (under is not null) under.StrokeDashOffset = (len - got) / under.StrokeThickness;
+                if (core is not null) core.StrokeDashOffset = (len - got) / core.StrokeThickness;
+                if (!placed && (d <= len || ReferenceEquals(pts, job.Segs[^1].Pts)))
+                {
+                    var at = PointAt(pts, Math.Clamp(d, 0, len));
+                    Canvas.SetLeft(job.Glow, at.X - job.Glow.Width / 2);
+                    Canvas.SetTop(job.Glow, at.Y - job.Glow.Height / 2);
+                    Canvas.SetLeft(job.Head, at.X - job.Head.Width / 2);
+                    Canvas.SetTop(job.Head, at.Y - job.Head.Height / 2);
+                    placed = true;
+                }
+                d -= len;
+            }
+            job.Glow.Visibility = job.Head.Visibility = t < 1 ? Visibility.Visible : Visibility.Hidden;
+        }
+        if (!all) return;
+        var done = _traceDone;
+        var host = _traceHost;
+        StopRendering();
+        _traceJobs.Clear();
+        done?.Invoke();
+        // 画完：描线淡出，露出下面的静态线
+        if (host is null) return;
+        var fade = new DoubleAnimation(0, TimeSpan.FromMilliseconds(250));
+        fade.Completed += (_, _) =>
+        {
+            if (_traceJobs.Count > 0 || !ReferenceEquals(host, _traceHost)) return;
+            host.Children.Clear();
+            host.BeginAnimation(OpacityProperty, null);
+            host.Opacity = 1;
+        };
+        host.BeginAnimation(OpacityProperty, fade);
+    }
+
+    private void StopRendering()
+    {
+        if (!_rendering) return;
+        CompositionTarget.Rendering -= OnTraceFrame;
+        _rendering = false;
+    }
+
+    private void StopTrace()
+    {
+        StopRendering();
+        _traceJobs.Clear();
+        _traceDone = null;
+        if (_traceHost is { } host)
+        {
+            host.BeginAnimation(OpacityProperty, null);
+            host.Children.Clear();
+            host.Opacity = 1;
+        }
+    }
+
+    private static Point PointAt(List<Point> pts, double d)
+    {
+        for (int i = 1; i < pts.Count; i++)
+        {
+            double l = (pts[i] - pts[i - 1]).Length;
+            if (d <= l || i == pts.Count - 1) return pts[i - 1] + (pts[i] - pts[i - 1]) * (l > 0 ? Math.Min(1, d / l) : 1);
+            d -= l;
+        }
+        return pts.Count > 0 ? pts[0] : default;
     }
 
     private static string Label(EnemyRoute r)

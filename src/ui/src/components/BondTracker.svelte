@@ -286,8 +286,7 @@
     font-style: normal;
     font-size: var(--fs-xs);
     color: var(--mint);
-    writing-mode: vertical-rl;
-    letter-spacing: 1px;
+    white-space: nowrap;
   }
   .grp.done {
     opacity: 0.45;

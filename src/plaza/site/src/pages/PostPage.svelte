@@ -20,20 +20,23 @@
 
   const l = $derived(p?.lineup)
   // 回合阶段（v0.7.0）：标签依次是各回合阶段、成型；默认成型。干员、通用装备、目标盟约跟着切
-  const stages = $derived(l ? [...(l.stages ?? []).map((s) => ({ ...s, label: s.name.trim() || (s.fromRound === s.toRound ? `第 ${s.fromRound} 回合` : `${s.fromRound}～${s.toRound} 回合`) })), { label: '成型', goals: l.goals, members: l.members, equipment: l.equipment }] : [])
+  const stages = $derived(l ? [...(l.stages ?? []).map((s) => ({ ...s, label: s.name.trim() || (s.fromRound === s.toRound ? `第 ${s.fromRound} 回合` : `${s.fromRound}～${s.toRound} 回合`) })), { label: '成型', goals: l.goals, members: l.members, equipment: l.equipment, groups: l.groups }] : [])
   let six = $state(-1)
   const part = $derived(stages[six < 0 || six >= stages.length ? stages.length - 1 : six])
   const sel = $derived(six < 0 || six >= stages.length ? stages.length - 1 : six)
   const st = $derived(strategy(l?.strategyId ?? null))
   const mine = $derived(!!p && session.me?.id === p.author.id)
-  // 目标盟约人数：按名单里带这个盟约的干员数，和助手里的算法一样
+  // 目标盟约人数：按名单里带这个盟约的干员数，和助手里的算法一样；「一组」每组最多算任选的那几个（v1.0.1）
+  const hasBond = (m: { name: string; transform?: string }, id: string) => {
+    const o = op(m.name)
+    return o.core.includes(id) || o.extra.includes(id) || m.transform === id
+  }
   const goalRows = $derived(
     (part?.goals ?? []).map((g) => {
       const c = cov(g.id)
-      const have = part!.members.filter((m) => {
-        const o = op(m.name)
-        return o.core.includes(g.id) || o.extra.includes(g.id) || m.transform === g.id
-      }).length
+      const have =
+        part!.members.filter((m) => hasBond(m, g.id)).length +
+        (part!.groups ?? []).reduce((s, x) => s + Math.min(x.need, x.members.filter((m) => hasBond(m, g.id)).length), 0)
       return { ...g, have, need: c.thresholds[g.level - 1] ?? have }
     }),
   )
@@ -114,6 +117,32 @@
   }
 </script>
 
+{#snippet mem(m: (typeof l.members)[number])}
+            {@const o = op(m.name)}
+            {@const cf = config(m)}
+            <div class="mem" class:key={m.key}>
+              <OpAvatar name={m.name} size={56} isKey={m.key} elite={m.elite} />
+              <div class="mi">
+                <div class="mn"><b>{m.name}</b><span class="tier" style:--c="var(--tier-{o.tier})">{ROMAN[o.tier]}</span>{#if m.elite}<span class="elt">精锐</span>{/if}{#if m.key}<span class="keyt">关键</span>{/if}</div>
+                <div class="mb">{[...o.core, ...o.extra].map((c) => cov(c).name).join(' · ')}</div>
+                {#if cf}
+                  <div class="cfg">
+                    {#if cf.skill}<span class="ci" title="技能"><img src={asset.skill(cf.skill.id)} alt="" />{cf.skill.name}</span>{/if}
+                    {#if cf.module}<span class="ci" title="模组"><img class="mo" src={asset.module(cf.module.id)} alt="" />{cf.module.name}</span>{:else if cf.hasModules}<span class="ci none">不带模组</span>{/if}
+                  </div>
+                {/if}
+                {#if m.equipment?.length}
+                  <div class="me">
+                    {#each m.equipment as x (x.name)}
+                      <span class="eqc" class:pri={x.priority} title="{x.name}（{ROMAN[eq(x.name).tier]} 阶）{x.priority ? ' · 优先' : ' · 候选'}"><img src={asset.equipment(x.name)} alt="" />{x.name}</span>
+                    {/each}
+                  </div>
+                {/if}
+              </div>
+            </div>
+{/snippet}
+
+
 <div class="in">
   <a class="back" href="/plaza" use:link><Icon name="arrowLeft" size={16} />回到广场</a>
 
@@ -174,31 +203,14 @@
         <section>
           <h2 class="sec-h">干员<small>Operators · {part.members.length}</small></h2>
           <div class="members">
-            {#each part.members as m (m.name)}
-              {@const o = op(m.name)}
-              {@const cf = config(m)}
-              <div class="mem" class:key={m.key}>
-                <OpAvatar name={m.name} size={56} isKey={m.key} elite={m.elite} />
-                <div class="mi">
-                  <div class="mn"><b>{m.name}</b><span class="tier" style:--c="var(--tier-{o.tier})">{ROMAN[o.tier]}</span>{#if m.elite}<span class="elt">精锐</span>{/if}{#if m.key}<span class="keyt">关键</span>{/if}</div>
-                  <div class="mb">{[...o.core, ...o.extra].map((c) => cov(c).name).join(' · ')}</div>
-                  {#if cf}
-                    <div class="cfg">
-                      {#if cf.skill}<span class="ci" title="技能"><img src={asset.skill(cf.skill.id)} alt="" />{cf.skill.name}</span>{/if}
-                      {#if cf.module}<span class="ci" title="模组"><img class="mo" src={asset.module(cf.module.id)} alt="" />{cf.module.name}</span>{:else if cf.hasModules}<span class="ci none">不带模组</span>{/if}
-                    </div>
-                  {/if}
-                  {#if m.equipment?.length}
-                    <div class="me">
-                      {#each m.equipment as x (x.name)}
-                        <span class="eqc" class:pri={x.priority} title="{x.name}（{ROMAN[eq(x.name).tier]} 阶）{x.priority ? ' · 优先' : ' · 候选'}"><img src={asset.equipment(x.name)} alt="" />{x.name}</span>
-                      {/each}
-                    </div>
-                  {/if}
-                </div>
-              </div>
-            {/each}
+            {#each part.members as m (m.name)}{@render mem(m)}{/each}
           </div>
+          {#each part.groups ?? [] as g, gi (gi)}
+            <div class="grp">
+              <h3 class="gh">任选 <b>{g.need}</b> 个<small>组里 {g.members.length} 人，拿够了剩下的就不用抓</small></h3>
+              <div class="members">{#each g.members as m (m.name)}{@render mem(m)}{/each}</div>
+            </div>
+          {/each}
           <p class="legend"><i class="lk"></i>关键干员 <i class="lp"></i>优先装备 <i class="lc"></i>候选装备</p>
         </section>
 
@@ -223,6 +235,12 @@
             <p class="muted">没有设目标盟约。</p>
           {/if}
         </section>
+        {#if l.upgrades?.length}
+          <section>
+            <h2 class="sec-h">升本计划<small>Upgrades</small></h2>
+            <div class="ups">{#each l.upgrades as u (u.round)}<span class="up">第 <b>{u.round}</b> 回合 → <b>{u.level}</b> 级</span>{/each}</div>
+          </section>
+        {/if}
         <section>
           <h2 class="sec-h">策略<small>Strategy</small></h2>
           {#if st}
@@ -257,6 +275,41 @@
 {#if reporting}<ReportDialog target={reporting.target} what={reporting.what} onclose={() => (reporting = null)} />{/if}
 
 <style>
+  .grp {
+    margin-top: 14px;
+    padding: 10px 12px 12px;
+    box-shadow: inset 2px 0 0 var(--mint);
+    background: rgb(var(--mint-rgb) / 0.04);
+  }
+  .gh {
+    margin: 0 0 8px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--fg-2);
+  }
+  .gh b {
+    color: var(--mint);
+  }
+  .gh small {
+    margin-left: 8px;
+    font-weight: 400;
+    color: var(--fg-4);
+  }
+  .ups {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .up {
+    padding: 3px 10px;
+    font-size: 13px;
+    color: var(--fg-2);
+    background: rgb(var(--gold-rgb) / 0.12);
+    box-shadow: inset 0 0 0 1px rgb(var(--gold-rgb) / 0.4);
+  }
+  .up b {
+    color: var(--gold);
+  }
   .in {
     width: min(1200px, 100% - 32px);
     margin: 0 auto;

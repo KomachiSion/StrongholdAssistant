@@ -31,7 +31,7 @@
   const pri = $derived(new Set(members.flatMap((m) => m.equipment?.filter((x) => x.priority).map((x) => x.name) ?? [])))
   const bannedHere = $derived(app.bannedIn({ members }))
   const strat = $derived(lineup.strategyId ? app.catalog.strategies.find((s) => s.id === lineup.strategyId) : null)
-  const progress = $derived(goalProgress(lineup.goals, members, members.map((m) => m.name)))
+  const progress = $derived(goalProgress(lineup.goals, members, members.map((m) => m.name), lineup.groups))
 </script>
 
 <article class="lc" class:target oncontextmenu={menu ? (e) => openMenu(e, typeof menu === 'function' ? menu() : lineupMenu(lineup)) : undefined}>
@@ -241,8 +241,7 @@
     font-style: normal;
     font-size: var(--fs-xs);
     color: var(--mint);
-    writing-mode: vertical-rl;
-    letter-spacing: 1px;
+    white-space: nowrap;
   }
   .div {
     width: 1px;

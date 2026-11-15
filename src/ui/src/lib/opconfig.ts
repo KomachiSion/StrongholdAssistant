@@ -29,15 +29,18 @@ export function customSkill(m: LineupMember, op: Operator, my: Defaults) {
 /** 选技能或模组：总是写进阵容（默认只在加干员时预填，之后改默认不影响已有阵容） */
 export const setChoice = (m: LineupMember, _op: Operator, _my: Defaults, k: 'skill' | 'module', v: string): LineupMember => ({ ...m, [k]: v })
 
+type Part = { members: LineupMember[]; groups?: { need: number; members: LineupMember[] }[] }
 /** 保存阵容时把没写的技能、模组按当时的默认写进去（各阶段都补）；目录里没有技能数据的干员不补 */
-export function fillDefaults<T extends { members: LineupMember[]; stages?: { members: LineupMember[] }[] }>(l: T, ops: (name: string) => Operator, my: Defaults): T {
+export function fillDefaults<T extends Part & { stages?: Part[] }>(l: T, ops: (name: string) => Operator, my: Defaults): T {
   const fill = (m: LineupMember) => {
     const op = ops(m.name)
     if (!op.skills?.length) return m
     const d = defaultsFor(op, my)
     return { ...m, skill: m.skill ?? d.skill, module: m.module ?? (op.modules?.length ? d.module : undefined) }
   }
-  return { ...l, members: l.members.map(fill), ...(l.stages && { stages: l.stages.map((s) => ({ ...s, members: s.members.map(fill) })) }) }
+  // 「一组」干员（v1.0.1）的组员也补上
+  const part = <P extends Part>(p: P): P => ({ ...p, members: p.members.map(fill), ...(p.groups && { groups: p.groups.map((g) => ({ ...g, members: g.members.map(fill) })) }) })
+  return { ...part(l), ...(l.stages && { stages: l.stages.map(part) }) }
 }
 
 /** 改这名干员的「我的默认」：和数据默认一样的项不写，两项都一样就删掉这名干员（等于恢复） */

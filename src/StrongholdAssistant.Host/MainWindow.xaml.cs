@@ -202,6 +202,8 @@ public partial class MainWindow : Window
             // TODO(design)：确认消息桥错误提示文案；暂用简短中文说明。
             var error = ex is RecognitionException or SklandException || ex is ArgumentException && ex.Message.EndsWith('。')
                 ? ex.Message : "请求处理失败，请检查数据后重试。";
+            // 记下原因：之前只回给界面一句通用提示，诊断包里查不到是什么错
+            Trace.WriteLine($"消息桥请求失败：{ex}");
             Browser.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new { id, error }, HostApi.JsonOptions));
             windowCommand = null;
             resizeEdge = null;

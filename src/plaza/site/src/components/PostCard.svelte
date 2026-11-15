@@ -35,6 +35,10 @@
   <div class="ops">
     {#each l.members.slice(0, 14) as m (m.name)}<OpAvatar name={m.name} size={38} isKey={m.key} elite={m.elite} priority={pri(m)} />{/each}
     {#if l.members.length > 14}<span class="more">+{l.members.length - 14}</span>{/if}
+    <!-- 「一组」干员（v1.0.1）：框在一起，左边写「任 N」 -->
+    {#each l.groups ?? [] as g, gi (gi)}
+      <span class="grp" title="这几个里任选 {g.need} 个"><em>任{g.need}</em>{#each g.members as m (m.name)}<OpAvatar name={m.name} size={38} isKey={m.key} elite={m.elite} priority={pri(m)} />{/each}</span>
+    {/each}
   </div>
   {#if post.description}<p class="desc">{post.description}</p>{/if}
   <div class="ft">
@@ -50,6 +54,20 @@
 </a>
 
 <style>
+  .grp {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 3px 2px 0;
+    box-shadow: inset 0 0 0 1px rgb(var(--mint-rgb) / 0.35);
+  }
+  .grp em {
+    padding: 0 4px;
+    font-style: normal;
+    font-size: 12px;
+    color: var(--mint);
+    white-space: nowrap;
+  }
   .stg {
     flex: none;
     font-size: 11px;

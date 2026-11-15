@@ -9,8 +9,17 @@ public sealed partial class HostApi
     private readonly SemaphoreSlim _fieldScanGate = new(1, 1);
     public Func<Task<FieldState>>? ReadCurrentField { get; set; }
 
-    public Task<FieldState> RecognizeFieldAsync() => Connection.State != "connected" || ReadCurrentField is null
-        ? Task.FromException<FieldState>(new RecognitionException("还没连上游戏")) : ReadCurrentField();
+    public async Task<FieldState> RecognizeFieldAsync()
+    {
+        if (Connection.State != "connected" || ReadCurrentField is null) throw new RecognitionException("还没连上游戏");
+        try { return await ReadCurrentField(); }
+        // 核心里「不在棋盘画面」「被面板挡住」这几句用 InvalidOperationException 抛出；转成界面会原样显示的提示，
+        // 否则玩家只看到「请求处理失败」（v1.0.1 玩家诊断包）
+        catch (InvalidOperationException e) when (e.Message is "还没连上游戏" || e.Message.EndsWith("再点"))
+        {
+            throw new RecognitionException(e.Message);
+        }
+    }
 
     public void PublishFieldHotkey() => Changed?.Invoke("fieldHotkey", null!);
     private readonly FieldTracker _fieldTracker = new();

@@ -1,8 +1,9 @@
 // 原型用的假后端：数据取自参考项目的当期数据表，本局信息仿照 TestData/info-ingame-1920x1080.png。
 // 禁用推算是粗略的假实现，只为让界面能走通；真实逻辑在参考项目的 BanScreenAnalyzer。
-import type { Api, BanGroup, BoardView, Catalog, CovenantGoal, Economy, EmulatorInstance, FieldState, PlacementPlan, Income, Lineup, MatchInfo, MatchRecord, Roster, RosterOperator, RosterScanStatus, ScanStatus, Session, Settings, UpdateStatus } from './types'
+import type { Api, BanGroup, BoardView, Catalog, CovenantGoal, Economy, EmulatorInstance, FieldState, PlacementPlan, Income, Lineup, MatchInfo, MatchRecord, Roster, RosterOperator, RosterScanStatus, RoundEnemies, RoundEnemy, RoundEnemyOptions, ScanStatus, Session, Settings, UpdateStatus } from './types'
 import raw from '../mock/catalog.json'
 import boardData from '../mock/board.json'
+import intel from '../mock/enemy-intel.json'
 
 // 目录数据重新生成前先用这份收入来源（生成后以数据为准）
 const catalog = {
@@ -13,6 +14,9 @@ const catalog = {
   ],
   ...raw,
 } as unknown as Catalog
+// 悬赏（任务 201）和本回合怪组（任务 200）：数据生成前用游戏数据里抽出来的一份；悬赏怪不在敌人目录里的先补上
+if (!catalog.bounties) catalog.bounties = intel.bounties as Catalog['bounties']
+for (const e of intel.enemies as Catalog['enemies']) if (!catalog.enemies.some((x) => x.id === e.id)) catalog.enemies.push(e)
 // 敌人回合加成：数据生成前的假表（每回合生命 ×1.2、攻击 ×1.1 累计），只为界面能走通
 if (!catalog.enemyBuffs) {
   const t = Array.from({ length: 15 }, (_, i) => ({ hp: +(1.2 ** (i + 1)).toFixed(3), atk: +(1.1 ** (i + 1)).toFixed(3), attackSpeed: i >= 9 ? 10 : 0, speed: 1 }))
@@ -102,6 +106,31 @@ function banGroups(): { groups: BanGroup[]; out: string[]; inferred: string[] } 
   return { groups, out, inferred }
 }
 
+// 本回合敌人（任务 200）：读到 3 个，第一个是选了悬赏的泥岩巨像，别的被挤到下面没读到。?renemy=0 看「本回合还没读到」
+const enemyRef = (name: string, source: RoundEnemy['source']): RoundEnemy => ({ id: catalog.enemies.find((e) => e.name === name)?.id ?? null, name, source })
+let roundEnemies: RoundEnemies | null = new URLSearchParams(location.search).get('renemy') === '0' ? null : {
+  round: 6,
+  at: new Date().toISOString(),
+  enemies: ['泥岩巨像', '萨卡兹枯朽战士', '萨卡兹枯朽战士组长'].map((n) => enemyRef(n, 'read')),
+  removed: [],
+}
+function setRoundEnemy(name: string, present: boolean) {
+  const round = match.economy!.round
+  const r: RoundEnemies = roundEnemies?.round === round ? roundEnemies : { round, at: '', enemies: [], removed: [] }
+  let enemies = r.enemies, removed = r.removed
+  if (present) {
+    const back = removed.find((e) => e.name === name)
+    removed = removed.filter((e) => e.name !== name)
+    if (!enemies.some((e) => e.name === name)) enemies = back ? [...enemies.filter((e) => e.source === 'read'), back, ...enemies.filter((e) => e.source === 'manual')] : [...enemies, enemyRef(name, 'manual')]
+  } else {
+    const e = enemies.find((x) => x.name === name)
+    enemies = enemies.filter((x) => x.name !== name)
+    if (e?.source === 'read') removed = [...removed, e]
+  }
+  roundEnemies = { round, at: new Date().toISOString(), enemies, removed }
+  match = { ...match, roundEnemies }
+}
+
 function computeMatch(source: MatchInfo['source'], recognizedAt: string): MatchInfo {
   const g = banGroups()
   const banned = new Set(autoBanned())
@@ -117,9 +146,7 @@ function computeMatch(source: MatchInfo['source'], recognizedAt: string): MatchI
     bossId: 'enemy_1521_dslily',
     enemyTypes: ['REBORN', 'INVISIBLE', 'DOT'],
     strategySource: 'recognized',
-    // ?renemy=0 看「本回合还没读到」的提醒
-    roundEnemies: new URLSearchParams(location.search).get('renemy') === '0' ? null
-      : { round: 6, at: new Date().toISOString(), enemies: [{ id: 'enemy_1010_demon_2', name: '萨卡兹大剑组长' }, { id: null, name: '源石虫' }, { id: null, name: '宿主士兵' }] },
+    roundEnemies,
     customPicks: { 5: ['凯尔希·思衡托'], 6: [] },
     banGroups: g.groups,
     solo: false,
@@ -212,8 +239,10 @@ let settings: Settings = {
   shopMarkers: true,
   shopScanSpeed: 'normal',
   routes: { enabled: false, display: 'always', peekSeconds: 6, hotkey: 'Alt+R', overlap: 'cycle', cycleSeconds: 2.2, fly: 'main', side: 'auto' },
-  overlayLayers: { placement: true, pending: true },
+  overlayLayers: { placement: true, pending: true, upgrade: true },
   placementGoal: 'balanced',
+  fieldAuto: true,
+  fieldHotkey: 'Alt+F',
   // 官网上的侧栏演示（/demo/?demo）不弹「发现新版本」
   autoCheckUpdate: !location.search.includes('demo'),
   updateSource: 'github',
@@ -464,6 +493,13 @@ export const mockApi: Api = {
   },
   match: () => wait(match),
   field: () => wait(field),
+  // 假数据：当成认了一次，刷新时间、推送场上和推荐
+  recognizeField: () => {
+    field = { ...field, updatedAt: new Date().toISOString() }
+    fieldListeners.forEach((cb) => cb(structuredClone(field)))
+    setTimeout(() => placementListeners.forEach((cb) => cb(placement())), 600)
+    return wait(field, 700)
+  },
   setFieldOperator: (cell, operator) => {
     field = {
       ...field,
@@ -517,7 +553,14 @@ export const mockApi: Api = {
     match = computeMatch('manual', match.recognizedAt!)
     return wait(match, 60)
   },
+  setRoundEnemy: (name, present) => {
+    if (!match.economy) return Promise.reject(new Error('还不知道现在是第几回合，等助手读到回合数再补'))
+    setRoundEnemy(name, present)
+    return wait(match, 60)
+  },
+  roundEnemyOptions: () => wait(match.economy?.round === intel.round ? (intel as unknown as RoundEnemyOptions) : null, 120),
   resetMatch: () => {
+    roundEnemies = null
     incomplete.clear()
     manualBan.clear()
     manualUnban.clear()
@@ -587,6 +630,12 @@ export const mockApi: Api = {
   },
   onHotkey: (cb) => {
     const f = (e: KeyboardEvent) => e.key === 'F2' && cb()
+    addEventListener('keydown', f)
+    return () => removeEventListener('keydown', f)
+  },
+  // 假数据：浏览器里按 Alt+F 当作快捷键
+  onFieldHotkey: (cb) => {
+    const f = (e: KeyboardEvent) => e.altKey && e.code === 'KeyF' && (e.preventDefault(), cb())
     addEventListener('keydown', f)
     return () => removeEventListener('keydown', f)
   },

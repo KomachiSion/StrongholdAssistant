@@ -41,6 +41,9 @@ public sealed class DiagnosticsTests : IDisposable
             new { version = "0.7.2", windows = Path.Combine(@"C:\", "Users", "示例 用户", "data"), dpi = 144,
                 monitors = new[] { new { left = -1080, top = 0, width = 1080, height = 1920, dpiX = 120, dpiY = 120, primary = false } },
                 dpiAwareness = "PerMonitorV2", windowSnapshot = new { sidebar = new { dpi = 120, visible = true } },
+                gameWindows = new[] {
+                    new { handle = 1L, className = "SdkWindow", visible = false, minimized = false, clientWidth = 234, clientHeight = 126, processName = "GameSdk" },
+                    new { handle = 2L, className = "UnityWndClass", visible = true, minimized = true, clientWidth = 1920, clientHeight = 1080, processName = "Arknights" } },
                 path = Path.Combine(@"C:\", "Users", "ExampleName", "data"), chinesePath = Path.Combine(@"C:\", "Users", "示例 用户", "data") });
         using var zip = ZipFile.OpenRead(path);
         Assert.Equal(24, zip.Entries.Count);
@@ -69,6 +72,16 @@ public sealed class DiagnosticsTests : IDisposable
         Assert.Equal("PerMonitorV2", system.RootElement.GetProperty("dpiAwareness").GetString());
         Assert.Equal(-1080, system.RootElement.GetProperty("monitors")[0].GetProperty("left").GetInt32());
         Assert.Equal(120, system.RootElement.GetProperty("windowSnapshot").GetProperty("sidebar").GetProperty("dpi").GetInt32());
+        var windows = system.RootElement.GetProperty("gameWindows");
+        Assert.Equal(2, windows.GetArrayLength());
+        Assert.False(windows[0].GetProperty("visible").GetBoolean());
+        Assert.Equal(2L, windows[1].GetProperty("handle").GetInt64());
+        Assert.Equal("UnityWndClass", windows[1].GetProperty("className").GetString());
+        Assert.True(windows[1].GetProperty("visible").GetBoolean());
+        Assert.True(windows[1].GetProperty("minimized").GetBoolean());
+        Assert.Equal(1920, windows[1].GetProperty("clientWidth").GetInt32());
+        Assert.Equal(1080, windows[1].GetProperty("clientHeight").GetInt32());
+        Assert.Equal("Arknights", windows[1].GetProperty("processName").GetString());
     }
 
     public void Dispose()

@@ -6,6 +6,13 @@ namespace StrongholdAssistant.Host;
 public sealed partial class HostApi
 {
     private readonly object _fieldGate = new();
+    private readonly SemaphoreSlim _fieldScanGate = new(1, 1);
+    public Func<Task<FieldState>>? ReadCurrentField { get; set; }
+
+    public Task<FieldState> RecognizeFieldAsync() => Connection.State != "connected" || ReadCurrentField is null
+        ? Task.FromException<FieldState>(new RecognitionException("还没连上游戏")) : ReadCurrentField();
+
+    public void PublishFieldHotkey() => Changed?.Invoke("fieldHotkey", null!);
     private readonly FieldTracker _fieldTracker = new();
     private FieldReader? _fieldReader;
     private int _fieldGeneration;
@@ -41,9 +48,28 @@ public sealed partial class HostApi
     public async Task ObserveFieldAsync(byte[] frame, DateTimeOffset at, EconomyReading? economy,
         bool mainScreen, bool shopVisible, IReadOnlyList<ShopItem> shop)
     {
-        // 小人比对单独串行执行，忙时不积压旧截图；本轮资金、商店继续扫描。
-        if (!_fieldIdentityWork.IsCompleted) return;
-        await _fieldIdentityWork;
+        if (!await _fieldScanGate.WaitAsync(0)) return;
+        try { await ReadFieldCoreAsync(frame, at, economy, mainScreen, shopVisible, shop, false); }
+        finally { _fieldScanGate.Release(); }
+    }
+
+    public async Task<FieldState> RecognizeFieldFrameAsync(byte[] frame, DateTimeOffset at, EconomyReading? economy,
+        bool mainScreen, bool shopVisible, IReadOnlyList<ShopItem> shop)
+    {
+        if (economy is not { IsRest: true } || !mainScreen)
+            throw new RecognitionException("现在不在休整期的棋盘画面，切到棋盘再点");
+        await _fieldScanGate.WaitAsync();
+        try
+        {
+            await ReadFieldCoreAsync(frame, at, economy, mainScreen, shopVisible, shop, true);
+            return Field!;
+        }
+        finally { _fieldScanGate.Release(); }
+    }
+
+    private async Task ReadFieldCoreAsync(byte[] frame, DateTimeOffset at, EconomyReading? economy,
+        bool mainScreen, bool shopVisible, IReadOnlyList<ShopItem> shop, bool force)
+    {
         int generation;
         lock (_fieldGate) generation = _fieldGeneration;
         if (_fieldReaderGeneration != generation) { _fieldReader!.Reset(); _fieldReaderGeneration = generation; }
@@ -67,12 +93,21 @@ public sealed partial class HostApi
             {
                 if (generation != _fieldGeneration) return;
                 _fieldTracker.SeedRoster(strategy, custom, observation.Round, at);
-                if (_fieldTracker.Observe(observation)) changed = _fieldTracker.State;
-                _fieldOverlayGeometry = geometry;
+                if (_fieldTracker.Observe(observation, Settings.FieldAuto || force, force)) changed = _fieldTracker.State;
+                if (Settings.FieldAuto || force) _fieldOverlayGeometry = geometry;
             }
-            FieldOverlayChanged?.Invoke(Field, geometry);
-            if (changed is not null) Changed?.Invoke("field", changed);
+            if (Settings.FieldAuto || force) FieldOverlayChanged?.Invoke(Field, geometry);
+            if (changed is not null && (Settings.FieldAuto || force))
+            {
+                RecomputeTracking();
+                _publishingManualField = force;
+                try { Changed?.Invoke("field", changed); }
+                finally { _publishingManualField = false; }
+                if (force) SchedulePlacementCore(force: true);
+            }
         });
+        await _fieldIdentityWork;
+        if (force) await _placementWork;
     }
 
     public FieldState SetFieldOperator(FieldCell cell, string? name)
@@ -89,6 +124,7 @@ public sealed partial class HostApi
         }
         if (changed)
         {
+            RecomputeTracking();
             FieldOverlayChanged?.Invoke(state, _fieldOverlayGeometry);
             Changed?.Invoke("field", state);
         }
@@ -106,6 +142,7 @@ public sealed partial class HostApi
             _fieldTracker.Reset();
         }
         HideFieldOverlay();
+        RecomputeTracking();
         // 接口事件不允许 null，用空状态通知清除；field() 仍返回未识别的 null。
         if (hadState) Changed?.Invoke("field", new FieldState(null, null, DateTimeOffset.UtcNow.ToString("O"), [], []));
     }

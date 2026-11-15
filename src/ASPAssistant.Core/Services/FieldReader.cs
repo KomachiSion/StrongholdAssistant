@@ -17,7 +17,7 @@ public sealed partial class FieldReader
     private readonly IOcrEngine _ocr;
     private readonly FieldEquipmentReader _equipment;
     private readonly string[] _names;
-    private readonly List<(int Tier, int Size, double[] Values, double[] Fine)> _templates = [];
+    private readonly List<(int Tier, int Size, double[] Values, double[] Fine, double[] Lower, double[] LowerFine)> _templates = [];
     private readonly BoardRecognizer _board;
     private readonly GarrisonBoardData _maps;
     private readonly Dictionary<(int, int, bool), BoardMatch> _boards = new();
@@ -63,7 +63,9 @@ public sealed partial class FieldReader
                 var values = Sample(px, 0, 0, size);
                 Normalize(values);
                 var fine = Sample(px, 0, 0, size, 20); Normalize(fine);
-                _templates.Add((tier, size, values, fine));
+                var lower = Sample(px, 0, 0, size, 10, 5); Normalize(lower);
+                var lowerFine = Sample(px, 0, 0, size, 20, 10); Normalize(lowerFine);
+                _templates.Add((tier, size, values, fine, lower, lowerFine));
             }
         }
     }
@@ -275,7 +277,8 @@ public sealed partial class FieldReader
         foreach (var (cell, p) in anchors)
         {
             // 商店和屏幕外格子没有观测，保留追踪器中的旧值。
-            if (p.X < 20 || p.X > width - 55 || p.Y < 180 * height / 1080 || p.Y + 55 > height * (shopVisible ? .72 : .94)) continue;
+            // 展开镜头的第一排角标中心约在 168px，不能被原来的 180px 上边界整行跳过。
+            if (p.X < 20 || p.X > width - 55 || p.Y < 150 * height / 1080 || p.Y + 55 > height * (shopVisible ? .72 : .94)) continue;
             cells[cell] = 0;
         }
         var matchedBadges = new Dictionary<FieldCell, FieldBadge>();
@@ -307,6 +310,8 @@ public sealed partial class FieldReader
     private FieldBadge? ReadBadge(Pixels px, int width, int height, double cx, double cy, bool board)
     {
         double scale = width / 1920d;
+        // 展开商店时第一排角标与盟约栏重叠，只比较角标下半部。
+        bool lower = board && cy < 180 * scale;
         FieldBadge? best = null;
         foreach (int size in new[] { 34, 40, 44 })
         {
@@ -326,15 +331,15 @@ public sealed partial class FieldReader
                         int inner = Math.Max(outer + 1, (int)Math.Round(7 * scale));
                         if (px.Gray(x + outer, y + mid) < px.Gray(x + inner, y + mid) + 6
                             && px.Gray(x + actualSize - outer - 1, y + mid) < px.Gray(x + actualSize - inner - 1, y + mid) + 6) continue;
-                        var values = Sample(px, x, y, actualSize); Normalize(values);
-                        if (templates.Max(t => Dot(t.Values, values)) < .60) continue;
+                        var values = Sample(px, x, y, actualSize, 10, lower ? 5 : 0); Normalize(values);
+                        if (templates.Max(t => Dot(lower ? t.Lower : t.Values, values)) < .60) continue;
                         for (int yy = y; yy <= Math.Min(y + 1, height - actualSize - 1); yy++)
                             for (int xx = x; xx <= Math.Min(x + 1, width - actualSize - 1); xx++)
                             {
-                                var fine = Sample(px, xx, yy, actualSize, 20); Normalize(fine);
+                                var fine = Sample(px, xx, yy, actualSize, 20, lower ? 10 : 0); Normalize(fine);
                                 foreach (var t in templates)
                                 {
-                                    double score = Dot(t.Fine, fine);
+                                    double score = Dot(lower ? t.LowerFine : t.Fine, fine);
                                     if (score < .73 || best is not null && score <= best.Score) continue;
                                     best = new FieldBadge(xx + actualSize / 2, yy + actualSize / 2, t.Tier, score, actualSize);
                                 }
@@ -465,11 +470,11 @@ public sealed partial class FieldReader
         return result;
     }
 
-    private static double[] Sample(Pixels p, int x, int y, int size, int count = 10)
+    private static double[] Sample(Pixels p, int x, int y, int size, int count = 10, int firstRow = 0)
     {
-        var values = new double[count * count];
-        for (int r = 0; r < count; r++) for (int c = 0; c < count; c++)
-            values[r * count + c] = p.Gray(x + (int)((c + .5) * size / count), y + (int)((r + .5) * size / count));
+        var values = new double[(count - firstRow) * count];
+        for (int r = firstRow; r < count; r++) for (int c = 0; c < count; c++)
+            values[(r - firstRow) * count + c] = p.Gray(x + (int)((c + .5) * size / count), y + (int)((r + .5) * size / count));
         return values;
     }
     private static void Normalize(double[] a)

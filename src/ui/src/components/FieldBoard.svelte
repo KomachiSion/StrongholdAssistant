@@ -121,6 +121,11 @@
     app.settings.placementGoal = g
     app.saveSettings()
   }
+  // 场上自动识别开关（Settings.fieldAuto，v1.0.1）：关着时场上停在上一次，只有点「识别」才认；旧宿主没有这一项时按开着
+  const auto = $derived(app.settings.fieldAuto ?? true)
+  const busy = $derived(field.recognizing)
+  const keyTip = $derived(app.settings.fieldHotkey ? `（${app.settings.fieldHotkey}）` : '')
+  const hhmm = (iso: string) => new Date(iso).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
   const moveN = $derived(field.plan ? field.plan.moves.filter((m) => !sameCell(m.from, m.to)).length : 0)
   const ghostAt = (c: FieldCell) => ghosts.find((g) => sameCell(g, c))
 
@@ -143,6 +148,13 @@
     if (!drag) return
     const moved = drag.moved || Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) > 4
     drag = { ...drag, x: e.clientX, y: e.clientY, moved, over: moved ? cellUnder(e.clientX, e.clientY) : null }
+  }
+  // 拖动时跟着鼠标的小人挂到 body 下（v1.0.1）：内容区的入场动画（App .shell.in，fill both）一直挂着 transform，
+  // 里面的 fixed 会按内容区定位，比鼠标低一截（标题栏 + 追踪栏的高度）
+
+  const portal = (node: HTMLElement) => {
+    document.body.appendChild(node)
+    return { destroy: () => node.remove() }
   }
   function up() {
     if (!drag) return
@@ -251,6 +263,14 @@
 <section>
   <SectionHeader title="场上" en="FIELD" ontoggle={() => app.toggleFold('match.field')} folded={!open} tag={field.pending.length ? `${field.pending.length} 格待确认` : undefined} tagTone="warn">
     {#snippet right()}
+      <button
+        class="scan"
+        class:manual={!auto}
+        class:busy
+        disabled={busy}
+        onclick={() => field.recognize()}
+        title={auto ? `现在认一次场上，重算推荐${keyTip}` : `自动识别关着：点一下认一次场上，算一次推荐${keyTip}`}
+      ><Icon name="scan" size={13} />{busy ? '识别中' : '识别'}</button>
       {#if b}
         <button class="chip" class:on={showRoutes} onclick={() => (showRoutes = !showRoutes)} title="在小棋盘上画本回合敌人路线（和游戏里的路线覆盖分开）"><i></i>路线</button>
       {/if}
@@ -259,12 +279,13 @@
   {#if open}
     <div class="fb" transition:slide={sl}>
       {#if !st && !b}
-        <p class="empty">进休整期后自动认出场上和整备区的人，显示在这块小棋盘上。</p>
+        <p class="empty">{auto ? '进休整期后自动认出场上和整备区的人，显示在这块小棋盘上。' : `自动识别关着。休整期在棋盘画面点右上角「识别」${app.settings.fieldHotkey ? `或按 ${app.settings.fieldHotkey}` : ''}，认一次场上和整备区的人。`}</p>
       {:else}
         <!-- 顶栏：回合、视图切换、推演状态 -->
         <div class="bar">
           <span class="meta">
             {#if b?.round}第 {b.round} 回合{#if b.bossRound} · 首领{/if}{/if}
+            {#if !auto && st}<small class="man" title="自动识别关着，场上停在这次识别的结果">手动 · {hhmm(st.updatedAt)}</small>{/if}
             {#if showRoutes && (walkN || flyN)}<small><i class="lg walk"></i>地面 {walkN}<i class="lg fly"></i>飞行 {flyN}</small>{/if}
           </span>
           {#if canBoth}
@@ -452,7 +473,7 @@
 
 <!-- 拖动时跟着鼠标的头像 -->
 {#if drag?.moved}
-  <div class="float" style:left="{drag.x}px" style:top="{drag.y}px" style:--cell="{cell}px">{@render unitFace(drag.unit)}</div>
+  <div class="float" use:portal style:left="{drag.x}px" style:top="{drag.y}px" style:--cell="{cell}px">{@render unitFace(drag.unit)}</div>
 {/if}
 
 <style>
@@ -514,6 +535,38 @@
     background: var(--mint-tint);
     color: var(--mint);
     box-shadow: inset 0 0 0 1px rgb(var(--mint-rgb) / 0.5);
+  }
+  /* 「识别」：自动开着时是不起眼的文字按钮；关着时它是唯一的入口，用薄荷色 */
+  .scan {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 6px;
+    font-size: var(--fs-sm);
+    color: var(--fg-3);
+  }
+  .scan:hover:not(:disabled) {
+    color: var(--fg-1);
+  }
+  .scan.manual {
+    color: var(--mint);
+    box-shadow: inset 0 0 0 1px rgb(var(--mint-rgb) / 0.45);
+  }
+  .scan.manual:hover:not(:disabled) {
+    background: var(--mint-tint);
+    color: var(--mint);
+  }
+  .scan.busy {
+    cursor: default;
+    animation: scan-pulse 1.2s ease-in-out infinite;
+  }
+  @keyframes scan-pulse {
+    50% {
+      opacity: 0.4;
+    }
+  }
+  .man {
+    color: var(--fg-4);
   }
   .chip {
     display: flex;

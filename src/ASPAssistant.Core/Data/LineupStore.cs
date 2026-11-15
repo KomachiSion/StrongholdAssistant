@@ -30,10 +30,10 @@ public class LineupStore
         finally { _gate.Release(); }
     }
 
-    private async Task<List<Lineup>> LoadAllCoreAsync()
+    private Task<List<Lineup>> LoadAllCoreAsync()
     {
         if (!Directory.Exists(_dir))
-            return [];
+            return Task.FromResult(new List<Lineup>());
 
         var files = Directory.EnumerateFiles(_dir, "*.json");
         var result = new List<Lineup>();
@@ -41,8 +41,7 @@ public class LineupStore
         {
             try
             {
-                var json = await File.ReadAllTextAsync(file);
-                var lineup = JsonSerializer.Deserialize<Lineup>(json, JsonOptions);
+                var lineup = UserJsonFile.Read(file, json => JsonSerializer.Deserialize<Lineup>(json, JsonOptions));
                 if (lineup is null) continue;
                 if (string.IsNullOrEmpty(lineup.Id))
                     lineup.Id = Path.GetFileNameWithoutExtension(file);
@@ -53,7 +52,7 @@ public class LineupStore
                 AppLogger.Warn("LineupStore", $"Failed to load {file}: {ex.Message}");
             }
         }
-        return [.. result.OrderByDescending(l => l.UpdatedAt)];
+        return Task.FromResult(result.OrderByDescending(l => l.UpdatedAt).ToList());
     }
 
     public async Task SaveAsync(Lineup lineup, bool preserveUpdatedAt = false)
@@ -63,7 +62,7 @@ public class LineupStore
         finally { _gate.Release(); }
     }
 
-    private async Task SaveCoreAsync(Lineup lineup, bool preserveUpdatedAt)
+    private Task SaveCoreAsync(Lineup lineup, bool preserveUpdatedAt)
     {
         Directory.CreateDirectory(_dir);
         if (string.IsNullOrEmpty(lineup.Id))
@@ -72,8 +71,8 @@ public class LineupStore
 
         var path = Path.Combine(_dir, $"{lineup.Id}.json");
         var json = JsonSerializer.Serialize(lineup, JsonOptions);
-        await File.WriteAllTextAsync(path + ".tmp", json);
-        File.Move(path + ".tmp", path, overwrite: true);
+        UserJsonFile.Write(path, json);
+        return Task.CompletedTask;
     }
 
     public async Task DeleteAsync(string id)

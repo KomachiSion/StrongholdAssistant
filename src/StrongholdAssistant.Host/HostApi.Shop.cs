@@ -39,6 +39,8 @@ public sealed partial class HostApi
     private void ValidateSettings(SettingsDto settings)
     {
         HostSettingsStore.ValidateSides(settings);
+        if (settings.FieldHotkey != "" && HotkeyParser.Parse(settings.FieldHotkey) is null)
+            throw new ArgumentException("这个按键用不了，请换一个试试。");
         if (settings.StartupMode is not ("remember" or "sidebar" or "workbench"))
             throw new ArgumentException("启动形态无效。");
         if (settings.RefreshKey != "" && HotkeyParser.Parse(settings.RefreshKey) is null)
@@ -64,7 +66,9 @@ public sealed partial class HostApi
         ValidateSettings(settings);
         var theme = Theme(settings.GameTheme);
         SettingsStore.SaveSettings(settings);
-        Settings = settings;
+        lock (_fieldGate) Settings = settings;
+        if (!settings.FieldAuto)
+            lock (_placementGate) { _placementStop?.Cancel(); _placementGeneration++; }
         SchedulePlacement();
         BoardRoutesEnabled = settings.Routes.Enabled;
         PublishBoardView();
@@ -94,10 +98,22 @@ public sealed partial class HostApi
     {
         _trackingStage = _trackingTarget is { } target
             ? TrackingStageView(target, _trackingSession.Stage, Match.Economy?.Round) : null;
+        var groupMembers = TrackingGroupMembers(_trackingStage?.Groups, Field, Match.BannedOperators);
+        var allGroupMembers = (_trackingTarget?.Groups ?? []).Concat(
+            (_trackingTarget?.Stages ?? []).SelectMany(s => s.Groups ?? [])).SelectMany(g => g.Members).ToArray();
+        var groupNames = allGroupMembers.Select(m => m.Name).ToHashSet();
+        var groupEquipment = allGroupMembers.SelectMany(m => m.Equipment).Select(e => e.Name).ToHashSet();
+        var fixedNames = (_trackingStage?.Members ?? []).Select(m => m.Name).ToHashSet();
+        var fixedEquipment = (_trackingStage?.Equipment ?? []).Concat(
+            (_trackingStage?.Members ?? []).SelectMany(m => m.Equipment).Select(e => e.Name)).ToHashSet();
         var names = _trackingSession.Tracked
+            .Where(n => !groupNames.Contains(n) || fixedNames.Contains(n))
             .Where(n => _operators.Any(o => o.Name == n && o.Obtain is null))
-            .Concat(_trackingSession.TrackedEquipment)
+            .Concat(groupMembers.Where(m => _operators.Any(o => o.Name == m.Name && o.Obtain is null)).Select(m => m.Name))
+            .Concat(_trackingSession.TrackedEquipment.Where(n => !groupEquipment.Contains(n) || fixedEquipment.Contains(n)))
+            .Concat(groupMembers.SelectMany(m => m.Equipment).Select(e => e.Name))
             .Distinct().ToArray();
+        if (_trackingStage is { } view) _trackingStage = view with { Members = [.. view.Members, .. groupMembers] };
         var goals = (_trackingStage?.Goals ?? []).Select(g => CovenantName(g.Id)).ToHashSet();
         var secondary = _operators.Where(o => o.Obtain is null
             && o.CoreCovenants.Concat(o.AdditionalCovenants).Any(goals.Contains)
@@ -108,6 +124,16 @@ public sealed partial class HostApi
         ShopChanged?.Invoke();
     }
 
+    internal static LineupMember[] TrackingGroupMembers(LineupGroupDto[]? groups, FieldState? field, string[] banned)
+    {
+        var owned = (field?.Roster ?? []).Where(r => !r.Sold).Select(r => r.Operator).ToHashSet();
+        return (groups ?? []).Where(g => g.Members.Count(m => owned.Contains(m.Name)) < g.Need)
+            .SelectMany(g => g.Members).Where(m => !owned.Contains(m.Name) && !banned.Contains(m.Name)).ToArray();
+    }
+
+    public int? UpgradeTarget => Match.Economy is { Level: { } level } economy
+        ? _trackingTarget?.Upgrades?.FirstOrDefault(u => u.Round == economy.Round && level < u.Level)?.Level : null;
+
     // 与界面 stages.ts 的 currentStage、stageView 保持一致。
     private static LineupDto TrackingStageView(LineupDto lineup, int? fixedStage, int? round)
     {
@@ -115,13 +141,15 @@ public sealed partial class HostApi
         int index = fixedStage is { } stage && stage <= stages.Length ? stage
             : round is { } value ? Array.FindIndex(stages, s => value >= s.FromRound && value <= s.ToRound) : -1;
         if (index < 0) index = stages.Length;
-        var all = stages.Append(new LineupStageDto("", 0, 0, lineup.Goals, lineup.Members, lineup.Equipment)).ToArray();
+        var all = stages.Append(new LineupStageDto("", 0, 0, lineup.Goals, lineup.Members, lineup.Equipment)
+            { Groups = lineup.Groups }).ToArray();
         var current = all[index];
         var have = current.Members.Select(m => m.Name).ToHashSet();
         var laterKeys = all.Skip(index + 1).SelectMany(s => s.Members)
             .Where(m => m.Key == true && have.Add(m.Name))
             .Select(m => new LineupMember(m.Name, m.Transform, true));
-        return lineup with { Goals = current.Goals, Members = [.. current.Members, .. laterKeys], Equipment = current.Equipment };
+        return lineup with { Goals = current.Goals, Members = [.. current.Members, .. laterKeys],
+            Equipment = current.Equipment, Groups = current.Groups };
     }
 
     public void UpdateShopTracking(IReadOnlyList<ShopItem> items)
@@ -160,7 +188,9 @@ public sealed partial class HostApi
     {
         var settings = Settings with { ToggleHotkey = combo };
         SettingsStore.SaveSettings(settings);
-        Settings = settings;
+        lock (_fieldGate) Settings = settings;
+        if (!settings.FieldAuto)
+            lock (_placementGate) { _placementStop?.Cancel(); _placementGeneration++; }
         HotkeyFailed = false;
     }
 

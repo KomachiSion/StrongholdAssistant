@@ -11,8 +11,6 @@ public sealed partial class FieldTracker
     private IReadOnlyDictionary<int, string>? _shop;
     private DateTimeOffset _shopAt;
     private const double PurchaseWindowSeconds = 6;
-    private readonly List<(DateTimeOffset At, IReadOnlyDictionary<int, string> Cards)> _shopHistory = [];
-    private readonly List<(DateTimeOffset At, int Slot, string Name)> _buys = [];
     private readonly List<(DateTimeOffset At, FieldCell Cell)> _gains = [];
     private string? _drag;
     private FieldEquipment[]? _dragEquipment;
@@ -25,8 +23,8 @@ public sealed partial class FieldTracker
     {
         ResetIdentity();
         State = null; _units.Clear(); _log.Clear(); _shop = null;
-        _buys.Clear(); _gains.Clear(); _drag = null; _dragEquipment = null; _beforeDrag = null;
-        _shopHistory.Clear();
+        _gains.Clear(); _drag = null; _dragEquipment = null; _beforeDrag = null;
+        ResetTriggers();
         _money = _dragMoney = null; _battle = false;
         _tierChanges.Clear();
     }
@@ -36,13 +34,21 @@ public sealed partial class FieldTracker
         // TODO(design): 确认未识别到占用的格子能否手动建人；当前只允许给已有占用指定身份。
         if (!_units.TryGetValue(cell, out var unit)) throw new ArgumentException("这格还没有识别到干员。");
         _units[cell] = unit with { Operator = name, Source = name is null ? null : "manual", Status = name is null ? "unknown" : "sure", Candidates = [] };
+        if (name is not null && _purchaseCandidates.Remove(cell, out var names) && names.Contains(name))
+            Add(at, "buy", name, null, cell);
         ConfirmIdentity(cell, name, at);
         return Publish(State!.MapId, State.Round, at);
     }
 
-    public bool Observe(FieldObservation o)
+    public bool Observe(FieldObservation o, bool recognize = true, bool force = false)
     {
-        if (!o.IsRest) { _battle = true; _drag = null; _dragEquipment = null; _beforeDrag = null; _shop = null; _shopHistory.Clear(); _buys.Clear(); _gains.Clear(); _tierChanges.Clear(); return false; }
+        if (!o.IsRest) { _battle = true; _drag = null; _dragEquipment = null; _beforeDrag = null; _shop = null; ResetTriggers(); _gains.Clear(); _tierChanges.Clear(); return false; }
+        bool triggered = ObserveTriggers(o) | force;
+        if (!recognize)
+        {
+            ObservePurchasesOnly(o, triggered);
+            return false;
+        }
         if (o.DragOperator is { } drag)
         {
             _tierChanges.Clear();
@@ -60,6 +66,14 @@ public sealed partial class FieldTracker
             // 详情或短暂遮挡不代表刷新；购买段按观测时间让历史过期。
             return ApplyEquipment(o) && Publish(State?.MapId, o.Round, o.At);
         }
+        if (!triggered)
+        {
+            if (o.Shop is { } shop) { _shop = shop; _shopAt = o.At; }
+            return false;
+        }
+        foreach (var cell in _purchaseCandidates.Keys.ToArray())
+            if (o.Cells.TryGetValue(cell, out int tier) && tier != (_units.GetValueOrDefault(cell)?.Tier ?? 0))
+                _purchaseCandidates.Remove(cell);
         RestoreMissing(o);
         var before = _beforeDrag ?? new(_units);
         var dragged = _drag;
@@ -139,67 +153,8 @@ public sealed partial class FieldTracker
                 _gains.RemoveAll(g => g.Cell == c);
                 _gains.Add((o.At, c));
             }
-            _shopHistory.RemoveAll(s => (o.At - s.At).TotalSeconds > PurchaseWindowSeconds);
-            if (o.Shop is { } shop)
-            {
-                // 三选一会暂时覆盖普通商店；只比较仍有原卡、且没有换入新名字的快照。
-                // 整批替换属于刷新或选择结束，不能把第一个消失的名字写进唯一新增格。
-                var previous = _shop is not null && (o.At - _shopAt).TotalSeconds <= PurchaseWindowSeconds
-                    ? _shop : null;
-                var comparable = _shopHistory.AsEnumerable().Reverse().Select(s => s.Cards)
-                    .Prepend(previous).FirstOrDefault(p => p is not null
-                        && shop.All(c => p.GetValueOrDefault(c.Key) == c.Value)
-                        && (shop.Count > 0 || p.Count == 1));
-                if (comparable is not null)
-                    foreach (var (slot, cardName) in comparable)
-                        if (!shop.ContainsKey(slot) && !_buys.Any(b => b.Slot == slot && b.Name == cardName)
-                            && !_log.Any(e => e.Kind == "buy" && e.Operator == cardName
-                                && e.At == o.At.ToString("O")))
-                            _buys.Add((o.At, slot, cardName));
-                if (previous is not null && !previous.OrderBy(p => p.Key).SequenceEqual(shop.OrderBy(p => p.Key)))
-                    _shopHistory.Add((_shopAt, previous));
-                _shop = shop; _shopAt = o.At;
-            }
-            foreach (var buy in _buys.ToArray())
-            {
-                if (o.Shop?.GetValueOrDefault(buy.Slot) == buy.Name)
-                {
-                    _log.RemoveAll(e => e.Kind == "buy" && e.Operator == buy.Name && e.To is null
-                        && e.At == buy.At.ToString("O"));
-                    _buys.Remove(buy); continue;
-                }
-                bool SameTier(string name, FieldCell cell) => !_identityOperators.Any(p => p.Name == name)
-                    || _identityOperators.Any(p => p.Name == name && p.Tier == _units[cell].Tier);
-                var candidates = _gains.Where(g => Math.Abs((g.At - buy.At).TotalSeconds) <= PurchaseWindowSeconds
-                    && _units.ContainsKey(g.Cell) && SameTier(buy.Name, g.Cell)
-                    && !_buys.Any(other => other != buy
-                        && Math.Abs((g.At - other.At).TotalSeconds) <= PurchaseWindowSeconds
-                        && SameTier(other.Name, g.Cell))).ToArray();
-                int i = candidates.Length == 1 ? _gains.IndexOf(candidates[0]) : -1;
-                if (i >= 0)
-                {
-                    var c = _gains[i].Cell;
-                    _units[c] = _units[c] with { Operator = buy.Name, Source = "purchase", Status = "sure", Candidates = [] };
-                    // 已公布但尚未定位的购买，在同一条日志上补格；不要重复记一次购买。
-                    _log.RemoveAll(e => e.Kind == "buy" && e.Operator == buy.Name && e.To is null
-                        && e.At == buy.At.ToString("O") || e.Kind == "gain" && e.To == c
-                        && e.At == _gains[i].At.ToString("O"));
-                    Add(buy.At, "buy", buy.Name, null, c); _gains.RemoveAt(i); _buys.Remove(buy);
-                    _shopHistory.RemoveAll(s => s.Cards.GetValueOrDefault(buy.Slot) == buy.Name);
-                    added.Remove(c);
-                }
-                else if ((o.At - buy.At).TotalSeconds > 1.6)
-                {
-                    if (!_log.Any(e => e.Kind == "buy" && e.Operator == buy.Name && e.At == buy.At.ToString("O")))
-                        Add(buy.At, "buy", buy.Name, null, null);
-                    if ((o.At - buy.At).TotalSeconds > PurchaseWindowSeconds)
-                    {
-                        _buys.Remove(buy);
-                        _shopHistory.RemoveAll(s => s.Cards.GetValueOrDefault(buy.Slot) == buy.Name);
-                    }
-                }
-            }
-            // 购买先占用新增格；剩下唯一的同阶空出与新增才推断为漏面板移动。
+            ResolvePurchases(o, added);
+
             if (o.Sprites is null && removed.Count == 1 && added.Count == 1 && before[removed[0]].Tier == _units[added[0]].Tier)
             {
                 var from = removed[0]; var to = added[0]; var unit = before[from];
@@ -209,14 +164,14 @@ public sealed partial class FieldTracker
                 removed.Clear();
             }
             foreach (var c in removed) Add(o.At, "lost", before[c].Operator, c, null);
-            foreach (var gain in _gains.Where(g => (o.At - g.At).TotalSeconds > 1.6).ToArray())
+            foreach (var gain in _gains.Where(g => State is not null || o.GainSource is not null).ToArray())
             {
                 if (!_log.Any(e => e.Kind == "gain" && e.To == gain.Cell && e.At == gain.At.ToString("O")))
                     Add(gain.At, "gain", null, null, gain.Cell);
                 if ((o.At - gain.At).TotalSeconds > PurchaseWindowSeconds) _gains.Remove(gain);
             }
         }
-        DebounceTier(o, before, dragged);
+
         // 仅在原格升一阶且同名两份消失时，沿用原格装备；不改变既有身份判定。
         foreach (var (cell, unit) in _units.ToArray())
             if (before.TryGetValue(cell, out var old) && old.Operator is not null && unit.Tier == old.Tier + 1
@@ -228,29 +183,9 @@ public sealed partial class FieldTracker
         // 战斗后的第一帧不推断购买，但要为下一帧保留商店基线。
         if (o.Shop is { } currentShop) { _shop = currentShop; _shopAt = o.At; }
         _battle = false; _money = o.Money ?? _money;
-        return Publish(o.MapId ?? State?.MapId, o.Round, o.At);
-    }
-
-    private void DebounceTier(FieldObservation o, Dictionary<FieldCell, FieldUnit> before, string? dragged)
-    {
-        var pending = new Dictionary<FieldCell, int>();
-        foreach (var (cell, tier) in o.Cells)
-        {
-            if (tier == 0 || !before.TryGetValue(cell, out var old)
-                || old.Status is not ("sure" or "auto") || old.Tier == tier) continue;
-            // 先让真实购买、拖动和现有三合一判定处理；只有无事件的阶数变化等待第二次。
-            bool changedByEvent = dragged is not null && old.Operator == dragged
-                || _units[cell].Source is "purchase" or "drag" || _log.Any(e => e.At == o.At.ToString("O")
-                && e.Kind is "move" or "sell" or "buy" && (e.From == cell || e.To == cell));
-            bool merge = old.Operator is not null && old.Status == "sure" && tier == old.Tier + 1
-                && before.Values.Count(u => u.Cell != cell && u.Operator == old.Operator && u.Status == "sure"
-                    && u.Tier == old.Tier && o.Cells.GetValueOrDefault(u.Cell, -1) == 0) == 2;
-            if (changedByEvent || merge || _tierChanges.GetValueOrDefault(cell) == tier) continue;
-            _units[cell] = old;
-            pending[cell] = tier;
-        }
-        _tierChanges.Clear();
-        foreach (var (cell, tier) in pending) _tierChanges[cell] = tier;
+        bool published = Publish(o.MapId ?? State?.MapId, o.Round, o.At);
+        if (force && State is not null) State = State with { UpdatedAt = o.At.ToString("O") };
+        return published || force;
     }
 
     private bool ApplyEquipment(FieldObservation o)
@@ -274,10 +209,15 @@ public sealed partial class FieldTracker
         if (_log.Count > 20) _log.RemoveRange(20, _log.Count - 20);
     }
 
+    private static bool SameUnits(FieldUnit[] left, FieldUnit[] right) => left.Length == right.Length
+        && left.Zip(right).All(p => (p.First with { Candidates = p.Second.Candidates, Equipment = p.Second.Equipment }) == p.Second
+            && p.First.Candidates.SequenceEqual(p.Second.Candidates)
+            && (p.First.Equipment ?? []).SequenceEqual(p.Second.Equipment ?? []));
+
     private bool Publish(string? map, int? round, DateTimeOffset at)
     {
         var units = _units.Values.OrderBy(u => u.Zone == "bench" ? 0 : 1).ThenBy(u => u.Row).ThenBy(u => u.Col).ToArray();
-        if (State is { } old && old.MapId == map && old.Round == round && old.Units.SequenceEqual(units) && old.Log.SequenceEqual(_log) && old.Roster.SequenceEqual(_roster.Values)) return false;
+        if (State is { } old && old.MapId == map && old.Round == round && SameUnits(old.Units, units) && old.Log.SequenceEqual(_log) && old.Roster.SequenceEqual(_roster.Values)) return false;
         State = new(map, round, at.ToString("O"), units, _log.ToArray()) { Roster = _roster.Values.ToArray() };
         return true;
     }

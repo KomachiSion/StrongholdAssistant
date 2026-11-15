@@ -16,19 +16,39 @@
 
   // 图鉴：干员 / 装备网格，筛选常驻展开；点卡片在底部面板看详情（不靠悬停）。
   // 策略只有名字、发起者和一句效果，做成列表直接看全，本局策略排最前
-  type Kind = 'operator' | 'equipment' | 'strategy' | 'boss'
+  type Kind = 'operator' | 'equipment' | 'strategy' | 'boss' | 'bounty'
   let kind = $state<Kind>('operator')
   const kinds: { id: Kind; label: string; count: number }[] = [
     { id: 'operator', label: '干员', count: app.catalog.operators.length },
     { id: 'equipment', label: '装备', count: app.catalog.equipment.length },
     { id: 'strategy', label: '策略', count: app.catalog.strategies.length },
     { id: 'boss', label: '首领', count: app.catalog.bosses.length },
+    { id: 'bounty', label: '悬赏', count: (app.catalog.bounties ?? []).length },
   ]
   // 首领：本局首领排最前；血量显示本局模式的，没读到模式时显示规程等级 1
   const bosses = $derived(
     app.catalog.bosses.filter((b) => !q || b.name.includes(q)).sort((a, b) => Number(b.id === app.match.bossId) - Number(a.id === app.match.bossId)),
   )
   const hpAt = (b: (typeof app.catalog.bosses)[number]) => b.hp.find((h) => h.mode === (app.match.mode?.id ?? 'mode_single_1'))
+  // 悬赏（任务 201）：悬赏决策里能选的全部项。按名字里的类别分组，组内悬赏在前、战术特训在后，再按奖励从高到低；本回合名单里有的标「本回合」
+  type Bounty = (typeof app.catalog.bounties)[number]
+  const BTAGS = ['飞行', '频次', '损伤', '持续', '隐匿', '折射', '特异']
+  const bGroupOf = (b: Bounty) => (b.rounds === null ? '每场都加' : b.tag ?? '知名敌人')
+  const bGroupNames = [...BTAGS, '知名敌人', '每场都加']
+  let bKind = $state<Bounty['kind'] | null>(null)
+  let bCoin = $state<number | null>(null)
+  const roundNames = $derived(new Set(app.match.roundEnemies?.round === app.match.economy?.round ? (app.match.roundEnemies?.enemies ?? []).map((e) => e.name) : []))
+  const bounties = $derived(
+    (app.catalog.bounties ?? []).filter(
+      (b) => (!q || b.enemyName.includes(q) || b.name.includes(q)) && (!bKind || b.kind === bKind) && (bCoin === null || (bCoin >= 4 ? b.coin >= 4 : b.coin === bCoin)),
+    ),
+  )
+  const bGroups = $derived(
+    bGroupNames
+      .map((g) => ({ g, list: bounties.filter((b) => bGroupOf(b) === g).sort((a, b) => Number(a.kind === 'perfect') - Number(b.kind === 'perfect') || b.coin - a.coin || (a.grade ?? 0) - (b.grade ?? 0) || a.enemyName.localeCompare(b.enemyName, 'zh')) }))
+      .filter((x) => x.list.length),
+  )
+  const bWhen = (b: Bounty) => (b.rounds === null ? '之后每场' : b.rounds === 2 ? '接下来两场' : '下场')
   // 切换时内容从切换方向滑入
   let dir = $state(1)
   let topH = $state(0)
@@ -98,7 +118,7 @@
       .filter((g) => (kind === 'operator' ? g.ops.length : g.eqs.length)),
   )
   const cur = $derived(app.detail)
-  const filtered = $derived(tiers.length + bonds.length + timings.length + (onlyTracked ? 1 : 0) + (onlyFocus ? 1 : 0) + (hideBanned ? 1 : 0) + (onlyIncomplete ? 1 : 0) + (cat ? 1 : 0) + (q ? 1 : 0))
+  const filtered = $derived(tiers.length + bonds.length + timings.length + (onlyTracked ? 1 : 0) + (onlyFocus ? 1 : 0) + (hideBanned ? 1 : 0) + (onlyIncomplete ? 1 : 0) + (cat ? 1 : 0) + (q ? 1 : 0) + (bKind ? 1 : 0) + (bCoin !== null ? 1 : 0))
 </script>
 
 <div class="page">
@@ -107,9 +127,9 @@
     <Seg items={kinds} value={kind} onchange={pick} height={26} />
     <div class="search">
       <span class="si"><Icon name="search" size={15} /></span>
-      <input bind:value={q} placeholder={kind === 'operator' ? '搜索干员' : kind === 'equipment' ? '搜索装备' : kind === 'boss' ? '搜索首领' : '搜索策略、发起者或效果'} />
+      <input bind:value={q} placeholder={kind === 'operator' ? '搜索干员' : kind === 'equipment' ? '搜索装备' : kind === 'boss' ? '搜索首领' : kind === 'bounty' ? '搜索悬赏或敌人' : '搜索策略、发起者或效果'} />
       {#if filtered}
-        <button class="clear" onclick={() => { q = ''; tiers = []; bonds = []; timings = []; onlyTracked = false; onlyFocus = false; hideBanned = false; onlyIncomplete = false; cat = null }}>清除筛选</button>
+        <button class="clear" onclick={() => { q = ''; tiers = []; bonds = []; timings = []; onlyTracked = false; onlyFocus = false; hideBanned = false; onlyIncomplete = false; cat = null; bKind = null; bCoin = null }}>清除筛选</button>
       {/if}
     </div>
   </div>
@@ -138,6 +158,42 @@
         <p class="none">没有符合条件的首领。</p>
       {/each}
     </div>
+  {:else if kind === 'bounty'}
+    <!-- 悬赏：对局中途「悬赏决策」框里选一项，自己接下来的作战多出这只敌人 -->
+    <p class="bnote">悬赏：打掉它的人拿资金，漏了或被队友打掉，钱归队友。战术特训：各自行动阶段就完美作战才拿。数据里的全部项，不一定每个赛季都会出。</p>
+    <div class="chips bchips">
+      <button class="chip" class:on={bKind === 'kill'} onclick={() => (bKind = bKind === 'kill' ? null : 'kill')}>悬赏</button>
+      <button class="chip" class:on={bKind === 'perfect'} onclick={() => (bKind = bKind === 'perfect' ? null : 'perfect')}>战术特训</button>
+      <span class="sep"></span>
+      {#each [1, 2, 3, 4] as c (c)}
+        <button class="chip coinchip" class:on={bCoin === c} style:--coin="url({asset.hud('s_icon_gold')})" onclick={() => (bCoin = bCoin === c ? null : c)}><i></i>{c >= 4 ? '4+' : c}</button>
+      {/each}
+    </div>
+    {#each bGroups as grp (grp.g)}
+      <div class="bgh">{grp.g}<small>{grp.list.length}</small></div>
+      <div class="blist">
+        {#each grp.list as b (b.id)}
+          {@const en = app.catalog.enemies.find((e) => e.id === b.enemyId)}
+          <button class="brow bty" class:cur={roundNames.has(b.enemyName)} class:selected={cur?.kind === 'enemy' && cur.id === b.enemyId} title={b.text}
+            onclick={() => en && (app.detail = { kind: 'enemy', id: b.enemyId })}>
+            <span class="bpic epic"><img src={asset.enemy(b.enemyId)} alt="" loading="lazy" onerror={(e) => e.currentTarget.classList.add('miss')} /><b>{b.enemyName.slice(0, 1)}</b></span>
+            <span class="bn">
+              <b>{b.enemyName}{#if b.count > 1}<small> ×{b.count}</small>{/if}</b>
+              <span class="btags">
+                {#if roundNames.has(b.enemyName)}<em class="now">本回合</em>{/if}
+                <em class:train={b.kind === 'perfect'}>{b.kind === 'perfect' ? '战术特训' : '悬赏'}{#if b.tag} · {b.tag}{ROMAN[b.grade ?? 0]}{/if}</em>
+                <em>{bWhen(b)}</em>
+              </span>
+            </span>
+            <span class="bcoin" class:zero={!b.coin} style:--coin="url({asset.hud('s_icon_gold')})">
+              {#if b.coin}<b><i></i>+{b.coin}</b><small>{b.kind === 'perfect' ? '完美作战得' : '击倒得'}</small>{:else}<b>0</b><small>不给钱</small>{/if}
+            </span>
+          </button>
+        {/each}
+      </div>
+    {:else}
+      <p class="none">没有符合条件的悬赏。</p>
+    {/each}
   {:else}
   {#if kind === 'operator'}<RosterBar {onlyIncomplete} ontoggle={() => (onlyIncomplete = !onlyIncomplete)} />{/if}
   <div class="filters">
@@ -301,6 +357,82 @@
   }
   .strats {
     margin-top: 10px;
+  }
+  /* 悬赏 */
+  .bchips {
+    margin-bottom: 4px;
+  }
+  .coinchip {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+  }
+  .coinchip i,
+  .bcoin i {
+    width: 13px;
+    height: 13px;
+    background: var(--coin) center / contain no-repeat;
+  }
+  .bgh {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    margin: 12px 2px 4px;
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-bold);
+    color: var(--fg-2);
+  }
+  .bgh small {
+    font-weight: var(--fw-base);
+    color: var(--fg-4);
+  }
+  .epic {
+    position: relative;
+    display: grid;
+    place-items: center;
+  }
+  .epic img {
+    position: relative;
+    z-index: 1;
+    object-fit: contain;
+  }
+  .epic img:global(.miss) {
+    display: none;
+  }
+  .epic b {
+    position: absolute;
+    font-size: var(--fs-md);
+    color: var(--fg-4);
+  }
+  .bn b small {
+    font-size: var(--fs-sm);
+    color: var(--fg-3);
+    font-weight: var(--fw-base);
+  }
+  .btags em.train {
+    color: var(--mint);
+    box-shadow: inset 0 0 0 1px rgb(var(--mint-rgb) / 0.5);
+  }
+  .bcoin {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    font-variant-numeric: tabular-nums;
+  }
+  .bcoin b {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    font-size: var(--fs-lg);
+    color: var(--gold);
+  }
+  .bcoin small {
+    font-size: var(--fs-2xs);
+    color: var(--fg-4);
+  }
+  .bcoin.zero b {
+    color: var(--fg-4);
   }
   .special {
     font-size: var(--fs-base);

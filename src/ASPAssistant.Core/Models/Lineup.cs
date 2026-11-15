@@ -34,6 +34,14 @@ public sealed record MemberEquip(
     [property: JsonPropertyName("name")] string Name,
     [property: JsonPropertyName("priority")] bool Priority);
 
+public sealed record LineupGroup(
+    [property: JsonPropertyName("need")] int Need,
+    [property: JsonPropertyName("members")] LineupSlot[] Members);
+
+public sealed record LineupUpgrade(
+    [property: JsonPropertyName("round")] int Round,
+    [property: JsonPropertyName("level")] int Level);
+
 // 2026-11-12：完整保存成员养成和回合阶段。
 public sealed record LineupStage(
     [property: JsonPropertyName("name")] string Name,
@@ -41,7 +49,11 @@ public sealed record LineupStage(
     [property: JsonPropertyName("toRound")] int ToRound,
     [property: JsonPropertyName("goals")] CovenantGoal[] Goals,
     [property: JsonPropertyName("members")] LineupSlot[] Members,
-    [property: JsonPropertyName("equipment")] string[] Equipment);
+    [property: JsonPropertyName("equipment")] string[] Equipment)
+{
+    [JsonPropertyName("groups"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public LineupGroup[]? Groups { get; init; }
+}
 
 public class LineupSlot
 {
@@ -80,6 +92,10 @@ public class LineupSlot
 
 public class Lineup
 {
+    [JsonPropertyName("groups"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public LineupGroup[]? Groups { get; set; }
+    [JsonPropertyName("upgrades"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public LineupUpgrade[]? Upgrades { get; set; }
     [JsonPropertyName("stages"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public LineupStage[]? Stages { get; set; }
 

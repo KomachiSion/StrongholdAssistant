@@ -41,7 +41,7 @@ public sealed class FieldTrackerTests
     {
         var t = new FieldTracker(); t.Observe(O(0, board: 1, shop: new() { [2] = "灰喉" }));
         t.SetOperator(Board, "慕斯", Start);
-        t.Observe(O(.8, bench: 1, shop: new()));
+        t.Observe(O(.8, bench: 1, shop: new(), money: 3));
         Assert.Equal("灰喉", Assert.Single(t.State!.Units).Operator);
         Assert.Equal("purchase", t.State.Units[0].Source);
         Assert.Contains(t.State.Log, e => e.Kind == "buy");
@@ -49,28 +49,29 @@ public sealed class FieldTrackerTests
     }
 
     [Fact]
-    public void BuyUsesDisappearingSlotAmongDuplicateNames()
+    public void BuyUsesWholeRowWithoutRequiringDisappearingSlot()
     {
         var t = new FieldTracker();
         t.Observe(O(0, shop: new() { [2] = "慕斯", [3] = "慕斯" }));
-        t.Observe(O(.8, bench: 1, shop: new() { [3] = "慕斯" }));
+        t.Observe(O(.8, bench: 1, shop: new() { [2] = "慕斯", [3] = "慕斯" }, money: 3));
         Assert.Equal("purchase", Assert.Single(t.State!.Units).Source);
         var e = Assert.Single(t.State.Log); Assert.Equal("buy", e.Kind); Assert.Equal(Bench, e.To); Assert.Equal("慕斯", e.Operator);
-        Assert.False(t.Observe(O(1.6, bench: 1, shop: new() { [3] = "慕斯" })));
+        Assert.False(t.Observe(O(1.6, bench: 1, shop: new() { [3] = "慕斯" }, money: 3)));
     }
 
     [Fact]
-    public void PurchaseCanFollowOccupancyOrMergeWithoutNewCell()
+    public void PurchaseWaitsForNewCellAndDoesNotInferPurchaseWithoutOne()
     {
         var t = new FieldTracker();
         t.Observe(O(0, shop: new() { [2] = "慕斯" }));
-        t.Observe(O(.8, bench: 1, shop: new() { [2] = "慕斯" }));
-        t.Observe(O(1.6, bench: 1, shop: new()));
+        t.Observe(O(.8, shop: new() { [2] = "慕斯" }, money: 3));
+        t.Observe(O(1.6, bench: 1, shop: new(), money: 3));
+        t.Observe(O(2, bench: 1, shop: new(), money: 3));
         Assert.Equal("buy", Assert.Single(t.State!.Log).Kind);
-        t.Observe(O(2, bench: 1, shop: new() { [1] = "灰喉" }));
-        t.Observe(O(2.8, bench: 1, shop: new()));
-        t.Observe(O(4.5, bench: 1, shop: new()));
-        Assert.Null(t.State!.Log[0].To); Assert.Equal("buy", t.State.Log[0].Kind);
+        t.Observe(O(2.4, bench: 1, shop: new() { [1] = "灰喉" }, money: 3));
+        t.Observe(O(2.8, bench: 1, shop: new(), money: 2));
+        t.Observe(O(4.5, bench: 1, shop: new(), money: 2));
+        Assert.Equal("慕斯", Assert.Single(t.State!.Log).Operator);
     }
 
     [Fact]
@@ -101,7 +102,7 @@ public sealed class FieldTrackerTests
         var t = new FieldTracker(); t.Observe(O(0, bench: 1)); t.SetOperator(Bench, "慕斯", Start);
         t.Observe(O(.8, drag: "慕斯")); t.Observe(O(1.6, money: 5));
         Assert.Equal("sell", Assert.Single(t.State!.Log).Kind);
-        t.Reset(); t.Observe(O(0, board: 1)); t.SetOperator(Board, "灰喉", Start); t.Observe(O(.8));
+        t.Reset(); t.Observe(O(0, board: 1)); t.SetOperator(Board, "灰喉", Start); t.Observe(O(.8)); t.Observe(O(1.6));
         var lost = Assert.Single(t.State!.Log); Assert.Equal("lost", lost.Kind); Assert.Equal("灰喉", lost.Operator);
     }
 
@@ -132,7 +133,7 @@ public sealed class FieldTrackerTests
         t.Observe(new(Start.AddSeconds(.8), true, "m01", 1, new Dictionary<FieldCell, int>()));
         Assert.Equal("慕斯", Assert.Single(t.State!.Units).Operator);
         t.Observe(O(1.6, rest: false)); Assert.Single(t.State.Units);
-        t.Observe(O(2.4, board: 2)); Assert.Equal("慕斯", Assert.Single(t.State.Units).Operator);
+        t.Observe(O(2.4, board: 2)); Assert.Null(Assert.Single(t.State.Units).Operator);
         t.Observe(O(3.2, board: 2)); Assert.Null(Assert.Single(t.State.Units).Operator); Assert.Empty(t.State.Log);
     }
 
@@ -149,7 +150,7 @@ public sealed class FieldTrackerTests
     [Fact]
     public void ResetClearsManualIdentityEventsAndPendingPurchases()
     {
-        var t = new FieldTracker(); t.Observe(O(0, shop: new() { [1] = "慕斯" })); t.Observe(O(.8, bench: 1, shop: new()));
+        var t = new FieldTracker(); t.Observe(O(0, shop: new() { [1] = "慕斯" })); t.Observe(O(.8, bench: 1, shop: new(), money: 3));
         t.SetOperator(Bench, "灰喉", Start); t.Reset(); Assert.Null(t.State);
         t.Observe(O(3)); Assert.Empty(t.State!.Units); Assert.Empty(t.State.Log);
     }

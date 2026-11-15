@@ -66,7 +66,7 @@ public sealed class OverlayBoardTests : IDisposable
     }
 
     [Fact]
-    public void LayerSwitchesStalePlansAndMissingSurfaceClearGraphics() => OnSta(() =>
+    public void RecomputingKeepsOldPlanWhileSwitchesAndMissingSurfaceClearGraphics() => OnSta(() =>
     {
         var projection = new BoardProjection([((0, 0), (.2, .2)), ((7, 0), (.8, .2)), ((7, 5), (.8, .7)), ((0, 5), (.2, .7))]);
         var cell = new FieldCell("board", 1, 1);
@@ -83,12 +83,86 @@ public sealed class OverlayBoardTests : IDisposable
         placement.Update(plan, field, projection, false, 1920, 1080);
         Assert.Empty(placement.Children.Cast<UIElement>());
         placement.Update(plan with { BasedOn = "old" }, field, projection, true, 1920, 1080);
-        Assert.Empty(placement.Children.Cast<UIElement>());
+        Assert.NotEmpty(placement.Children.Cast<UIElement>());
         pending.Update(field with { Units = [field.Units[0] with { Status = "sure" }] }, geometry, true, 1920, 1080);
         Assert.Empty(pending.Children.Cast<UIElement>());
         pending.Update(field, null, true, 1920, 1080);
         placement.Update(plan, field, null, true, 1920, 1080);
         Assert.Empty(pending.Children.Cast<UIElement>()); Assert.Empty(placement.Children.Cast<UIElement>());
+    });
+
+    [Theory]
+    [InlineData(0, 0)]
+    [InlineData(1920, 0)]
+    [InlineData(0, 1080)]
+    [InlineData(-1, 1080)]
+    [InlineData(1920, -1)]
+    [InlineData(double.NaN, 1080)]
+    [InlineData(1920, double.NaN)]
+    [InlineData(double.PositiveInfinity, 1080)]
+    [InlineData(1920, double.PositiveInfinity)]
+    public void InvalidViewportSkipsAllLayersAndValidSizeRestoresDrawing(double width, double height) => OnSta(() =>
+    {
+        var projection = new BoardProjection([((0, 0), (.2, .2)), ((7, 0), (.8, .2)), ((7, 5), (.8, .7)), ((0, 5), (.2, .7))]);
+        var cell = new FieldCell("board", 1, 1);
+        var field = new FieldState("m01", 6, "now", [new("board", 1, 1, 1, null, null) { Status = "pending" }], []);
+        var geometry = new FieldOverlayGeometry(projection, new Dictionary<FieldCell, (double, double)> { [cell] = (.3, .3) }, new Dictionary<FieldCell, FieldBadge>());
+        var plan = new OverlayPlacementPlan("now", [new("芬", cell, new("board", 2, 2), "right")]);
+        var data = new BoardRoutes("m01", 6, true, null,
+            [new("fly", false, false, 2, [[new(1, 1), new(4, 1)]], null, false)],
+            [], BoardCamera.Expanded, projection);
+        var settings = new RouteOverlaySettings(Enabled: true);
+        var pending = new PendingLayer();
+        var placement = new PlacementLayer();
+        var shop = new ShopMarkerLayer();
+        var routes = new RouteLayer();
+        void Update(double w, double h)
+        {
+            pending.Update(field, geometry, true, w, h, false);
+            placement.Update(plan, field, projection, true, w, h);
+            shop.Update([new ShopItem { Id = "tracked", IsTracked = true, CardRegion = (.5, .75, .11, .23) }], w, h, false);
+            routes.Update(data, settings, w, h);
+        }
+        void AssertEmpty()
+        {
+            Assert.Empty(pending.Children.Cast<UIElement>());
+            Assert.Empty(placement.Children.Cast<UIElement>());
+            Assert.Empty(shop.Children.Cast<UIElement>());
+            Assert.Empty(routes.Children.Cast<UIElement>());
+        }
+        // 首次布局前不画；已有内容失去尺寸时清空，恢复后重新绘制。
+        Update(width, height);
+        AssertEmpty();
+        Update(1920, 1080);
+        Assert.NotEmpty(pending.Children.Cast<UIElement>());
+        Assert.NotEmpty(placement.Children.Cast<UIElement>());
+        Assert.NotEmpty(shop.Children.Cast<UIElement>());
+        Assert.NotEmpty(routes.Children.Cast<UIElement>());
+        routes.Resize(width, height);
+        Assert.Empty(routes.Children.Cast<UIElement>());
+        routes.Resize(1920, 1080);
+        Assert.NotEmpty(routes.Children.Cast<UIElement>());
+        Update(width, height);
+        AssertEmpty();
+        routes.Update(null, settings, 0, 0);
+    });
+
+    [Fact]
+    public void FieldUpdatesBeforeWindowLayoutDoNotThrow() => OnSta(() =>
+    {
+        var window = new OverlayWindow();
+        try
+        {
+            Assert.Equal(0, window.ActualHeight);
+            var cell = new FieldCell("board", 1, 1);
+            var projection = new BoardProjection([((0, 0), (.2, .2)), ((7, 0), (.8, .2)), ((7, 5), (.8, .7)), ((0, 5), (.2, .7))]);
+            var field = new FieldState("m01", 6, "now", [new("board", 1, 1, 1, null, null) { Status = "pending" }], []);
+            var geometry = new FieldOverlayGeometry(projection, new Dictionary<FieldCell, (double, double)> { [cell] = (.3, .3) }, new Dictionary<FieldCell, FieldBadge>());
+            window.UpdateField(field, geometry);
+            window.UpdatePlacement(new("now", [new("芬", cell, new("board", 2, 2), "right")]));
+            Assert.False(window.HasOverlayContent);
+        }
+        finally { window.Close(); }
     });
 
     private static void OnSta(Action action)

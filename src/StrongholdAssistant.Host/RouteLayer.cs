@@ -25,7 +25,7 @@ public sealed class RouteLayer : Canvas
     // 上一次有路线时的「地图|回合」：路线中途被清空又发回来（读不到休整期、打开信息页）不算新回合
     private string? _lastRound;
     private RouteOverlaySettings _settings = new();
-    private Size _size;
+    private (double Width, double Height) _size;
     private readonly List<(UIElement Element, string Label)> _cycleItems = [];
     private TextBlock? _tagSub;
     private int _cycle;
@@ -62,7 +62,7 @@ public sealed class RouteLayer : Canvas
         if (newRound || settingsChanged || routes?.BossId != _routes?.BossId) _cycle = 0;
         _routes = routes;
         _settings = settings;
-        _size = new Size(width, height);
+        _size = (width, height);
         Rebuild();
         if (routes is null) Fade(false, 0);
         else if (newRound || settingsChanged || reappeared) ApplyDisplay(newRound);
@@ -70,7 +70,7 @@ public sealed class RouteLayer : Canvas
 
     public void Resize(double width, double height)
     {
-        _size = new Size(width, height);
+        _size = (width, height);
         Rebuild();
     }
 
@@ -167,7 +167,8 @@ public sealed class RouteLayer : Canvas
         _cycleItems.Clear();
         _tagSub = null;
         _cycleTimer.Stop();
-        if (_routes is not { } data || _size.Width <= 0 || _size.Height <= 0) return;
+        if (_routes is not { } data || !double.IsFinite(_size.Width) || !double.IsFinite(_size.Height)
+            || _size.Width <= 0 || _size.Height <= 0) return;
         double k = _size.Height / 1080; // 线宽等按 1080p 设计，随画面缩放
         Point P(Point grid)
         {

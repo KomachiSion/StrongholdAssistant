@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+using ASPAssistant.Core.Data;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using ASPAssistant.Core.Services;
 
@@ -32,16 +33,15 @@ public sealed partial class HostApi
         lock (_rosterGate)
         {
             var path = Path.Combine(DataDirectory, "roster.json");
-            return _roster ??= File.Exists(path)
-                ? JsonSerializer.Deserialize<Roster>(File.ReadAllText(path), JsonOptions)!
-                : new(null, [], []);
+            return _roster ??= UserJsonFile.Read(path, text => JsonSerializer.Deserialize<Roster>(text, JsonOptions))
+                ?? new(null, [], []);
         }
     }
     private void SaveRoster(Roster value)
     {
         _roster = value;
         Directory.CreateDirectory(DataDirectory);
-        File.WriteAllText(Path.Combine(DataDirectory, "roster.json"), JsonSerializer.Serialize(value, JsonOptions));
+        UserJsonFile.Write(Path.Combine(DataDirectory, "roster.json"), JsonSerializer.Serialize(value, JsonOptions));
 
     }
     public Roster SetRosterOperator(string name, JsonElement patch)

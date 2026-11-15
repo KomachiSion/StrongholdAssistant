@@ -1,0 +1,56 @@
+﻿using System.Text.Json;
+using ASPAssistant.Core.Models;
+using ASPAssistant.Core.Services;
+using StrongholdAssistant.Host;
+
+namespace StrongholdAssistant.Tests;
+
+public sealed class FieldManualTests
+{
+    [Fact]
+    public void DisabledObservationKeepsSnapshotAndRecordsPurchaseWithoutGeneralMatching()
+    {
+        var tracker = new FieldTracker();
+        int matches = 0;
+        tracker.ConfigureIdentity([new() { Name = "甲", Tier = 1 }, new() { Name = "乙", Tier = 1 }],
+            (_, _, names) => { matches++; return new(names.Select((n, i) => new SpriteCandidate(n, .9 - i * .2)).ToArray(), .2); });
+        var cell = new FieldCell("bench", 1, 0);
+        var at = DateTimeOffset.UtcNow;
+        var empty = new FieldObservation(at, true, "m01", 1, new Dictionary<FieldCell, int> { [cell] = 0 }, new Dictionary<int,string> { [1] = "甲", [2] = "乙" }, 10);
+        tracker.Observe(empty);
+        var snapshot = tracker.State;
+        tracker.Observe(empty with { At = at.AddSeconds(1) }, recognize: false);
+        var purchase = empty with { At = at.AddSeconds(2), Money = 9, Cells = new Dictionary<FieldCell,int> { [cell] = 1 },
+            Sprites = new Dictionary<FieldCell,FieldSpritePatch> { [cell] = new([], [1,2,3], true) } };
+        tracker.Observe(purchase, recognize: false);
+        Assert.Same(snapshot, tracker.State);
+        Assert.Equal(1, matches);
+        tracker.Observe(purchase with { At = at.AddSeconds(3) }, force: true);
+        Assert.Contains(tracker.State!.Roster, r => r.Operator == "甲" && r.Source == "purchase");
+        var previous = tracker.State.UpdatedAt;
+        tracker.Observe(purchase with { At = at.AddSeconds(4) }, force: true);
+        Assert.NotEqual(previous, tracker.State.UpdatedAt);
+        tracker.Observe(purchase with { At = at.AddSeconds(5), Money = 8 }, recognize: false);
+        tracker.Observe(purchase with { At = at.AddSeconds(6), Money = 8 }, force: true);
+        Assert.Equal("甲", Assert.Single(tracker.State.Units).Operator);
+        Assert.NotEqual("unknown", Assert.Single(tracker.State.Units).Status);
+    }
+
+    [Fact]
+    public void LegacySettingsDefaultAndRoundTrip()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var path = Path.Combine(directory, "settings.json");
+            File.WriteAllText(path, "{}");
+            var store = new HostSettingsStore(path);
+            var old = store.LoadSettings();
+            Assert.True(old.FieldAuto); Assert.Equal("Alt+F", old.FieldHotkey);
+            store.SaveSettings(old with { FieldAuto = false, FieldHotkey = "" });
+            Assert.False(store.LoadSettings().FieldAuto); Assert.Equal("", store.LoadSettings().FieldHotkey);
+        }
+        finally { Directory.Delete(directory, true); }
+    }
+}

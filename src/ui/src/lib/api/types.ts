@@ -167,6 +167,8 @@ export interface Catalog {
   strategies: Strategy[]
   /** 敌人（v0.9.5）：特训敌人的全部变体和首领，按 id 查；详情里显示，另给按钮打开 PRTS 对应页面 */
   enemies: Enemy[]
+  /** 悬赏（任务 201）：悬赏决策里能选的全部项，按 id 排序；图鉴「敌人 · 悬赏」列出来，敌人详情里写奖励 */
+  bounties: Bounty[]
   /** 识别不了、要用户自己点上的收入来源（v0.7.0），见 IncomeSource */
   incomeSources: IncomeSource[]
   /**
@@ -331,11 +333,78 @@ export interface CovenantBarItem {
   at: string
 }
 
+/**
+ * 本回合敌人（v0.9.8 读到的；任务 200 起玩家可以在本局页手动补上 / 去掉）。
+ * 读不全很常见：敌人多时列表要往下滚；选了悬赏后悬赏怪排第一个，把别的挤到下面
+ */
 export interface RoundEnemies {
   round: number
-  at: string // ISO 时间，最后一次读到
-  /** 按列表从上到下；同一回合多次读到（列表要往下翻）时合并去重。id 是 Catalog.enemies 里的，名字对不上时为 null */
-  enemies: { id: string | null; name: string }[]
+  at: string // ISO 时间，最后一次读到或手动改动
+  /**
+   * 合并后的名单，站位推荐用这份：读到的（去掉玩家去掉的）在前，按列表从上到下；玩家补上的在后，按补上的先后。
+   * 同一回合多次读到（列表要往下翻）时合并去重。补上的后来又读到了，source 改成 'read'，位置不动
+   */
+  enemies: RoundEnemy[]
+  /**
+   * 玩家去掉的（读错了、不是这回合的），之后再读到也不加回来；界面可以点「恢复」放回去（setRoundEnemy(name, true)）。
+   * 只记读到过的；补上的再去掉直接删，不进这里。没有为 []
+   */
+  removed: RoundEnemy[]
+}
+
+export interface RoundEnemy {
+  /** Catalog.enemies 里的 id，名字对不上时为 null（同名多个 id 取目录第一项） */
+  id: string | null
+  name: string
+  /** read = 游戏敌人列表读到的；manual = 玩家在本局页补上的 */
+  source: 'read' | 'manual'
+}
+
+/**
+ * 本回合可能出现的敌人（任务 200）：站位推荐筛怪组用的那份怪组表（本回合、本局模式、本局特训敌人类型；首领回合是首领关），
+ * 界面拿来做补选候选、算「名单对得上几种怪组」
+ */
+export interface RoundEnemyOptions {
+  round: number
+  /** 本回合可能的怪组；weight 是出现权重（各组加起来为 1） */
+  groups: {
+    /** 如「飞行·法术大师A1」，同站位推荐 PlacementStream.label */
+    label: string
+    weight: number
+    /** 这组出的敌人，按名字去重，count 是这一组一共出几只 */
+    enemies: { id: string | null; name: string; count: number }[]
+  }[]
+}
+
+/**
+ * 悬赏（任务 201）：对局中途「悬赏决策」框里能选的一项。选了以后自己接下来的作战多出指定的敌人，
+ * 打掉（或完美作战）拿资金。来自 activity_table 的 effectInfoDataDict（effectType = ENEMY_GAIN）和 effectBuffInfoDataDict
+ */
+export interface Bounty {
+  /** 效果 id，如 enemyeffect_16_1 */
+  id: string
+  /** 游戏里的名字，如「悬赏·特异III」「鸭爵·悬赏」「战术特训·飞行I」「多轮悬赏 · 假想敌：蚀裂」 */
+  name: string
+  /**
+   * kill = 悬赏：击倒它的人拿钱（自己漏了、被队友打掉，钱归队友）；
+   * perfect = 战术特训：各自行动阶段就完美作战才拿钱
+   */
+  kind: 'kill' | 'perfect'
+  /** 加的敌人，id 在 Catalog.enemies 里（工程保证都收进去了） */
+  enemyId: string
+  enemyName: string
+  /** 一次加几只 */
+  count: number
+  /** 奖励资金，0 = 只加怪不给钱 */
+  coin: number
+  /** 持续几场：1 = 下场，2 = 接下来两场，null = 之后每场（数据里 round = 99） */
+  rounds: 1 | 2 | null
+  /** 名字里的类别：飞行、频次、损伤、持续、隐匿、折射、特异；没有（如「鸭爵·悬赏」）为 null */
+  tag: string | null
+  /** 名字末尾的 I / II / III → 1～3；没有为 null */
+  grade: 1 | 2 | 3 | null
+  /** 游戏原文，去掉富文本标签，如「为自身接下来两场作战添加1只暴鸰，将其击倒者获得2资金」 */
+  text: string
 }
 
 /**
@@ -506,6 +575,26 @@ export interface CovenantGoal {
 /**
  * 阵容的一个回合阶段（v0.7.0，照森空岛攻略的「1-4 回合」页签）。成型阵容不在这里：它就是 Lineup 顶层的 goals / members / equipment
  */
+/**
+ * 一组干员（v1.0.1，用户 2026-11-15 提，设计见 docs/design.md「阵容里的一组干员」）：这几个里任意 need 个就行，
+ * 如「能天使 / 空弦 / 灰喉 任 1」。组员和固定干员（members）一样可以标关键、配候选装备、定精锐 / 技能 / 模组；
+ * 同一名干员不会既在 members 又在组里，也不会在两个组里。2 ≤ members.length，1 ≤ need < members.length。
+ * - 进度：组里本局拿到的人照常算盟约人数；
+ * - 追踪和商店标记：组里本局拿到的人数（FieldState 的本局有的人，没卖的）< need 时，组里还没拿到、没被禁的人都按普通追踪标
+ *   （标了关键的按关键标）；够了就不再标组里剩下的人；
+ * - 本局适配（禁用）：组里没被禁的人数 ≥ need 才算这一组完整
+ */
+export interface LineupGroup {
+  need: number
+  members: LineupMember[]
+}
+
+/** 升本计划的一步（v1.0.1）：到第 round 回合时调度中心该升到 level 级 */
+export interface LineupUpgrade {
+  round: number
+  level: number
+}
+
 export interface LineupStage {
   /** 阶段名；空串时界面按回合叫「1～4 回合」 */
   name: string
@@ -515,6 +604,8 @@ export interface LineupStage {
   goals: CovenantGoal[]
   members: LineupMember[]
   equipment: string[]
+  /** 这个阶段的「一组」干员（v1.0.1）；没有就不写 */
+  groups?: LineupGroup[]
 }
 
 export interface Lineup {
@@ -539,6 +630,13 @@ export interface Lineup {
    * 旧版本不认这一项，只用顶层（成型阵容）
    */
   stages?: LineupStage[]
+  /** 成型阵容的「一组」干员（v1.0.1）；没有就不写。宿主原样保存，旧版本不认这一项 */
+  groups?: LineupGroup[]
+  /**
+   * 升本计划（v1.0.1）：整套阵容一份，和回合阶段无关。按 round 升序、round 不重复、level 递增（2～调度中心最高级）。
+   * 设为目标后，本局到了那个回合、调度中心还没到那一级时，本局页资金行和游戏里的升级按钮上提示。没有就不写
+   */
+  upgrades?: LineupUpgrade[]
   updatedAt: string // ISO 时间
 }
 
@@ -618,15 +716,28 @@ export interface Settings {
    * 游戏覆盖层新加的两项各自的开关（v1.0.0，任务 169，设计见 docs/design.md「本局页小棋盘」）。
    * 覆盖层每项都能单独开关：商店标记仍是 shopMarkers，敌人路线仍是 routes.enabled，这里只放新加的。
    * placement：在游戏棋盘格子上标推荐放谁（有站位推荐时才画），默认 true；
-   * pending：在待确认的小人头上标问号，玩家到侧栏小棋盘里点选，默认 true。
+   * pending：在待确认的小人头上标问号，玩家到侧栏小棋盘里点选，默认 true；
+   * upgrade（v1.0.1）：目标阵容的升本计划到了这一回合、还没升时，在游戏商店的升级按钮上标「升本」，默认 true（只在商店展开时画）。
    * 两项都只在休整期、棋盘主画面、没有面板盖住时画（同路线）。旧设置文件没有这一项时宿主补默认值
    */
-  overlayLayers: { placement: boolean; pending: boolean }
+  overlayLayers: { placement: boolean; pending: boolean; upgrade: boolean }
   /**
    * 站位推荐按什么目标算（v1.0.0，任务 170，默认 'balanced'）：漏怪最少 / 平衡 / 叠层最多。
    * 小棋盘推荐区里切换；改了宿主重算。跟着设置文件存，进云同步和备份
    */
   placementGoal: PlacementGoal
+  /**
+   * 场上自动识别（v1.0.1，用户 2026-11-15 提，默认 true）。true：休整期照常自动认场上的人、自动重算推荐。
+   * false：宿主不在扫描循环里认场上（商店、资金、回合等照常读，买人仍记进本局有的人），场上状态和推荐停在上一次，
+   * 只有玩家点本局页「场上」的「识别」（recognizeField）时认一次、算一次推荐。旧设置文件没有这一项时按 true
+   */
+  fieldAuto: boolean
+  /**
+   * 「识别场上」快捷键（v1.0.1，用户 2026-11-15 提），默认 'Alt+F'，'' 为关闭。写法和接收方式同 routes.hotkey
+   * （单键只在收得到时可用，收不到时组合键注册成系统热键；只看不拦，按键照样传给游戏）。
+   * 按下时宿主推送 fieldHotkey，界面调 recognizeField，和点「识别」按钮完全一样。自动识别开着关着都能用
+   */
+  fieldHotkey: string
   autoCheckUpdate: boolean // 启动时检查新版本
   /**
    * 更新源（v0.7.2，默认 'github'）。mirrorchyan：检查走 Mirror酱；填了有效 CDK 时从 Mirror酱 下载，
@@ -1205,6 +1316,13 @@ export interface Api {
    * 这格变空后作废。返回更新后的状态，也会推送 field
    */
   setFieldOperator(cell: FieldCell, operator: string | null): Promise<FieldState>
+  /**
+   * 现在认一次场上（v1.0.1）：拿当前画面读角标、认人（沿用本局有的人、确认过的人、个人模板），然后算一次站位推荐。
+   * 自动识别开着关着都能用。返回认出的场上状态，也推送 field 和 placement。
+   * 不在休整期的棋盘主画面（战斗中、面板盖住、没连上游戏）时以错误返回，错误文字直接给用户看，
+   * 如「现在不在休整期的棋盘画面，切到棋盘再点」
+   */
+  recognizeField(): Promise<FieldState>
   /** 小棋盘的地图和本回合路线（任务 169）；还没认出地图为 null */
   board(): Promise<BoardView | null>
   /** 站位推荐（任务 169 只定接口，还没接）：现在总是 null */
@@ -1230,6 +1348,16 @@ export interface Api {
    * banned=false 时他所在的格子变回没认出，并且这格以后不再把他当候选
    */
   setOperatorBanned(name: string, banned: boolean): Promise<MatchInfo>
+  /**
+   * 手动补上 / 去掉本回合的一个敌人（任务 200），只改 economy.round 这一回合，规则见 RoundEnemies：
+   * present=true：不在名单里就加在最后（source 'manual'）；在 removed 里就从 removed 拿回原位置。
+   * present=false：读到的移进 removed，补上的直接删。
+   * roundEnemies 是上一回合的或为 null 时，先换成这一回合的空名单再改。economy 为 null（不知道第几回合）时以错误返回。
+   * name 用 Catalog.enemies 的名字。更新 roundEnemies.at，推送 match，站位推荐按新名单重算
+   */
+  setRoundEnemy(name: string, present: boolean): Promise<MatchInfo>
+  /** 本回合可能出现的敌人（任务 200），见 RoundEnemyOptions；不知道回合、没有这回合的怪组数据时为 null */
+  roundEnemyOptions(): Promise<RoundEnemyOptions | null>
   /**
    * 清空本局：盟约状态、禁用干员（含手动标记和同局累计）、策略、首领、特训敌人全部清掉，source 回到 'none'。
    * 打完一局后编辑阵容时，被禁的干员不再变暗挡着。持续识别进行中时界面不让点
@@ -1350,6 +1478,8 @@ export interface Api {
    * 侧栏展开 → 收起，收起 → 展开，工作台 → minimize。宿主处理快捷键时不激活助手窗口，焦点留在游戏上
    */
   onHotkey(cb: () => void): () => void
+  /** 后端推送：用户按了「识别场上」快捷键（Settings.fieldHotkey，v1.0.1）。界面收到后调 recognizeField；宿主不激活助手窗口 */
+  onFieldHotkey(cb: () => void): () => void
   /** 历史记录（v0.7.0），新到旧 */
   history(): Promise<MatchRecord[]>
   deleteRecord(id: string): Promise<void>

@@ -4,7 +4,6 @@ namespace ASPAssistant.Core.Services;
 public sealed class InformationScreenState
 {
     private readonly object _sync = new();
-    private int _openingFrames;
     private int _gameplayFrames;
     private bool _consumed;
 
@@ -16,17 +15,16 @@ public sealed class InformationScreenState
         {
             if (gameplay)
             {
-                _openingFrames = 0;
                 if (++_gameplayFrames >= 2) _consumed = false;
                 return false;
             }
             _gameplayFrames = 0;
             if (!opening)
             {
-                _openingFrames = 0;
                 return false;
             }
-            if (_consumed || ++_openingFrames < 2) return false;
+            // 标题和两条盟约标题已在同一帧确认；滚动后不一定还有第二帧完整页。
+            if (_consumed) return false;
             _consumed = true;
             return true;
         }
@@ -37,12 +35,12 @@ public sealed class InformationScreenState
         lock (_sync)
         {
             _consumed = true;
-            _openingFrames = _gameplayFrames = 0;
+            _gameplayFrames = 0;
         }
     }
 
     public void Suspend()
     {
-        lock (_sync) _openingFrames = _gameplayFrames = 0;
+        lock (_sync) _gameplayFrames = 0;
     }
 }

@@ -75,6 +75,15 @@
         onclick={() => (app.detail = { kind: 'operator', name: m.name })}
       />
     {/each}
+    <!-- 「一组」干员（v1.0.1）：框在一起，左边写「任 N」 -->
+    {#each lineup.groups ?? [] as g, gi (gi)}
+      <span class="grp" title="这几个里任选 {g.need} 个">
+        <em>任{g.need}</em>
+        {#each g.members as m (m.name)}
+          <OpTile name={m.name} transform={m.transform} isKey={m.key} size={30} showName={false} onclick={() => (app.detail = { kind: 'operator', name: m.name })} />
+        {/each}
+      </span>
+    {/each}
     {#if eqs.length}
       <i class="div"></i>
       {#each eqs as n (n)}
@@ -219,6 +228,21 @@
     display: flex;
     flex-wrap: wrap;
     gap: 4px;
+  }
+  .grp {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 1px 2px 1px 0;
+    box-shadow: inset 0 0 0 1px rgb(var(--mint-rgb) / 0.35);
+  }
+  .grp em {
+    padding: 0 3px;
+    font-style: normal;
+    font-size: var(--fs-xs);
+    color: var(--mint);
+    writing-mode: vertical-rl;
+    letter-spacing: 1px;
   }
   .div {
     width: 1px;

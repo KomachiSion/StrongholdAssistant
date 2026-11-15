@@ -143,7 +143,7 @@ export type PostDetail = Post & { hidden?: boolean }
 
 /**
  * POST /api/posts：发布（要登录、有昵称）。服务端解码分享码，指纹不是当期的拒绝（season_mismatch）；
- * 阵容名和简介过敏感词（blocked_words）；每个账号每天最多发 10 个（rate_limited）。
+ * 阵容名和简介过敏感词（blocked_words）；发布不限制每日次数。
  * 同一账号发同一个分享码时不新建，返回原来的帖子并更新简介
  */
 export interface CreatePostRequest {
@@ -155,7 +155,7 @@ export interface CreatePostRequest {
  * PATCH /api/posts/:id：作者修改帖子，返回最新的 Post。DELETE /api/posts/:id：作者删除。
  * 只带 description 就只改简介（和原来一样）。带 code（v0.7.4）就连阵容一起换：校验和发布一样
  * （分享码格式、当期指纹 season_mismatch、阵容名和简介敏感词 blocked_words）；点赞、收藏、导入数、评论都保留。
- * 换成的分享码和自己另一个帖子相同时 409 + `duplicate`「你已经发过一模一样的阵容。」。不计入每天 10 个的发布次数
+ * 换成的分享码和自己另一个帖子相同时 409 + `duplicate`「你已经发过一模一样的阵容。」。
  */
 export interface UpdatePostRequest {
   description: string

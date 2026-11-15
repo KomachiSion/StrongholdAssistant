@@ -9,7 +9,6 @@ public class InformationScreenStateTests
     public void OcrMissesNeverRearmASuccessfullyEnteredOpening()
     {
         var state = new InformationScreenState();
-        state.Observe(true, false).Should().BeFalse();
         state.Observe(true, false).Should().BeTrue();
         for (int i = 0; i < 100; i++) state.Observe(false, false).Should().BeFalse();
         state.Observe(true, false).Should().BeFalse();
@@ -40,7 +39,6 @@ public class InformationScreenStateTests
         state.Observe(false, true);
         state.IsConsumed.Should().BeFalse();
         state.Observe(false, false).Should().BeFalse("an in-game info panel has no opening title");
-        state.Observe(true, false).Should().BeFalse();
         state.Observe(true, false).Should().BeTrue();
         state.Observe(true, false).Should().BeFalse();
     }

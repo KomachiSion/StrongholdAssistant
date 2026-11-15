@@ -78,5 +78,31 @@ public sealed class BoardPlacementWiringTests : IDisposable
         Assert.Null(api.Placement);
     }
 
+    [Fact]
+    public async Task PlacementIgnoresIdentityMetadataAndKeepsPreviousResultDuringRecompute()
+    {
+        var api = await HostApi.CreateAsync(Data, _directory);
+        api.ObserveEconomy(new(1, 10, 1, 0, true));
+        api.ObserveEconomy(new(1, 10, 1, 0, true));
+        var tracker = (FieldTracker)typeof(HostApi).GetField("_fieldTracker", PrivateInstance)!.GetValue(api)!;
+        var fieldProperty = typeof(FieldTracker).GetProperty("State")!;
+        var schedule = typeof(HostApi).GetMethod("SchedulePlacement", PrivateInstance)!;
+        var generation = typeof(HostApi).GetField("_placementGeneration", PrivateInstance)!;
+        var state = new FieldState("m01", 1, "first", [new("board", 2, 2, 1, "芬", "sprite") { Status = "auto" }], []);
+        fieldProperty.SetValue(tracker, state);
+        schedule.Invoke(api, null);
+        int initial = (int)generation.GetValue(api)!;
+        fieldProperty.SetValue(tracker, state with { UpdatedAt = "confirmed", Units = [state.Units[0] with { Source = "manual", Status = "sure" }] });
+        schedule.Invoke(api, null);
+        Assert.Equal(initial, generation.GetValue(api));
+        var result = new PlacementResult("confirmed", "computed", "balanced", [], 0, [], null, null, []);
+        typeof(HostApi).GetMethod("PublishPlacement", PrivateInstance)!.Invoke(api, [result, initial]);
+        fieldProperty.SetValue(tracker, state with { UpdatedAt = "equipped", Units = [state.Units[0] with { Equipment = [new("坚守盾牌", false)] }] });
+        schedule.Invoke(api, null);
+        Assert.Equal(initial + 1, generation.GetValue(api));
+        Assert.Same(result, api.Placement);
+        typeof(HostApi).GetMethod("ResetPlacement", PrivateInstance)!.Invoke(api, [true]);
+    }
+
     public void Dispose() { if (Directory.Exists(_directory)) Directory.Delete(_directory, true); }
 }

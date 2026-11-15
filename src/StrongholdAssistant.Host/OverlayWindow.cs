@@ -16,6 +16,9 @@ public sealed class OverlayWindow : Window
     private readonly RouteLayer _routes = new();
     private readonly PendingLayer _pending = new();
     private readonly PlacementLayer _placement = new();
+    private readonly UpgradeLayer _upgrade = new();
+    private System.Drawing.RectangleF? _upgradeButton;
+    private int? _upgradeLevel;
     private FieldState? _field;
     private FieldOverlayGeometry? _fieldGeometry;
     private OverlayPlacementPlan? _placementPlan;
@@ -28,7 +31,7 @@ public sealed class OverlayWindow : Window
     public event Action? PlacementChanged;
     public bool HasMarkers => _canvas.Children.Count > 0;
     public bool HasRoutes => _routes.HasRoutes;
-    public bool HasOverlayContent => HasMarkers || HasRoutes || _pending.Children.Count > 0 || _placement.Children.Count > 0;
+    public bool HasOverlayContent => HasMarkers || HasRoutes || _pending.Children.Count > 0 || _placement.Children.Count > 0 || _upgrade.Children.Count > 0;
 
     public OverlayWindow()
     {
@@ -39,7 +42,7 @@ public sealed class OverlayWindow : Window
         Topmost = true;
         ShowActivated = false;
         ShowInTaskbar = false;
-        Content = new System.Windows.Controls.Grid { Children = { _routes, _placement, _pending, _canvas } };
+        Content = new System.Windows.Controls.Grid { Children = { _routes, _placement, _pending, _canvas, _upgrade } };
         // 任一层仍有内容时保留窗口。
         _canvas.Emptied += () => { if (!HasOverlayContent) Hide(); };
         SourceInitialized += (_, _) =>
@@ -111,10 +114,26 @@ public sealed class OverlayWindow : Window
         RedrawFieldLayers();
     }
 
+    public void UpdateUpgrade(System.Drawing.RectangleF? button, int? level)
+    {
+        _upgradeButton = button;
+        _upgradeLevel = level;
+        RedrawFieldLayers();
+    }
+
     private void RedrawFieldLayers()
     {
+        // 首次布局前及客户区暂时失效时，不向绘制层传递无效尺寸。
+        if (!double.IsFinite(ActualWidth) || !double.IsFinite(ActualHeight) || ActualWidth <= 0 || ActualHeight <= 0)
+        {
+            _pending.Children.Clear();
+            _placement.Children.Clear();
+            _upgrade.Children.Clear();
+            return;
+        }
         _pending.Update(_field, _fieldGeometry, _layerSettings.Pending, ActualWidth, ActualHeight);
         _placement.Update(_placementPlan, _field, _fieldGeometry?.Projection, _layerSettings.Placement, ActualWidth, ActualHeight);
+        _upgrade.Update(_upgradeButton, _layerSettings.Upgrade ? _upgradeLevel : null, ActualWidth, ActualHeight);
         if (!HasOverlayContent) Hide();
     }
 

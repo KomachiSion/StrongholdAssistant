@@ -1,14 +1,18 @@
 extends SceneTree
 
-# 无头运行：参数为 enemy_types.json、上游 data 目录、输出目录。
+# 无头运行：参数为 enemy_types.json（或敌人数组）、上游 data 目录、输出目录。
 # 来源：bingyunhe/asp-assistant-arknights 的 data/icons/enemies（PRTS、SPDatabase）。
 func _init():
 	var args = OS.get_cmdline_user_args()
-	var types = JSON.parse_string(FileAccess.get_file_as_string(args[0]))["types"]
+	var data = JSON.parse_string(FileAccess.get_file_as_string(args[0]))
 	var entries = {}
-	for type in types.values():
-		for variant in type["firstHalfVariants"] + type["secondHalfVariants"]:
-			entries[variant["specialEnemyId"]] = variant["iconPath"]
+	if data is Array:
+		for enemy in data:
+			entries[enemy["id"]] = "icons/enemies/" + enemy["id"] + ".png"
+	else:
+		for type in data["types"].values():
+			for variant in type["firstHalfVariants"] + type["secondHalfVariants"]:
+				entries[variant["specialEnemyId"]] = variant["iconPath"]
 	DirAccess.make_dir_recursive_absolute(args[2])
 	var count = 0
 	for id in entries:

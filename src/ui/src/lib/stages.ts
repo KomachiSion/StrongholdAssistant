@@ -8,7 +8,7 @@ export const stageLabel = (s: LineupStage) => s.name.trim() || (s.fromRound === 
 
 /** 阵容的全部阶段，回合阶段在前、成型阵容在最后；成型阵容的 fromRound/toRound 为 0 */
 export function allStages(l: Lineup): (LineupStage & { final?: true })[] {
-  return [...(l.stages ?? []), { name: '成型阵容', fromRound: 0, toRound: 0, goals: l.goals, members: l.members, equipment: l.equipment, final: true }]
+  return [...(l.stages ?? []), { name: '成型阵容', fromRound: 0, toRound: 0, goals: l.goals, members: l.members, equipment: l.equipment, groups: l.groups, final: true }]
 }
 
 /** 当前阶段的下标（allStages 里）：固定了就用固定的；自动时按回合找第一个包含它的回合阶段，都不包含或不知道回合就是成型阵容 */
@@ -24,7 +24,8 @@ export function currentStage(l: Lineup, fixed: number | null | undefined, round:
 
 /**
  * 目标阵容在第 i 个阶段（allStages 下标）的样子：本阶段的盟约、干员、装备，再加上后面阶段的关键干员（标成关键）。
- * 追踪、商店标记、顶栏、目标页都按它；id、名字、策略等和整套一样
+ * 追踪、商店标记、顶栏、目标页都按它；id、名字、策略等和整套一样。
+ * 本阶段的「一组」干员放在 groups（v1.0.1）：组员不进 members、不进追踪表，商店标记由宿主按本局有的人实时算
  */
 export function stageView(l: Lineup, i: number): Lineup {
   const all = allStages(l)
@@ -34,7 +35,7 @@ export function stageView(l: Lineup, i: number): Lineup {
     .slice(i + 1)
     .flatMap((x) => x.members.filter((m) => m.key))
     .filter((m) => !have.has(m.name) && (have.add(m.name), true))
-  return { ...l, goals: s.goals, members: [...s.members, ...laterKeys.map((m) => ({ name: m.name, key: true as const, transform: m.transform }))], equipment: s.equipment }
+  return { ...l, goals: s.goals, members: [...s.members, ...laterKeys.map((m) => ({ name: m.name, key: true as const, transform: m.transform }))], equipment: s.equipment, groups: s.groups }
 }
 
 /** 改阵容第 i 个阶段（allStages 下标）的干员或装备，返回改好的整套阵容 */

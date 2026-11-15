@@ -9,6 +9,7 @@ namespace ASPAssistant.Core.Services;
 public sealed record EconomyReading(int? Round, int? Money, int? Level, int? UpgradeCost, bool IsRest)
 {
     public bool IsFinalRound { get; init; }
+    public RectangleF? UpgradeButton { get; init; }
 }
 
 /// <summary>复用商店截图；顶部读回合，右下读资金，LEVEL 标签定位升级面板。</summary>
@@ -69,25 +70,28 @@ public sealed class EconomyReader(IOcrEngine ocr, GameShopTheme theme = GameShop
         var moneyText = await Read((int)(width - 130 * scale),
             (int)(height - 273 * scale), (int)(65 * scale), (int)(38 * scale), true);
         int? money = Number(string.Join("", moneyText.Select(t => t.Text)));
-        IReadOnlyList<OcrTextResult> panel = [];
-        if (_levelLabel is null)
-        {
-            panel = await Read(0, (int)(height * .72), (int)(width * .85), (int)(height * .28));
-            _levelLabel = panel.FirstOrDefault(t => t.Text.Contains("LEVEL", StringComparison.OrdinalIgnoreCase) || t.Text == "LEUEL")
-                ?? panel.FirstOrDefault(t => t.Text is "升级" or "已满级");
-        }
+        // 卡位数量变化会移动升级面板；使用本帧的标签，像素未变时仍复用区域 OCR 缓存。
+        var panel = await Read(0, (int)(height * .72), (int)(width * .85), (int)(height * .28));
+        _levelLabel = panel.FirstOrDefault(t => t.Text.Contains("LEVEL", StringComparison.OrdinalIgnoreCase) || t.Text == "LEUEL")
+            ?? panel.FirstOrDefault(t => t.Text is "升级" or "已满级");
         var label = _levelLabel;
         int? level = null, cost = null;
+        RectangleF? button = null;
         if (label is not null)
         {
             int center = label.Box.X + label.Box.W / 2;
+            // 三主题均为 150px 宽面板；可露希尔上缘比另两款低 12px。
+            int buttonTop = theme == GameShopTheme.Closure ? 817 : 805;
+            button = new RectangleF((float)((center - 75 * scale) / width),
+                (float)((height - (1080 - buttonTop) * scale) / height),
+                (float)(150 * scale / width), (float)((1070 - buttonTop) * scale / height));
             var maxLabel = panel.FirstOrDefault(t => t.Text == "已满级" && Math.Abs(t.Box.X + t.Box.W / 2 - center) < 60 * scale);
             var upgradeLabel = maxLabel ?? panel.FirstOrDefault(t => t.Text == "升级" && Math.Abs(t.Box.X + t.Box.W / 2 - center) < 60 * scale);
             if (upgradeLabel is not null)
                 _upgradeLabelRegion = new(center - (int)(55 * scale), upgradeLabel.Box.Y - 4, (int)(110 * scale), upgradeLabel.Box.H + 8);
             if (maxLabel is not null || (_upgradeLabelRegion is { } max &&
                 (await Read(max.X, max.Y, max.Width, max.Height)).Any(t => t.Text.Contains("已满级"))))
-                return new(round, money, 6, null, isRest) { IsFinalRound = isFinalRound };
+                return new(round, money, 6, null, isRest) { IsFinalRound = isFinalRound, UpgradeButton = button };
             bool closure = theme == GameShopTheme.Closure;
             // 可露希尔未检出 LEVEL 时，从底部定位完整等级字形，并避开两侧箭头。
             bool bottomLabel = label.Text is "升级" or "已满级";
@@ -102,7 +106,7 @@ public sealed class EconomyReader(IOcrEngine ocr, GameShopTheme theme = GameShop
                 (int)(height - 273 * scale), (int)(52 * scale), (int)(38 * scale), true);
             cost = level == 6 ? null : Number(string.Join("", price.Select(t => t.Text)));
         }
-        return new(round, money, level, cost, isRest) { IsFinalRound = isFinalRound };
+        return new(round, money, level, cost, isRest) { IsFinalRound = isFinalRound, UpgradeButton = button };
     }
 
     private async Task<IReadOnlyList<OcrTextResult>> ReadRegionAsync(Bitmap bitmap, byte[] png, Rectangle region, bool line)

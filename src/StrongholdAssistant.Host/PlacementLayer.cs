@@ -16,7 +16,9 @@ public sealed class PlacementLayer : Canvas
         bool enabled, double width, double height)
     {
         Children.Clear();
-        if (!enabled || plan is null || field is null || projection is null || plan.BasedOn != field.UpdatedAt) return;
+        if (!double.IsFinite(width) || !double.IsFinite(height) || width <= 0 || height <= 0) return;
+        // 新输入计算期间保留上一份推荐；离局、无棋盘和主动关闭仍由宿主清除。
+        if (!enabled || plan is null || field is null || projection is null) return;
         foreach (var move in plan.Moves.Where(m => m.From != m.To))
         {
             bool leaving = move.To.Zone == "bench";

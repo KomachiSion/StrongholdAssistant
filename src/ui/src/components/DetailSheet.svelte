@@ -319,6 +319,19 @@
       </div>
     {:else if d.kind === 'enemy'}
       {@const en = enemyById(d.id)}
+      {@const bs = (app.catalog.bounties ?? []).filter((b) => b.enemyId === en.id || b.enemyName === en.name).sort((a, b) => Number(a.kind === 'perfect') - Number(b.kind === 'perfect') || b.coin - a.coin)}
+      <!-- 悬赏（任务 201）：这只敌人能被选成悬赏时，列出每一档的奖励 -->
+      {#if bs.length}
+        <div class="hph"><b>悬赏</b><em>悬赏决策里选了它，自己的作战多出它，打掉拿资金</em></div>
+        <div class="btys" style:--coin="url({asset.hud('s_icon_gold')})">
+          {#each bs as b (b.id)}
+            <div class="bty">
+              <span class="bc" class:zero={!b.coin}>{#if b.coin}<i></i>+{b.coin}{:else}0{/if}</span>
+              <span class="bt"><b>{b.name}</b><small>{b.text}</small></span>
+            </div>
+          {/each}
+        </div>
+      {/if}
       <!-- 简单资料：基础属性一行排开，能力逐条；更细的（各级数值、关卡出现位置）去 PRTS 看 -->
       {#if buffMode && statRound}
         <div class="hph">
@@ -948,5 +961,53 @@
   .mdx {
     margin-left: 8px;
     color: var(--fg-4);
+  }
+  /* 敌人详情里的悬赏 */
+  .btys {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-bottom: 10px;
+  }
+  .bty {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 5px 8px;
+    background: var(--bg-2);
+  }
+  .bc {
+    flex: none;
+    min-width: 40px;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    font-size: var(--fs-lg);
+    font-weight: var(--fw-bold);
+    color: var(--gold);
+    font-variant-numeric: tabular-nums;
+  }
+  .bc.zero {
+    color: var(--fg-4);
+  }
+  .bc i {
+    width: 14px;
+    height: 14px;
+    background: var(--coin) center / contain no-repeat;
+  }
+  .bt {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+  }
+  .bt b {
+    font-size: var(--fs-sm);
+    color: var(--fg-1);
+  }
+  .bt small {
+    font-size: var(--fs-xs);
+    color: var(--fg-3);
+    line-height: 1.4;
   }
 </style>

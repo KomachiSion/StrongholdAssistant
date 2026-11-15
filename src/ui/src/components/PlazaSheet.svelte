@@ -206,7 +206,7 @@
       <div class="preview">
         <LineupCard lineup={postToLineup(post)} menu={false} headOnly>
           {#snippet sub()}
-            <span class="by">{post.author.nickname}{#if mine}（我）{/if}{#if post.featured} · <b class="feat">精选</b>{/if}</span>
+            <span class="by"><button class="who" title="只看 {post.author.nickname} 发的阵容" onclick={() => ((plaza.filter.author = post!.author), (plaza.viewing = null))}>{post.author.nickname}{#if mine}（我）{/if}</button>{#if post.featured} · <b class="feat">精选</b>{/if}</span>
           {/snippet}
         </LineupCard>
       </div>
@@ -384,6 +384,10 @@
   .by {
     font-size: var(--fs-sm);
     color: var(--fg-3);
+  }
+  .who:hover {
+    color: var(--mint);
+    text-decoration: underline;
   }
   .feat {
     color: var(--gold);

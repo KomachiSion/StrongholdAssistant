@@ -21,7 +21,13 @@ public sealed class ShopMarkerLayer : Canvas
     public void Update(IReadOnlyList<ShopItem> items, double width, double height, bool animate = true, MarkerStyles? styles = null)
     {
         // 首次显示前 WPF 尚未给出客户区尺寸，SizeChanged 后再排版。
-        if (width <= 0 || height <= 0) return;
+        if (!double.IsFinite(width) || !double.IsFinite(height) || width <= 0 || height <= 0)
+        {
+            foreach (FrameworkElement child in Children) Stop(child);
+            Children.Clear();
+            _markers.Clear();
+            return;
+        }
         styles ??= _styles;
         bool styleChanged = styles != _styles;
         _styles = styles;

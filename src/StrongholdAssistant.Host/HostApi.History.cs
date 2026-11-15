@@ -1,3 +1,4 @@
+using ASPAssistant.Core.Data;
 using System.Text.Json;
 using ASPAssistant.Core.Models;
 
@@ -29,33 +30,26 @@ public sealed partial class HostApi
 
     private void LoadHistory()
     {
-        var path = Path.Combine(DataDirectory, "history.json");
-        if (File.Exists(path))
+        var history = UserJsonFile.Read(Path.Combine(DataDirectory, "history.json"), text =>
         {
-            using var json = JsonDocument.Parse(File.ReadAllText(path));
-            if (json.RootElement.ValueKind == JsonValueKind.Array)
-                _history = json.RootElement.Deserialize<List<MatchRecord>>(JsonOptions)!;
-            else
-            {
-                var history = json.RootElement.Deserialize<HistoryDocument>(JsonOptions)!;
-                _history = history.Records;
-                _deletedSklandIds = history.DeletedSklandIds;
-            }
+            using var json = JsonDocument.Parse(text);
+            return json.RootElement.ValueKind == JsonValueKind.Array
+                ? new HistoryDocument(json.RootElement.Deserialize<List<MatchRecord>>(JsonOptions)!, [])
+                : json.RootElement.Deserialize<HistoryDocument>(JsonOptions);
+        });
+        if (history is not null)
+        {
+            _history = history.Records;
+            _deletedSklandIds = history.DeletedSklandIds;
         }
-        path = Path.Combine(DataDirectory, "history-deleted-skland.json");
-        if (File.Exists(path))
-            _deletedSklandIds.UnionWith(JsonSerializer.Deserialize<string[]>(File.ReadAllText(path), JsonOptions)!);
-        path = Path.Combine(DataDirectory, "base-money.json");
-        if (File.Exists(path)) _baseMoney = JsonSerializer.Deserialize<Dictionary<string, int>>(File.ReadAllText(path), JsonOptions)!;
+        _deletedSklandIds.UnionWith(UserJsonFile.Read(Path.Combine(DataDirectory, "history-deleted-skland.json"),
+            text => JsonSerializer.Deserialize<string[]>(text, JsonOptions)) ?? []);
+        _baseMoney = UserJsonFile.Read(Path.Combine(DataDirectory, "base-money.json"),
+            text => JsonSerializer.Deserialize<Dictionary<string, int>>(text, JsonOptions)) ?? [];
     }
 
-    private void SaveHistoryFile<T>(string name, T value)
-    {
-        Directory.CreateDirectory(DataDirectory);
-        var path = Path.Combine(DataDirectory, name);
-        File.WriteAllText(path + ".tmp", JsonSerializer.Serialize(value, JsonOptions));
-        File.Move(path + ".tmp", path, true);
-    }
+    private void SaveHistoryFile<T>(string name, T value) =>
+        UserJsonFile.Write(Path.Combine(DataDirectory, name), JsonSerializer.Serialize(value, JsonOptions));
 
     private void BeginHistory()
     {

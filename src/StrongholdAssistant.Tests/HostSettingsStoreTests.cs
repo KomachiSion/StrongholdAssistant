@@ -153,7 +153,8 @@ public sealed class HostSettingsStoreTests : IDisposable
         { CloudSync = new(true, null, null, null, []) { Account = "account-1" } });
         store.SaveDock(new(Width: 420));
         Assert.Equal("account-1", new HostSettingsStore(path).LoadSettings().CloudSync.Account);
-        Assert.Equal(new[] { path }, Directory.GetFiles(_directory));
+        // 199 起写入留一份 .bak；不应残留 .tmp
+        Assert.Equal(new[] { path, path + ".bak" }, Directory.GetFiles(_directory).Order());
     }
 
     [Fact]

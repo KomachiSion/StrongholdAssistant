@@ -1,6 +1,7 @@
 // 场上与小棋盘（任务 169）：识别出的场上状态、地图与本回合路线、站位推荐，加玩家在小棋盘上自己拖人推演的本地布局。
 // 推演只在界面里，不动游戏、不存盘；一键回到识别结果
 import { api } from './api'
+import { app } from './state.svelte'
 import type { BoardView, FieldCell, FieldState, FieldUnit, PlacementPlan } from './api'
 
 export const cellKey = (c: FieldCell) => `${c.zone}:${c.col}:${c.row}`
@@ -24,6 +25,8 @@ class FieldStore {
   plan = $state<PlacementPlan | null>(plan0)
   /** 推演：识别结果里的格子（cellKey）→ 挪到的格子；空 = 没在推演 */
   moves = $state<Record<string, FieldCell>>({})
+  /** 正在手动识别（「识别」按钮或快捷键） */
+  recognizing = $state(false)
 
   units = $derived(this.state?.units ?? [])
   pending = $derived(this.units.filter((u) => u.status === 'pending'))
@@ -42,6 +45,21 @@ class FieldStore {
     })
     api.onBoard((b) => (this.board = b))
     api.onPlacement((p) => (this.plan = p))
+    api.onFieldHotkey(() => this.recognize(true))
+  }
+
+  /** 认一次场上，结果经 onField / onPlacement 推回来；失败把原因用提示条显示。快捷键触发时成功也提示一下（人在看游戏） */
+  async recognize(byKey = false) {
+    if (this.recognizing) return
+    this.recognizing = true
+    try {
+      const f = await api.recognizeField()
+      if (byKey) app.showToast(`场上已识别：${f.units.length} 人`)
+    } catch (e) {
+      app.showToast((e as Error).message, true)
+    } finally {
+      this.recognizing = false
+    }
   }
 
   /** 推演：把 from 格上的人挪到 to；to 上有人就互换 */

@@ -14,6 +14,7 @@
   import StrategyGrid from '../components/StrategyGrid.svelte'
   import ErrorNote from '../components/ErrorNote.svelte'
   import BondStatus from '../components/BondStatus.svelte'
+  import RoundEnemyList from '../components/RoundEnemyList.svelte'
   import { api } from '../lib/api'
   import { openMenu, operatorMenu, slotMenu } from '../lib/menu.svelte'
 
@@ -40,8 +41,6 @@
     app.showToast(on ? '已打开敌人路线：休整期在棋盘上画本回合路线' : '已关闭敌人路线')
   }
   let openType = $state<string | null>(null)
-  // 本回合敌人（149）：只认和当前回合对得上的那份；读到的是上一回合的就当这回合还没看
-  const roundEn = $derived(m.roundEnemies && m.economy && m.roundEnemies.round === m.economy.round ? m.roundEnemies : null)
   const setRoutes = (patch: Partial<typeof app.settings.routes>) => {
     app.settings.routes = { ...app.settings.routes, ...patch }
     app.saveSettings()
@@ -393,32 +392,7 @@
     </SectionHeader>
     {#if open('enemy')}
     <div class="enemy" transition:slide={sl}>
-      {#if roundEn}
-        <div class="rnd">
-          <span class="vlabel">第 {roundEn.round} 回合敌人<small>{roundEn.enemies.length} 种 · 游戏里敌人列表读到的</small></span>
-          <div class="vgrid">
-            {#each roundEn.enemies as e, i (e.name + i)}
-              {#if e.id}
-                <button class="vitem" title="{e.name}：点开看资料" onclick={() => (app.detail = { kind: 'enemy', id: e.id! })}>
-                  <span class="vimg"><img src={asset.enemy(e.id)} alt="" onerror={(ev) => ev.currentTarget.classList.add('miss')} /><b>{e.name.slice(0, 1)}</b></span>
-                  <span class="vname">{e.name}</span>
-                </button>
-              {:else}
-                <span class="vitem" title="资料里没有这个名字">
-                  <span class="vimg"><b>{e.name.slice(0, 1)}</b></span>
-                  <span class="vname">{e.name}</span>
-                </span>
-              {/if}
-            {/each}
-          </div>
-        </div>
-      {:else if m.economy}
-        <!-- 这回合还没读到：提醒玩家在游戏里点一下（用户 2026-11-15：每回合提醒点「看怪物」） -->
-        <div class="rhint">
-          <Icon name="search" size={14} />
-          <span>第 {m.economy.round} 回合：点游戏里<b>回合数右边的放大镜</b>打开敌人列表，助手会读下来</span>
-        </div>
-      {/if}
+      <RoundEnemyList />
       {#if boss}
         <button class="boss" onclick={() => (app.detail = { kind: 'boss', id: boss.id })}>
           <span class="bpic"><img src={asset.boss(boss.id)} alt="" /></span>
@@ -1149,23 +1123,6 @@
   .vlabel small {
     font-weight: var(--fw-base);
     color: var(--fg-4);
-  }
-  .rnd {
-    padding: 6px 8px 8px;
-    background: var(--bg-1);
-  }
-  .rhint {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 7px 9px;
-    font-size: var(--fs-sm);
-    color: var(--fg-3);
-    border: 1px dashed var(--line);
-  }
-  .rhint b {
-    color: var(--fg-1);
-    font-weight: var(--fw-semi);
   }
   .vgrid {
     display: grid;

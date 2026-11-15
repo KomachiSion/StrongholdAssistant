@@ -24,5 +24,6 @@ internal sealed class RouteSystemHotkey
     {
         if (_registered) unregister();
         _registered = false;
+        _state = null;
     }
 }

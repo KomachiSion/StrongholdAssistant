@@ -173,14 +173,16 @@ public class PlacementPlannerTests
 
 
     [Fact]
-    public async Task Plan_PutsJessicaInFrontOfSaria()
+    public async Task Plan_UsesSariaCopyTraitOnLegalCells()
     {
         var (planner, board) = await LoadAsync();
-        // On 沙漠（中央木箱） both routes meet at one cell and 杰西卡 holds it alone, so 塞雷娅 stands behind her and
-        // copies her round-end trait.
-        // Fast score only: see Plan_KeepsAHealerOnTheField on the simulation's generic enemy.
-        var crates = planner.Plan(board.Find("m01")!, VictoriaPool.Select(n => new PlacementCandidate(n, false)).ToList(), Fast(2) with { Simulate = false });
-        crates.Find("塞雷娅")!.Notes.Should().Contain(n => n.StartsWith("复制身前 涤火杰西卡"));
+        // (2,3) 修正为禁放岩石后，最优阵型及复制对象会变化；保留复制收益与合法落点要求。
+        var map = board.Find("m01")!;
+        var crates = planner.Plan(map, VictoriaPool.Select(n => new PlacementCandidate(n, false)).ToList(), Fast(2) with { Simulate = false });
+        crates.Find("塞雷娅")!.Notes.Should().Contain(n => n.StartsWith("复制身前 "));
+        crates.Placed.Should().NotContain(p => p.Cell == new BoardCell(2, 3));
+        foreach (var p in crates.Placed)
+            GarrisonMap.CanDeploy(map.At(p.Cell), planner.IsMelee(p.Name)).Should().BeTrue(p.Name);
         // With two separate routes 塞雷娅 (a defender with about 7 500 effective HP) is worth more holding the second
         // line than copying a trait; either way she must have a job on the field, not just stand somewhere.
         var plan = planner.Plan(board.Find("m10")!, VictoriaPool.Select(n => new PlacementCandidate(n, false)).ToList(), new PlacementOptions { Simulate = false });

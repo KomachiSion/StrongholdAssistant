@@ -398,14 +398,15 @@
     bottom: 0;
     left: auto;
     right: 0;
-    width: min(440px, 46%);
+    /* 工作台能拖窄（v0.9.8 起）：面板至少 380px，窗口比这还窄就铺满，不再按 46% 挤成一条（v1.0.1） */
+    width: min(440px, max(46%, min(380px, 100%)));
     max-height: none;
     box-shadow:
       -1px 0 0 var(--line),
       -16px 0 32px rgb(var(--shade-rgb) / 0.45);
   }
   .content.wb > :global(aside.ed) {
-    width: min(720px, 66%);
+    width: min(720px, max(66%, min(560px, 100%)));
   }
   /* 阵容页：编辑器、禁用选择铺满右边，左边「我的阵容」列表露着 */
   .content.wb.lineup > :global(aside.ed) {

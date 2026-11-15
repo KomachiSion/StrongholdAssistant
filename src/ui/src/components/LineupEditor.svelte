@@ -3,15 +3,16 @@
   import { sheet } from '../lib/sheet'
   import { fly, fade } from 'svelte/transition'
   import { untrack } from 'svelte'
-  import type { CovenantGoal, LineupMember } from '../lib/api/types'
+  import type { CovenantGoal, LineupGroup, LineupMember, LineupUpgrade } from '../lib/api/types'
   import { stageLabel, MAX_ROUND } from '../lib/stages'
   import { defaultsFor, effective, customSkill, setChoice, setMyDefault } from '../lib/opconfig'
   import { app, goalProgress, otherBonds, rankForGoals, lineupEquipment } from '../lib/state.svelte'
-  import { asset } from '../lib/assets'
+  import { asset, ROMAN } from '../lib/assets'
   import BondIcon from './BondIcon.svelte'
   import OpTile from './OpTile.svelte'
   import EqTile from './EqTile.svelte'
   import Seg from './Seg.svelte'
+  import Select from './Select.svelte'
   import StrategyGrid from './StrategyGrid.svelte'
   import Icon from './Icon.svelte'
   import { openMenu, type MenuEntry } from '../lib/menu.svelte'
@@ -22,6 +23,9 @@
   const e = $derived(app.editing)
   let q = $state('')
   let bond = $state<string | null>(null)
+  // 干员、装备池按等阶筛（v1.0.1，用户提）：可多选，和图鉴页一样
+  let tiers = $state<number[]>([])
+  const toggleTier = (t: number) => (tiers = tiers.includes(t) ? tiers.filter((x) => x !== t) : [...tiers, t])
   // 目标盟约：本局阵容不完整的核心盟约不能选（已选的还能取消）；只有一档的盟约（调和、独行等）选上就只亮起，不标档位
   const goalState = (id: string) => {
     const c = app.cov(id)
@@ -39,7 +43,14 @@
   const cats = [...new Set(app.catalog.equipment.flatMap((x) => x.categories))]
   // 点已选的干员展开他的装备面板；展开时下面「装备」里点的装备进他的候选，否则进通用装备
   let sel = $state<string | null>(null)
-  const selM = $derived(sel ? e?.members.find((m) => m.name === sel) : undefined)
+  // 「一组」干员（v1.0.1）：组员和固定干员一样能设关键、候选装备、精锐技能模组，所以按名字在两边一起找、一起改
+  const allMembers = $derived(e ? [...e.members, ...(e.groups ?? []).flatMap((g) => g.members)] : [])
+  const selM = $derived(sel ? allMembers.find((m) => m.name === sel) : undefined)
+  const mapMember = (n: string, f: (m: LineupMember) => LineupMember) => {
+    if (!e) return
+    e.members = e.members.map((m) => (m.name === n ? f(m) : m))
+    if (e.groups) e.groups = e.groups.map((g) => ({ ...g, members: g.members.map((m) => (m.name === n ? f(m) : m)) }))
+  }
   const selOp = $derived(sel ? app.op(sel) : undefined)
   const pickMember = (n: string) => {
     sel = sel === n ? null : n
@@ -47,12 +58,11 @@
   }
   const memberHas = (n: string) => !!selM?.equipment?.some((x) => x.name === n)
   const setMemberEq = (f: (l: { name: string; priority: boolean }[]) => { name: string; priority: boolean }[]) => {
-    if (!e || !sel) return
-    e.members = e.members.map((m) => (m.name === sel ? { ...m, equipment: f(m.equipment ?? []) } : m))
+    if (sel) mapMember(sel, (m) => ({ ...m, equipment: f(m.equipment ?? []) }))
   }
   // 精锐、技能、模组（v0.7.0）：改的是这套阵容（这个阶段）里的这名干员；和默认一样就不写
   const my = $derived(app.settings.operatorDefaults)
-  const setMember = (m: LineupMember) => e && (e.members = e.members.map((x) => (x.name === m.name ? m : x)))
+  const setMember = (m: LineupMember) => mapMember(m.name, () => m)
   function toggleElite() {
     const { elite, ...rest } = selM!
     setMember(elite ? rest : { ...rest, elite: true })
@@ -75,26 +85,78 @@
     e.equipment = e.equipment.includes(n) ? e.equipment.filter((x) => x !== n) : [...e.equipment, n]
   }
   const eqPool = $derived(
-    app.catalog.equipment.filter((x) => (!q || x.name.includes(q)) && (!cat || x.categories.includes(cat))).sort((a, b) => b.tier - a.tier),
+    app.catalog.equipment.filter((x) => (!q || x.name.includes(q)) && (!cat || x.categories.includes(cat)) && (!tiers.length || tiers.includes(x.tier))).sort((a, b) => b.tier - a.tier),
   )
   const empty = $derived(!e || (!e.members.length && !e.goals.length && !lineupEquipment(e).length))
 
-  const inLineup = (n: string) => !!e?.members.some((m) => m.name === n)
+  const inLineup = (n: string) => allMembers.some((m) => m.name === n)
+  const groupOf = (n: string) => (e?.groups ?? []).findIndex((g) => g.members.some((m) => m.name === n))
+  // 正在往第几组里加人（null = 点头像加进固定名单）
+  let grp = $state<number | null>(null)
   const add = (n: string) => {
     if (!e) return
+    if (grp !== null) return toggleInGroup(grp, n)
+    const gi = groupOf(n)
+    if (gi >= 0) return removeFromGroup(gi, n)
     if (inLineup(n) && sel === n) sel = null
     e.members = inLineup(n) ? e.members.filter((m) => m.name !== n) : [...e.members, { name: n }]
   }
-  const toggleKey = (n: string) => {
-    if (!e) return
-    e.members = e.members.map((m) => (m.name === n ? { ...m, key: !m.key } : m))
+  /** 往第 gi 组里加 / 移出；原来在固定名单或别的组里的连同设置一起挪过来（同一名干员只在一处） */
+  function toggleInGroup(gi: number, n: string) {
+    const groups = e!.groups!
+    if (groups[gi].members.some((m) => m.name === n)) return removeFromGroup(gi, n)
+    const from = allMembers.find((m) => m.name === n) ?? { name: n }
+    e!.members = e!.members.filter((m) => m.name !== n)
+    e!.groups = groups.map((g, i) => ({ ...g, members: i === gi ? [...g.members, from] : g.members.filter((m) => m.name !== n) }))
   }
+  function removeFromGroup(gi: number, n: string) {
+    if (sel === n) sel = null
+    e!.groups = e!.groups!.map((g, i) => (i === gi ? { ...g, members: g.members.filter((m) => m.name !== n) } : g))
+  }
+  function addGroup() {
+    e!.groups = [...(e!.groups ?? []), { need: 1, members: [] }]
+    grp = e!.groups.length - 1
+    poolKind = 'op'
+  }
+  function removeGroup(gi: number) {
+    e!.groups = e!.groups!.filter((_, i) => i !== gi)
+    grp = null
+  }
+  const maxNeed = (g: LineupGroup) => Math.max(1, g.members.length - 1)
+  const setNeed = (gi: number, d: number) => (e!.groups = e!.groups!.map((g, i) => (i === gi ? { ...g, need: Math.min(maxNeed(g), Math.max(1, g.need + d)) } : g)))
+  const toggleKey = (n: string) => mapMember(n, (m) => ({ ...m, key: !m.key }))
+
+  // 升本计划（v1.0.1）：整套阵容一份，和回合阶段无关；按回合排，等级要越来越高
+  let upRound = $state(3)
+  let upLevel = $state(3)
+  const ROUND_OPTS = Array.from({ length: MAX_ROUND }, (_, k) => ({ value: k + 1, label: String(k + 1) }))
+  const LEVEL_OPTS = [2, 3, 4, 5, 6].map((v) => ({ value: v, label: String(v) }))
+  const upgrades = $derived(e?.upgrades ?? [])
+  // 已经排到最高级就不再显示添加那一行
+  const upFull = $derived((upgrades.at(-1)?.level ?? 0) >= 6)
+  const upProblem = $derived.by(() => {
+    if (upgrades.some((u) => u.round === upRound)) return `第 ${upRound} 回合已经写了`
+    const before = upgrades.filter((u) => u.round < upRound).at(-1)
+    const after = upgrades.find((u) => u.round > upRound)
+    if (before && before.level >= upLevel) return `第 ${before.round} 回合已经升到 ${before.level} 级了`
+    if (after && after.level <= upLevel) return `第 ${after.round} 回合才升到 ${after.level} 级`
+    return ''
+  })
+  function addUpgrade() {
+    if (upProblem) return
+    const list: LineupUpgrade[] = [...upgrades, { round: upRound, level: upLevel }].sort((a, b) => a.round - b.round)
+    e!.upgrades = list
+    // 下一步顺手往后推：再过 3 回合升 1 级
+    upRound = Math.min(MAX_ROUND, upRound + 3)
+    upLevel = Math.min(6, upLevel + 1)
+  }
+  const removeUpgrade = (r: number) => (e!.upgrades = upgrades.filter((u) => u.round !== r))
   const levelOf = (id: string) => e?.goals.find((g) => g.id === id)?.level
   const useGoals = $derived(!!e?.goals.length && goalOnly)
   const pool = $derived.by(() => {
     if (!e) return []
     const base = useGoals ? rankForGoals(e.goals, app.catalog.operators) : [...app.catalog.operators].sort((a, b) => b.tier - a.tier)
-    return base.filter((o) => (!q || o.name.includes(q)) && (!bond || o.core.includes(bond) || o.extra.includes(bond)))
+    return base.filter((o) => (!q || o.name.includes(q)) && (!bond || o.core.includes(bond) || o.extra.includes(bond)) && (!tiers.length || tiers.includes(o.tier)))
   })
   const progress = $derived(e ? goalProgress(e.goals, e.members, e.members.map((m) => m.name)) : [])
   const others = $derived(e ? otherBonds(e.goals, e.members) : [])
@@ -111,7 +173,7 @@
   let err = $state('')
   // 阶段（v0.7.0）：顶层字段始终是「正在编辑的那个阶段」，下面的盟约、干员、装备代码都不用改。
   // cur = -1 表示成型阵容在顶层；切到回合阶段时成型阵容先放进 finalBuf，切回来再放回去
-  type Part = { goals: CovenantGoal[]; members: LineupMember[]; equipment: string[] }
+  type Part = { goals: CovenantGoal[]; members: LineupMember[]; equipment: string[]; groups?: LineupGroup[] }
   let cur = $state(-1)
   let finalBuf = $state.raw<Part | null>(null)
   // 加回合阶段：依次点起始、结束回合（可以相同），照森空岛
@@ -125,16 +187,18 @@
   })
   function swapTo(i: number) {
     if (!e || i === cur) return
-    const top: Part = { goals: e.goals, members: e.members, equipment: e.equipment }
+    const top: Part = { goals: e.goals, members: e.members, equipment: e.equipment, groups: e.groups }
     if (cur === -1) finalBuf = top
     else e.stages![cur] = { ...e.stages![cur], ...top }
     const next = i === -1 ? finalBuf! : e.stages![i]
     e.goals = next.goals
     e.members = next.members
     e.equipment = next.equipment
+    e.groups = next.groups
     if (i === -1) finalBuf = null
     cur = i
     sel = null
+    grp = null
   }
   // 每个回合都能单独做一个阶段（照森空岛），回合不能重叠：已经被别的阶段占用的回合点不了（改范围时不算它自己）
   const covered = (r: number) => !!e?.stages?.some((x, i) => i !== rangeFor && r >= x.fromRound && r <= x.toRound)
@@ -156,7 +220,7 @@
     // 新阶段先从它前面最近的回合阶段复制一份，接着改最方便；前面没有就空着
     const prev = (e!.stages ?? []).filter((x) => x.toRound < from).at(-1)
     const seed = prev ? structuredClone($state.snapshot(prev)) : null
-    const stages = [...(e!.stages ?? []), { name: '', fromRound: from, toRound: to, goals: seed?.goals ?? [], members: seed?.members ?? [], equipment: seed?.equipment ?? [] }]
+    const stages = [...(e!.stages ?? []), { name: '', fromRound: from, toRound: to, goals: seed?.goals ?? [], members: seed?.members ?? [], equipment: seed?.equipment ?? [], ...(seed?.groups?.length && { groups: seed.groups }) }]
     stages.sort((a, b) => a.fromRound - b.fromRound)
     e!.stages = stages
     addingStage = false
@@ -168,8 +232,8 @@
   }
   // 从别的阶段复制（整段覆盖当前阶段的盟约、干员、装备）；当前阶段有内容时要点两次
   let confirmCopy = $state<number | null>(null)
-  const partOf = (i: number): Part => (i === cur ? { goals: e!.goals, members: e!.members, equipment: e!.equipment } : i === -1 ? finalBuf! : e!.stages![i])
-  const curEmpty = $derived(!e?.members.length && !e?.goals.length && !e?.equipment.length)
+  const partOf = (i: number): Part => (i === cur ? { goals: e!.goals, members: e!.members, equipment: e!.equipment, groups: e!.groups } : i === -1 ? finalBuf! : e!.stages![i])
+  const curEmpty = $derived(!e?.members.length && !e?.goals.length && !e?.equipment.length && !e?.groups?.length)
   function copyFrom(i: number) {
     if (!curEmpty && confirmCopy !== i) return void (confirmCopy = i)
     overwriteFrom(i)
@@ -179,13 +243,14 @@
     e!.goals = src.goals
     e!.members = src.members
     e!.equipment = src.equipment
+    e!.groups = src.groups
     confirmCopy = null
     sel = null
   }
 
   // 右键菜单（编辑器里自己的，不弹全局的干员菜单）：已选干员、阶段页签
   function memberMenu(ev: MouseEvent, n: string) {
-    const m = e!.members.find((x) => x.name === n)!
+    const m = allMembers.find((x) => x.name === n)!
     openMenu(ev, {
       title: n,
       sub: '这套阵容里',
@@ -194,7 +259,7 @@
         { label: '候选装备、技能、模组…', icon: 'pencil', run: () => sel !== n && pickMember(n) },
         { label: '查看详情', icon: 'arrowRight', run: () => (app.detail = { kind: 'operator', name: n }) },
         'sep',
-        { label: '从阵容里移出', icon: 'close', tone: 'danger', run: () => add(n) },
+        { label: '从阵容里移出', icon: 'close', tone: 'danger', run: () => ((grp = null), add(n)) },
       ],
     })
   }
@@ -213,8 +278,18 @@
     openMenu(ev, { title: i >= 0 ? stageLabel(e!.stages![i]) : '成型阵容', sub: '阶段', items })
   }
 
+  /** 空组去掉、need 夹到 1～人数-1；有不到 2 人的组返回提示 */
+  function tidyGroups(p: { groups?: LineupGroup[] }, where: string) {
+    const list = (p.groups ?? []).filter((g) => g.members.length).map((g) => ({ ...g, need: Math.min(maxNeed(g), Math.max(1, g.need)) }))
+    if (list.length) p.groups = list
+    else delete p.groups
+    return list.some((g) => g.members.length < 2) ? `${where}有一组只有 1 个人，「任选」的组至少要 2 个人` : ''
+  }
   const save = async () => {
     swapTo(-1)
+    const bad = [tidyGroups(e!, '成型阵容'), ...(e!.stages ?? []).map((s) => tidyGroups(s, stageLabel(s)))].find(Boolean)
+    if (bad) return void (err = bad)
+    if (!e!.upgrades?.length) delete e!.upgrades
     if (!e!.stages?.length) delete e!.stages
     if (!e!.name.trim()) e!.name = autoName
     saving = true
@@ -316,6 +391,33 @@
           <span class="muted">在下面点头像加入</span>
         {/each}
       </div>
+      <!-- 「一组」干员（v1.0.1）：这几个里任选几个就行；点「加人」后下面点头像就进这一组 -->
+      {#each e.groups ?? [] as g, gi (gi)}
+        <div class="grp" class:on={grp === gi}>
+          <div class="gh">
+            <span class="gt">任选</span>
+            <button class="nb" aria-label="少要一个" disabled={g.need <= 1} onclick={() => setNeed(gi, -1)}>−</button>
+            <b class="term">{g.need}</b>
+            <button class="nb" aria-label="多要一个" disabled={g.need >= maxNeed(g)} onclick={() => setNeed(gi, 1)}>+</button>
+            <span class="gof">个 · 组里 {g.members.length} 人</span>
+            <span class="spacer"></span>
+            <button class="gbtn" class:on={grp === gi} onclick={() => ((grp = grp === gi ? null : gi), (poolKind = 'op'))}>{grp === gi ? '完成' : '加人'}</button>
+            <button class="x2" aria-label="删除这一组" title="删除这一组" onclick={() => removeGroup(gi)}><Icon name="close" size={13} /></button>
+          </div>
+          <div class="chosen">
+            {#each g.members as m (m.name)}
+              <span class="mt" class:sel={sel === m.name}>
+                <OpTile name={m.name} transform={m.transform} isKey={m.key} elite={!!m.elite} skill={customSkill(m, app.op(m.name), my)} size={34} showName={false} oncontext={(ev) => memberMenu(ev, m.name)} onclick={() => pickMember(m.name)} />
+                {#if priCount(m)}<b class="pc" title="{priCount(m)} 件优先装备">{priCount(m)}</b>{:else if m.equipment?.length}<b class="pc soft" title="{m.equipment.length} 件候选装备">{m.equipment.length}</b>{/if}
+              </span>
+            {:else}
+              <span class="muted">{grp === gi ? '在下面点头像加进这一组' : '点「加人」，再在下面点头像'}</span>
+            {/each}
+          </div>
+          {#if g.members.length === 1}<p class="gwarn">至少要 2 个人</p>{/if}
+        </div>
+      {/each}
+      <button class="gadd" onclick={addGroup} title="比如「能天使 / 空弦 / 灰喉 任选 1 个」：组里的人都会追踪，拿够了剩下的就不再标"><Icon name="add" size={13} />一组（任选几个）</button>
       {#if selM && selOp}
         {@const pri = priCount(selM)}
         {@const d = defaultsFor(selOp, my)}
@@ -380,6 +482,18 @@
           <Icon name="close" size={13} />
         </button>
       {/if}
+      <div class="lbl">升本计划<em>整套阵容一份，不分阶段；到了那个回合还没升，本局页和游戏里的升级按钮会提示</em></div>
+      <div class="ups">
+        {#each upgrades as u (u.round)}
+          <span class="up">第 <b class="term">{u.round}</b> 回合 → <b class="term">{u.level}</b> 级<button class="cx" aria-label="删除第 {u.round} 回合" onclick={() => removeUpgrade(u.round)}><Icon name="close" size={11} /></button></span>
+        {/each}
+        {#if !upFull}<span class="upadd">
+          第<Select label="回合" value={upRound} options={ROUND_OPTS} onchange={(v) => (upRound = v)} />回合升到
+          <Select label="等级" value={upLevel} options={LEVEL_OPTS} onchange={(v) => (upLevel = v)} />级
+          <button class="gbtn" disabled={!!upProblem} title={upProblem} onclick={addUpgrade}>添加</button>
+        </span>{/if}
+      </div>
+      {#if upProblem && !upFull}<p class="gwarn">{upProblem}</p>{/if}
       <div class="lbl">简介 <b class="term">{[...(e.description ?? '')].length}/500</b><em>可以不写；发布到广场时默认带上</em></div>
       <textarea class="desc" rows="2" maxlength="500" placeholder="这套阵容的思路、运营要点、适合打哪个首领……" value={e.description ?? ''} oninput={(ev) => (e.description = ev.currentTarget.value || undefined)}></textarea>
       {#if e.equipment.length}
@@ -412,7 +526,15 @@
           <button class="tog" class:on={goalOnly} onclick={() => (goalOnly = !goalOnly)}>只看目标盟约</button>
         {/if}
       </div>
+      {#if poolKind !== 'st'}
+        <div class="tiers">
+          {#each [1, 2, 3, 4, 5, 6] as t (t)}
+            <button class="chip tier" class:on={tiers.includes(t)} style:--c="var(--tier-{t})" title="只看 {ROMAN[t]} 阶" onclick={() => toggleTier(t)}>{ROMAN[t]}</button>
+          {/each}
+        </div>
+      {/if}
       {#if poolKind === 'op'}
+        {#if grp !== null}<div class="for member">点头像加进<b>第 {grp + 1} 组</b>，再点移出<button onclick={() => (grp = null)}>完成</button></div>{/if}
         <BondPick state={(id) => ({ on: bond === id })} onpick={(id) => (bond = bond === id ? null : id)} />
       {:else if poolKind === 'eq'}
         <div class="for" class:member={!!sel}>
@@ -488,6 +610,114 @@
   .mt {
     position: relative;
     display: inline-flex;
+  }
+  /* 「一组」干员 */
+  .grp {
+    margin-top: 8px;
+    padding: 6px 8px 8px;
+    background: rgb(var(--shade-rgb) / 0.22);
+    box-shadow: inset var(--edge) 0 0 var(--line);
+    transition: box-shadow var(--t-fast);
+  }
+  .grp.on {
+    box-shadow: inset var(--edge) 0 0 var(--mint);
+  }
+  .gh {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+    font-size: var(--fs-sm);
+    color: var(--fg-3);
+  }
+  .gt {
+    color: var(--fg-2);
+  }
+  .gh .term {
+    min-width: 12px;
+    text-align: center;
+    font-size: var(--fs-md);
+    color: var(--mint);
+  }
+  .nb {
+    width: 20px;
+    height: 20px;
+    line-height: 18px;
+    color: var(--fg-2);
+    box-shadow: inset 0 0 0 1px var(--line);
+  }
+  .nb:disabled {
+    opacity: 0.35;
+  }
+  .nb:not(:disabled):hover {
+    color: var(--fg-1);
+    box-shadow: inset 0 0 0 1px var(--fg-4);
+  }
+  .gbtn {
+    padding: 1px 10px;
+    font-size: var(--fs-sm);
+    color: var(--fg-2);
+    box-shadow: inset 0 0 0 1px var(--line);
+  }
+  .gbtn:not(:disabled):hover {
+    color: var(--fg-1);
+  }
+  .gbtn.on {
+    color: var(--mint);
+    background: var(--mint-tint);
+    box-shadow: inset 0 0 0 1px rgb(var(--mint-rgb) / 0.5);
+  }
+  .gbtn:disabled {
+    opacity: 0.4;
+  }
+  .gadd {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 8px;
+    padding: 3px 10px;
+    font-size: var(--fs-sm);
+    color: var(--fg-3);
+    border: 1px dashed var(--line);
+  }
+  .gadd:hover {
+    color: var(--mint);
+    border-color: rgb(var(--mint-rgb) / 0.6);
+  }
+  .gwarn {
+    margin: 4px 0 0;
+    font-size: var(--fs-xs);
+    color: var(--gold);
+  }
+  /* 升本计划 */
+  .ups {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 4px;
+    font-size: var(--fs-sm);
+    color: var(--fg-2);
+  }
+  .up {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 4px 2px 8px;
+    background: rgb(var(--gold-rgb) / 0.12);
+    box-shadow: inset 0 0 0 1px rgb(var(--gold-rgb) / 0.4);
+  }
+  .up .term {
+    color: var(--gold);
+  }
+  .upadd {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--fg-3);
+  }
+  .upadd .gbtn {
+    margin-left: 4px;
   }
   .mt.sel {
     outline: 2px solid var(--mint);
@@ -907,6 +1137,20 @@
     color: var(--mint-ink);
     background: var(--mint);
     box-shadow: none;
+  }
+  .tiers {
+    display: flex;
+    gap: 4px;
+  }
+  .chip.tier {
+    flex: 1;
+    font-family: var(--font-term);
+    font-weight: var(--fw-bold);
+    color: var(--c);
+  }
+  .chip.tier.on {
+    color: var(--bg-0);
+    background: var(--c);
   }
   .pool {
     display: grid;

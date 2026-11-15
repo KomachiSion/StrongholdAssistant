@@ -68,7 +68,8 @@
 
 <main>
   {#if r.page === 'home'}
-    <Home />
+    <!-- 点作者名会带着 ?author 跳回首页（v1.0.1），每次跳转都重新挂载，按地址栏重读筛选 -->
+    {#key r}<Home />{/key}
   {:else if r.page === 'post'}
     {#key r.id}<PostPage id={r.id} />{/key}
   {:else if r.page === 'login'}

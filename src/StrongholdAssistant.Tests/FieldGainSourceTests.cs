@@ -31,7 +31,7 @@ public sealed class FieldGainSourceTests
         t.Observe(Frame(1) with { DragOperator="伊桑",Money=5 });
         t.Observe(Frame(2,(ethan,0)) with { Money=6 });
         t.Observe(Picture(Frame(3,(Bench,1))));
-        t.Observe(Picture(Frame(10,(Bench,1))));
+        t.Observe(Picture(Frame(4,(Bench,1))));
         Assert.Equal(new[]{"甲","乙","丙"},candidates);
         t.SetOperator(Bench,"乙",Start.AddSeconds(3));
         Assert.Contains(t.State!.Roster,r=>r.Operator=="乙"&&r.Source=="ethan");
@@ -46,6 +46,7 @@ public sealed class FieldGainSourceTests
         var t=new FieldTracker();
         t.ConfigureIdentity(Operators,(_,_,names)=>{candidates=names;return new(names.Select((n,i)=>new SpriteCandidate(n,.8-i*.1)).ToArray(),.1);});
         t.SeedRoster(strategy,[],3,Start);
+        t.Observe(Frame(-1));
         t.Observe(Picture(Frame(0,(Bench,1))));
         t.Observe(Picture(Frame(7,(Bench,1))));
         Assert.Equal(strategy=="黑白相易" ? new[]{"甲","乙"} : new[]{"丙"},candidates);
@@ -60,6 +61,7 @@ public sealed class FieldGainSourceTests
         var t=new FieldTracker();
         t.ConfigureIdentity(Operators,(_,_,names)=>new(names.Select(n=>new SpriteCandidate(n,n=="乙"?.9:.4)).ToArray(),.5));
         t.AddRoster("甲","purchase",Start);
+        t.Observe(Frame(-1));
         t.Observe(Picture(Frame(0,(Bench,1))));
         t.Observe(Picture(Frame(7,(Bench,1))));
         Assert.Equal("乙",Assert.Single(t.State!.Units).Operator);

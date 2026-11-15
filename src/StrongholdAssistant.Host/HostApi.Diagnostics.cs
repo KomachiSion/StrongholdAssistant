@@ -48,8 +48,34 @@ public sealed partial class HostApi
             monitors = DiagnosticMonitors.Read(),
             dpiAwareness = User32.DescribeDpiAwareness(User32.GetDpiAwarenessContextForProcess(
                 System.Diagnostics.Process.GetCurrentProcess().Handle)),
-            windowSnapshot = (DialogOwner as MainWindow)?.ReadDiagnosticWindows()
+            windowSnapshot = (DialogOwner as MainWindow)?.ReadDiagnosticWindows(),
+            gameWindows = User32.EnumerateArknightsWindows().Select(window => new
+            {
+                handle = window.Handle.ToInt64(),
+                className = User32.GetWindowClass(window.Handle),
+                visible = window.Visible,
+                minimized = User32.IsIconic(window.Handle),
+                clientWidth = window.ClientWidth,
+                clientHeight = window.ClientHeight,
+                processName = ReadWindowProcessName(window.Handle)
+            }).ToArray()
         };
+    }
+
+    private static string? ReadWindowProcessName(nint hwnd)
+    {
+        User32.GetWindowThreadProcessId(hwnd, out var processId);
+        if (processId == 0) return null;
+        try
+        {
+            using var process = System.Diagnostics.Process.GetProcessById((int)processId);
+            return process.ProcessName;
+        }
+        // 枚举后进程可能退出，或系统拒绝访问；保留其余窗口信息。
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or System.ComponentModel.Win32Exception)
+        {
+            return null;
+        }
     }
 }
 

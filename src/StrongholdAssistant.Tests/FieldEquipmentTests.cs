@@ -56,9 +56,9 @@ public sealed class FieldEquipmentTests(EnemyRecognitionFixture fixture)
         t.Observe(O(new() { [a] = 1 })); t.SetOperator(a, "杰克", now);
         FieldEquipment[] equipment = [new("维式重锤", false), new("坚守盾牌", null)];
         t.Observe(O(new()) with { PanelOperator = "杰克", Equipment = equipment });
-        t.Observe(O(new() { [a] = 0, [b] = 1 }));
+        t.Observe(O(new() { [a] = 0, [b] = 1 }));t.Observe(O(new() { [a] = 0, [b] = 1 }));
         Assert.Equal(equipment, Assert.Single(t.State!.Units).Equipment);
-        t.Observe(O(new() { [a] = 1, [b] = 1 })); t.SetOperator(a, "杰克", now);
+        t.Observe(O(new() { [a] = 1, [b] = 1 }));t.Observe(O(new() { [a] = 1, [b] = 1 })); t.SetOperator(a, "杰克", now);
         t.Observe(O(new()) with { PanelOperator = "杰克", Equipment = [] });
         Assert.Null(t.State!.Units.Single(u => u.Cell == a).Equipment);
         Assert.Equal(2, t.State.Units.Single(u => u.Cell == b).Equipment!.Length);
@@ -73,10 +73,10 @@ public sealed class FieldEquipmentTests(EnemyRecognitionFixture fixture)
         t.Observe(O(new() { [a] = 1 }));
         FieldEquipment[] equipment = [new("坚守盾牌", true)];
         t.Observe(O(new()) with { DragOperator = "杰克", Equipment = equipment });
-        t.Observe(O(new() { [a] = 0, [b] = 1 }));
+        t.Observe(O(new() { [a] = 0, [b] = 1 }));t.Observe(O(new() { [a] = 0, [b] = 1 }));
         Assert.Equal(equipment, Assert.Single(t.State!.Units).Equipment);
-        t.Observe(O(new() { [c] = 1, [d] = 1 })); t.SetOperator(c, "杰克", now); t.SetOperator(d, "杰克", now);
-        t.Observe(O(new() { [b] = 2, [c] = 0, [d] = 0 }));
+        t.Observe(O(new() { [c] = 1, [d] = 1 }));t.Observe(O(new() { [c] = 1, [d] = 1 })); t.SetOperator(c, "杰克", now); t.SetOperator(d, "杰克", now);
+        t.Observe(O(new() { [b] = 2, [c] = 0, [d] = 0 }));t.Observe(O(new() { [b] = 2, [c] = 0, [d] = 0 }));
         Assert.Equal(equipment, Assert.Single(t.State!.Units).Equipment);
     }
 }

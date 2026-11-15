@@ -1,3 +1,4 @@
+using ASPAssistant.Core.Data;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using ASPAssistant.Core.Models;
@@ -24,8 +25,7 @@ public sealed record DockSettings(double Width = 380, SidePanelOffset? FollowOff
 // 同步合并写入，让窗口位置与界面设置共用文件而不相互覆盖。
 public sealed class HostSettingsStore(string path)
 {
-    private JsonObject Read() => File.Exists(path)
-        ? JsonNode.Parse(File.ReadAllText(path))!.AsObject() : new();
+    private JsonObject Read() => UserJsonFile.Read(path, json => JsonSerializer.Deserialize<JsonObject>(json)) ?? new();
 
     public SettingsDto LoadSettings()
     {
@@ -46,6 +46,8 @@ public sealed class HostSettingsStore(string path)
         {
             PlacementGoal = json["placementGoal"]?.GetValue<string>() is "leak" or "layers" ? json["placementGoal"]!.GetValue<string>() : "balanced",
             GameThemeAuto = json["gameThemeAuto"]?.GetValue<bool>() ?? true,
+            FieldAuto = json["fieldAuto"]?.GetValue<bool>() ?? true,
+            FieldHotkey = json["fieldHotkey"]?.GetValue<string>() ?? "Alt+F",
             RunAsAdmin = json["runAsAdmin"]?.GetValue<bool>() ?? false,
             UiSkin = uiSkin,
             UiScheme = json["uiScheme"] is JsonValue schemeValue && schemeValue.TryGetValue<string>(out var scheme)
@@ -143,7 +145,6 @@ public sealed class HostSettingsStore(string path)
             json["emulatorSerial"] = legacySerial.DeepClone();
         json.Remove("mumuSerial");
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        File.WriteAllText(path + ".tmp", json.ToJsonString(HostApi.JsonOptions));
-        File.Move(path + ".tmp", path, true);
+        UserJsonFile.Write(path, json.ToJsonString(HostApi.JsonOptions));
     }
 }

@@ -166,15 +166,18 @@
   let tab = $state<'op' | 'eq'>('op')
   let q = $state('')
   let goalOnly = $state(true)
+  // 按等阶筛（v1.0.1，用户提）：可多选，干员和装备都管
+  let tiers = $state<number[]>([])
+  const toggleTier = (t: number) => (tiers = tiers.includes(t) ? tiers.filter((x) => x !== t) : [...tiers, t])
   let sel = $state<string | null>(null)
   const ops = $derived.by(() => {
-    const all = [...known.operators].map(op).filter((o) => !o.obtain && (!q || o.name.includes(q)))
+    const all = [...known.operators].map(op).filter((o) => !o.obtain && (!q || o.name.includes(q)) && (!tiers.length || tiers.includes(o.tier)))
     const goalIds = P.goals.map((g) => g.id)
     const hits = (o: ReturnType<typeof op>) => goalIds.filter((id) => o.core.includes(id) || o.extra.includes(id)).length
     const list = goalIds.length && goalOnly ? all.filter((o) => hits(o) > 0) : all
     return list.sort((a, b) => hits(b) - hits(a) || b.tier - a.tier)
   })
-  const eqs = $derived([...known.equipment].map(eq).filter((e) => !q || e.name.includes(q)).sort((a, b) => b.tier - a.tier))
+  const eqs = $derived([...known.equipment].map(eq).filter((e) => (!q || e.name.includes(q)) && (!tiers.length || tiers.includes(e.tier))).sort((a, b) => b.tier - a.tier))
   const inLineup = (n: string) => P.members.some((m) => m.name === n)
   function toggleOp(n: string) {
     if (inLineup(n)) {
@@ -334,6 +337,11 @@
           {#if tab === 'op' && P.goals.length}
             <button class="tog" class:on={goalOnly} onclick={() => (goalOnly = !goalOnly)}>只看目标盟约</button>
           {/if}
+        </div>
+        <div class="tiers">
+          {#each [1, 2, 3, 4, 5, 6] as t (t)}
+            <button class:on={tiers.includes(t)} style:--c="var(--tier-{t})" title="只看 {ROMAN[t]} 阶" onclick={() => toggleTier(t)}>{ROMAN[t]}</button>
+          {/each}
         </div>
         {#if tab === 'eq'}
           <p class="for" class:member={!!selM}>
@@ -761,6 +769,23 @@
     background: none;
     box-shadow: inset 0 0 0 1px var(--mint-lo);
     font-weight: 400;
+  }
+  .tiers {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 8px;
+  }
+  .tiers button {
+    flex: 1;
+    padding: 3px 0;
+    font-weight: 700;
+    color: var(--c);
+    box-shadow: inset 0 0 0 1px var(--line);
+  }
+  .tiers button.on {
+    color: var(--bg-0);
+    background: var(--c);
+    box-shadow: none;
   }
   .for {
     margin: 0 0 8px;

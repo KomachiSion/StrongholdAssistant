@@ -34,7 +34,7 @@
     typed = f.q = ''
   }
   let panel = $state(false)
-  const count = $derived(f.covenants.length + (f.strategy ? 1 : 0))
+  const count = $derived(f.covenants.length + (f.strategy ? 1 : 0) + (f.author ? 1 : 0))
   const cov = (id: string) => app.catalog.covenants.find((c) => c.id === id)
   const toggleCov = (id: string) => (f.covenants = f.covenants.includes(id) ? f.covenants.filter((x) => x !== id) : [...f.covenants, id])
   const cores = app.catalog.covenants.filter((c) => c.kind === 'core')
@@ -53,6 +53,7 @@
   const clearFilters = () => {
     f.covenants = []
     f.strategy = null
+    f.author = null
   }
 
   // 先显示上次的列表（v0.9.3）：同样的排序和筛选，第一页存在本机，打开时先摆出来，后台再刷新
@@ -86,7 +87,7 @@
       return
     }
     // 收藏跟账号走，换账号会串，不缓存
-    const key = sort === 'favorite' ? '' : JSON.stringify([sort === 'match' ? 'hot' : sort, f.q, [...f.covenants].sort(), f.strategy])
+    const key = sort === 'favorite' ? '' : JSON.stringify([sort === 'match' ? 'hot' : sort, f.q, [...f.covenants].sort(), f.strategy, f.author?.id ?? null])
     if (!more && key) {
       const c = readCache()[key]
       if (c) {
@@ -97,7 +98,7 @@
     loading = true
     error = ''
     try {
-      const r = await plaza.list({ sort: sort === 'match' ? 'hot' : sort, q: f.q, covenant: f.covenants, strategy: f.strategy, cursor: more ? cursor : null })
+      const r = await plaza.list({ sort: sort === 'match' ? 'hot' : sort, q: f.q, covenant: f.covenants, strategy: f.strategy, author: f.author?.id, cursor: more ? cursor : null })
       if (my !== seq) return
       posts = more ? [...posts, ...r.posts] : r.posts
       cursor = r.cursor
@@ -111,7 +112,7 @@
   $effect(() => {
     void sort
     void plaza.me
-    void [f.q, f.covenants, f.strategy]
+    void [f.q, f.covenants, f.strategy, f.author]
     load()
   })
   $effect(() => {
@@ -259,6 +260,9 @@
     {#if strat}
       <button class="chip" title="取消策略筛选" onclick={() => (f.strategy = null)}><img src={asset.strategy(strat.id)} alt="" />{strat.name}<Icon name="close" size={11} /></button>
     {/if}
+    {#if f.author}
+      <button class="chip" title="不再只看这个作者" onclick={() => (f.author = null)}>作者：{f.author.nickname}<Icon name="close" size={11} /></button>
+    {/if}
     <button class="link" onclick={clearFilters}>清除</button>
   </div>
 {/if}
@@ -296,7 +300,7 @@
       >
         <LineupCard lineup={postToLineup(p)} menu={() => plazaPostMenu(p)} ontitle={() => (plaza.viewing = p)}>
           {#snippet sub()}
-            <span class="by">{p.author.nickname}</span>
+            <button class="by" title="只看 {p.author.nickname} 发的阵容" onclick={() => (f.author = p.author)}>{p.author.nickname}</button>
             <span class="num"><Icon name={p.liked ? 'heartFill' : 'heart'} size={11} />{p.likes}</span>
             <span class="num"><Icon name="download" size={11} />{p.imports}</span>
             <span class="num"><Icon name="chat" size={11} />{p.comments}</span>
@@ -658,6 +662,10 @@
   .by {
     font-size: var(--fs-sm);
     color: var(--fg-3);
+  }
+  .by:hover {
+    color: var(--mint);
+    text-decoration: underline;
   }
   .num {
     display: inline-flex;

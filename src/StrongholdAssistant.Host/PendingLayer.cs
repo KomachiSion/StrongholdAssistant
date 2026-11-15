@@ -16,13 +16,14 @@ public sealed class PendingLayer : Canvas
     public void Update(FieldState? field, FieldOverlayGeometry? geometry, bool enabled,
         double width, double height, bool animate = true)
     {
+        Children.Clear();
+        if (!double.IsFinite(width) || !double.IsFinite(height) || width <= 0 || height <= 0) return;
         if (_animating != animate)
         {
             BeginAnimation(OpacityProperty, animate ? new DoubleAnimation(.75, 1, TimeSpan.FromSeconds(.6))
                 { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever } : null);
             _animating = animate;
         }
-        Children.Clear();
         if (!enabled || field is null || geometry is null) return;
         double diameter = height * .024;
         foreach (var unit in field.Units.Where(u => u.Status == "pending"))

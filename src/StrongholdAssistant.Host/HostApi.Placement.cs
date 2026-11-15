@@ -11,6 +11,8 @@ public sealed partial class HostApi
     private string? _placementSignature;
     private int _placementGeneration;
     private PlacementResult? _placement;
+    private Task _placementWork = Task.CompletedTask;
+    private bool _publishingManualField;
     public PlacementResult? Placement { get { lock (_placementGate) return _placement; } }
     public event Action<OverlayPlacementPlan?>? PlacementOverlayChanged;
 
@@ -29,7 +31,7 @@ public sealed partial class HostApi
         _placementAdapter = await PlacementAdapter.LoadAsync(directory);
         Changed += (kind, _) =>
         {
-            if (kind is "field" or "match" or "roster") SchedulePlacement();
+            if (!_publishingManualField && kind is "field" or "match" or "roster") SchedulePlacement();
         };
     }
 
@@ -46,12 +48,16 @@ public sealed partial class HostApi
         NotifyPlacement(null);
     }
 
-    private void SchedulePlacement()
+    private void SchedulePlacement() => SchedulePlacementCore(false);
+
+    private void SchedulePlacementCore(bool force)
     {
+        if (!Settings.FieldAuto && !force) return;
         var field = Field;
-        if (field is null || field.MapId is null || Match.Economy?.Round is not > 0 || !field.Units.Any(u => u.Zone == "board"))
+        var round = force ? field?.Round : Match.Economy?.Round;
+        if (field is null || field.MapId is null || round is not > 0 || !field.Units.Any(u => u.Zone == "board"))
         {
-            ResetPlacement(force: false);
+            ResetPlacement(force: force);
             return;
         }
         // 按协议读可选字段；168/171 的宿主实现合入后自动带入，不在这里补识别。
@@ -60,27 +66,43 @@ public sealed partial class HostApi
         var matchJson = JsonSerializer.SerializeToElement(match, JsonOptions);
         var bar = matchJson.TryGetProperty("covenantBar", out var value) && value.ValueKind == JsonValueKind.Array
             ? value.Deserialize<PlacementLayers[]>(JsonOptions) : null;
-        var input = new PlacementInput(snapshot, match.Economy!.Round, match.Mode?.Id, match.Solo,
-            match.BossId, match.EnemyTypes, match.RoundEnemies?.Round == match.Economy.Round
+        var input = new PlacementInput(snapshot, round!.Value, match.Mode?.Id, match.Solo,
+            match.BossId, match.EnemyTypes, match.RoundEnemies?.Round == round
                 ? match.RoundEnemies.Enemies.Select(e => e.Name).ToArray() : null,
             bar, match.StrategyId, ReadRoster(), Settings.OperatorDefaults.ToDictionary(p => p.Key, p => p.Value.Skill), Settings.PlacementGoal)
         {
             Modules = Settings.OperatorDefaults.ToDictionary(p => p.Key, p => p.Value.Module),
         };
-        var signature = JsonSerializer.Serialize(input with { Field = snapshot with { UpdatedAt = "" } }, JsonOptions);
+        // sure 与 auto 对计算等价；来源、候选分数和事件时间不属于站位输入。
+        var signatureField = snapshot with { UpdatedAt = "", Units = snapshot.Units
+            .OrderBy(u => u.Zone).ThenBy(u => u.Row).ThenBy(u => u.Col)
+            .Select(u => u with { Status = u.Status is "sure" or "auto" ? "sure" : u.Status,
+                Equipment = u.Equipment?.OrderBy(e => e.Name).ThenBy(e => e.Elite).ToArray() }).ToArray() };
+        var signature = JsonSerializer.Serialize(input with { Field = signatureField }, JsonOptions);
         lock (_placementGate)
         {
-            if (signature == _placementSignature) return;
+            if (!force && signature == _placementSignature)
+            {
+                // 只有日志或身份置信状态变化时复用结果，同时同步接口的快照时间。
+                if (_placementStop is null && _placement is { } previous && previous.BasedOn != snapshot.UpdatedAt)
+                {
+                    _placement = previous with { BasedOn = snapshot.UpdatedAt };
+                    var reused = _placement;
+                    int reusedGeneration = _placementGeneration;
+                    _ = Task.Run(() => PublishPlacement(reused, reusedGeneration));
+                }
+                return;
+            }
             _placementSignature = signature;
             int generation = ++_placementGeneration;
             _placementStop?.Cancel();
             var stop = new CancellationTokenSource();
             _placementStop = stop;
-            _ = Task.Run(async () =>
+            _placementWork = Task.Run(async () =>
             {
                 try
                 {
-                    await Task.Delay(1000, stop.Token);
+                    if (!force) await Task.Delay(1000, stop.Token);
                     var result = _placementAdapter.Compute(input, stop.Token);
                     PublishPlacement(result, generation);
                 }
@@ -108,7 +130,9 @@ public sealed partial class HostApi
         lock (_placementGate)
         {
             if (generation != _placementGeneration) return;
-            _placement = result;
+            _placement = result is not null && Field is { } latest && latest.UpdatedAt != result.BasedOn
+                ? result with { BasedOn = latest.UpdatedAt } : result;
+            result = _placement;
         }
         NotifyPlacement(result);
     }

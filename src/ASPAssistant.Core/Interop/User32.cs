@@ -1,10 +1,13 @@
 // Modified for ASP Assistant Regulation on 2026-11-09; see NOTICE.
 // 2026-11-12：参考上游 PR #5，增加 nemudisplay 子窗口及祖先查询。
+// 2026-11-15：PC 游戏窗口改为枚举后按可见性和客户区面积选择。
 using System.Runtime.InteropServices;
 using System.ComponentModel;
 using System.Text;
 
 namespace ASPAssistant.Core.Interop;
+
+public sealed record GameWindowCandidate(IntPtr Handle, bool Visible, int ClientWidth, int ClientHeight);
 
 [StructLayout(LayoutKind.Sequential)]
 public struct RECT
@@ -34,6 +37,12 @@ public static class User32
     public static extern int DwmFlush();
 
     private delegate bool EnumWindowProc(IntPtr hwnd, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    private static extern bool EnumWindows(EnumWindowProc callback, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    public static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint processId);
 
     [DllImport("user32.dll")]
     private static extern bool EnumChildWindows(IntPtr parent, EnumWindowProc callback, IntPtr lParam);
@@ -182,8 +191,26 @@ public static class User32
 
     public static IntPtr FindArknightsWindow()
     {
-        return FindWindow(null, "明日方舟");
+        return SelectArknightsWindow(EnumerateArknightsWindows());
     }
+
+    public static IReadOnlyList<GameWindowCandidate> EnumerateArknightsWindows()
+    {
+        var windows = new List<GameWindowCandidate>();
+        EnumWindows((hwnd, _) =>
+        {
+            if (GetWindowTitle(hwnd) != "明日方舟") return true;
+            GetClientRect(hwnd, out var rect);
+            windows.Add(new(hwnd, IsWindowVisible(hwnd), rect.Width, rect.Height));
+            return true;
+        }, IntPtr.Zero);
+        return windows;
+    }
+
+    public static IntPtr SelectArknightsWindow(IEnumerable<GameWindowCandidate> candidates)
+        => candidates.Where(window => window.Visible)
+            .OrderByDescending(window => (long)window.ClientWidth * window.ClientHeight)
+            .FirstOrDefault()?.Handle ?? IntPtr.Zero;
 
     public static RECT? GetClientRectScreen(IntPtr hWnd)
     {

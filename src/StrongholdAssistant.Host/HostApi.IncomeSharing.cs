@@ -1,3 +1,4 @@
+using ASPAssistant.Core.Data;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text;
@@ -39,8 +40,11 @@ public sealed partial class HostApi
     private string ShareId()
     {
         var path = Path.Combine(DataDirectory, "share-id.json");
-        if (!File.Exists(path)) ResetShareId();
-        return JsonSerializer.Deserialize<string>(File.ReadAllText(path))!;
+        var id = UserJsonFile.Read(path, text => JsonSerializer.Deserialize<string>(text));
+        if (id is not null) return id;
+        id = Guid.NewGuid().ToString();
+        SaveHistoryFile("share-id.json", id);
+        return id;
     }
 
     public void ResetShareId() => SaveHistoryFile("share-id.json", Guid.NewGuid().ToString());
@@ -83,9 +87,8 @@ public sealed partial class HostApi
     private void LoadIncomeTable()
     {
         var path = Path.Combine(DataDirectory, "income-table.json");
-        if (!File.Exists(path)) return;
-        try { UseIncomeTable(JsonSerializer.Deserialize<IncomeTable>(File.ReadAllText(path), JsonOptions)!); }
-        catch (JsonException) { }
+        var table = UserJsonFile.Read(path, text => JsonSerializer.Deserialize<IncomeTable>(text, JsonOptions));
+        if (table is not null) UseIncomeTable(table);
     }
 
     private bool UseIncomeTable(IncomeTable table)

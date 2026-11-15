@@ -123,7 +123,7 @@ public sealed class DiagnosticsStore(string directory)
             WriteJson(zip, "connection.json", connection);
             var systemFields = JsonSerializer.SerializeToNode(system, HostApi.JsonOptions)!.AsObject();
             var safeSystem = new JsonObject();
-            foreach (var key in new[] { "version", "windows", "dpi", "monitors", "dpiAwareness", "windowSnapshot", "detectedTheme", "configuredTheme" })
+            foreach (var key in new[] { "version", "windows", "dpi", "monitors", "dpiAwareness", "windowSnapshot", "gameWindows", "detectedTheme", "configuredTheme" })
                 safeSystem[key] = systemFields[key]?.DeepClone();
             WriteJson(zip, "system.json", safeSystem);
         }

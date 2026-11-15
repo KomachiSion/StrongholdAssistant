@@ -128,17 +128,25 @@ class Plaza {
   }
 
   /** 广场的搜索和筛选（v0.9.1）：切页面、切排序都保留，重启清空 */
-  filter = $state<{ q: string; covenants: string[]; strategy: string | null }>({ q: '', covenants: [], strategy: null })
+  // author（v1.0.1）：点作者名只看他发的（含旧赛季）
+  filter = $state<{ q: string; covenants: string[]; strategy: string | null; author: { id: string; nickname: string } | null }>({
+    q: '',
+    covenants: [],
+    strategy: null,
+    author: null,
+  })
 
-  /** sort 为 'favorite' 时只列我收藏的（要登录）；q 搜阵容名、简介、作者、干员、装备 */
-  list(q: { sort: 'hot' | 'new' | 'featured' | 'favorite'; q?: string; covenant?: string[]; strategy?: string | null; cursor?: string | null }) {
+  /** sort 为 'favorite' 时只列我收藏的（要登录）；q 搜阵容名、简介、作者、干员、装备；author 是账号 id */
+  list(q: { sort: 'hot' | 'new' | 'featured' | 'favorite'; q?: string; covenant?: string[]; strategy?: string | null; author?: string | null; cursor?: string | null }) {
     const p = new URLSearchParams(q.sort === 'favorite' ? { favorite: '1', limit: '50' } : { sort: q.sort, limit: '50' })
     if (q.q?.trim()) p.set('q', q.q.trim())
     for (const c of q.covenant ?? []) p.append('covenant', c)
     if (q.strategy) p.set('strategy', q.strategy)
+    const author = q.sort !== 'favorite' && q.author
+    if (author) p.set('author', author)
     if (q.cursor) p.set('cursor', q.cursor)
-    // 没登录时走公开列表（v0.9.3，ESA 边缘缓存 2 分钟）；登录了要带上自己的点赞、收藏
-    return this.req<PostList>('GET', (!this.token && q.sort !== 'favorite' ? '/public/posts?' : '/posts?') + p)
+    // 没登录时走公开列表（v0.9.3，ESA 边缘缓存 2 分钟）；登录了要带上自己的点赞、收藏。公开列表不收 author
+    return this.req<PostList>('GET', (!this.token && q.sort !== 'favorite' && !author ? '/public/posts?' : '/posts?') + p)
   }
   post = (id: string) => this.req<Post>('GET', `/posts/${encodeURIComponent(id)}`)
   like = (id: string, on: boolean) => this.req<{ likes: number; liked: boolean }>(on ? 'POST' : 'DELETE', `/posts/${encodeURIComponent(id)}/like`)

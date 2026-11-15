@@ -59,7 +59,7 @@
   // 敌人路线（v0.9.0）：一组设置整体存
   const rt = $derived(app.settings.routes)
   // 覆盖层新加的两项（任务 169）；宿主还没补这一项时按默认（都开）显示
-  const ol = $derived(app.settings.overlayLayers ?? { placement: true, pending: true })
+  const ol = $derived(app.settings.overlayLayers ?? { placement: true, pending: true, upgrade: true })
   const setRoutes = (patch: Partial<typeof app.settings.routes>) => set('routes', { ...app.settings.routes, ...patch })
   const u = $derived(app.update)
 
@@ -219,10 +219,10 @@
 
   // 按键录制：修饰键按 Ctrl、Alt、Shift、Win 的顺序，再接主键（写法见 Settings.toggleHotkey）。
   // v0.7.2 起允许单键：单键只在游戏或助手在前台时生效、不拦截按键（宿主实现）
-  let recording = $state<'toggle' | 'refresh' | 'route' | null>(null)
+  let recording = $state<'toggle' | 'refresh' | 'route' | 'field' | null>(null)
   let hkMsg = $state('')
   /** hkMsg 是哪一个按键给的，提示显示在那一行下面 */
-  let hkFor = $state<'toggle' | 'refresh' | 'route' | null>(null)
+  let hkFor = $state<'toggle' | 'refresh' | 'route' | 'field' | null>(null)
   const keyName = (e: KeyboardEvent) =>
     e.key === ' ' ? 'Space' : /^Key[A-Z]$/.test(e.code) ? e.code.slice(3) : /^Digit\d$/.test(e.code) ? e.code.slice(5) : e.key.length === 1 ? e.key.toUpperCase() : e.key
   // 单键要收得到（v0.9.1）：游戏是管理员身份、助手不是时，单独按的键收不到，只收组合键
@@ -247,6 +247,7 @@
     recording = null
     if (target === 'toggle') applyHotkey(combo)
     else if (target === 'route') setRoutes({ hotkey: combo })
+    else if (target === 'field') set('fieldHotkey', combo)
     else set('refreshKey', combo)
   }
   function recordKeyUp(e: KeyboardEvent) {
@@ -537,6 +538,19 @@
       <p class="note">联机的首领回合，会移动的首领左右各一只、路线不一样，只画你这一侧；自动认不出时两边都画。</p>
     </section>
 
+    <!-- 场上自动识别（v1.0.1）：关掉后场上和推荐停在上一次，只在本局页「场上」点「识别」时认一次 -->
+    <section>
+      <label class="row">
+        <span class="lbl"><b>自动识别场上</b><small>休整期自动认出场上和整备区的人，跟着重算推荐站位</small></span>
+        <input type="checkbox" class="sw" checked={app.settings.fieldAuto ?? true} onchange={(e) => set('fieldAuto', e.currentTarget.checked)} />
+      </label>
+      <p class="note">
+        {(app.settings.fieldAuto ?? true)
+          ? `关掉后场上和推荐停在上一次，要更新时到本局页「场上」点「识别」${app.settings.fieldHotkey ? `或按 ${keyLabel(app.settings.fieldHotkey)}` : ''}；商店、资金、回合照常读。`
+          : `现在只在本局页「场上」点「识别」${app.settings.fieldHotkey ? `或按 ${keyLabel(app.settings.fieldHotkey)}` : ''}时认一次、算一次推荐；商店、资金、回合照常读，买到的人照常记下。`}
+      </p>
+    </section>
+
     <!-- 覆盖层新加的两项（v1.0.0，任务 169）：和商店标记、敌人路线一样各自开关；都只在休整期棋盘主画面画 -->
     <section>
       <label class="row">
@@ -735,6 +749,23 @@
         <p class="note bad">游戏是以管理员身份运行的，在游戏里按 {keyLabel(app.settings.refreshKey)} 收不到。要用的话打开下面的「以管理员身份运行」；不用也行，换商店后标记会自己跟上。</p>
       {:else}
         <p class="note">游戏里按这个键刷新商店时，旧的商店标记马上消失，认到新的商店再标；游戏默认是 D。</p>
+      {/if}
+      <!-- 识别场上（v1.0.1）：和点本局页「场上」的「识别」一样，认一次、算一次推荐 -->
+      <div class="hk">
+        <span class="hkl">识别场上</span>
+        <button class="hkb" class:rec={recording === 'field'} onclick={() => ((recording = recording === 'field' ? null : 'field'), (hkMsg = ''))} onkeydown={recordKey}>
+          {recording === 'field' ? '按下新的按键…' : keyLabel(app.settings.fieldHotkey ?? '') || '未设置'}
+        </button>
+        {#if app.settings.fieldHotkey && recording !== 'field'}<button class="link" onclick={() => set('fieldHotkey', '')}>关闭</button>{/if}
+      </div>
+      {#if hkMsg && hkFor === 'field'}
+        <p class="note bad">{hkMsg}</p>
+      {:else if recording === 'field'}
+        <p class="note">{app.keysBlocked ? 'Ctrl / Alt / Shift 加一个键；Esc 取消。' : '单按一个键、Ctrl / Alt / Shift 加一个键，或按鼠标侧键；Esc 取消。'}</p>
+      {:else if app.keysBlocked && rawOnly(app.settings.fieldHotkey ?? '')}
+        <p class="note bad">「{keyLabel(app.settings.fieldHotkey)}」{blockedWhat(app.settings.fieldHotkey)}，游戏是以管理员身份运行的，在游戏里按收不到。换成组合键，或者打开下面的「以管理员身份运行」。</p>
+      {:else}
+        <p class="note">休整期在棋盘画面按一下：认一次场上和整备区的人，算一次推荐站位，游戏画面上的推荐跟着更新。自动识别开着关着都能用。</p>
       {/if}
     </section>
 

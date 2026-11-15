@@ -13,10 +13,17 @@ public partial class MainWindow
     private Hotkey? _refreshKey;
     private readonly RouteSystemHotkey _routeSystemHotkey = new();
     private bool _keysBlocked;
+    private readonly RouteHotkeyRouter _fieldHotkeyRouter = new();
+    private readonly RouteSystemHotkey _fieldSystemHotkey = new();
 
     private void RefreshRouteHotkey(bool gameElevated)
     {
         _keysBlocked = ProcessElevation.KeysBlocked(ProcessElevation.Current, gameElevated);
+        _fieldHotkeyRouter.Reset();
+        if (HotkeyParser.Parse(_api.Settings.FieldHotkey) is { } fieldKey)
+            _fieldSystemHotkey.Configure(_keysBlocked, fieldKey, key => RegisterHotkey(4, key),
+                () => User32.UnregisterHotKey(new WindowInteropHelper(this).Handle, 4), _ => { });
+        else _fieldSystemHotkey.Dispose(() => User32.UnregisterHotKey(new WindowInteropHelper(this).Handle, 4));
         _routeSystemHotkey.Configure(_keysBlocked, HotkeyParser.Parse(_api.Settings.Routes.Hotkey)!.Value,
             key => RegisterHotkey(3, key),
             () => User32.UnregisterHotKey(new WindowInteropHelper(this).Handle, 3),
@@ -40,6 +47,9 @@ public partial class MainWindow
                 var routeDown = _keysBlocked ? null : _routeHotkeyRouter.Observe(key, down, foreground,
                     game, hwnd, HotkeyParser.Parse(_api.Settings.Routes.Hotkey)!.Value, modifiers);
                 if (routeDown is { } pressed) _api.PublishRouteHotkey(pressed);
+                if (!_keysBlocked && HotkeyParser.Parse(_api.Settings.FieldHotkey) is { } fieldKey
+                    && _fieldHotkeyRouter.Observe(key, down, foreground, game, hwnd, fieldKey, modifiers) == true)
+                    _api.PublishFieldHotkey();
                 if (actions.Refresh && !_api.IsRosterScanning)
                 {
                     _scanner?.RefreshShop();

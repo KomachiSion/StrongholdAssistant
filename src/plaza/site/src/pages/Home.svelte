@@ -12,6 +12,9 @@
   let sort = $state<Sort>((['hot', 'new', 'featured'] as const).find((s) => s === q0.get('sort')) ?? 'hot')
   let picked = $state<string[]>(q0.getAll('covenant'))
   let strat = $state<string | null>(q0.get('strategy'))
+  // 只看某个作者（v1.0.1）：点卡片、详情页上的作者名过来；by 是昵称，只用来显示
+  let author = $state<string | null>(q0.get('author'))
+  const byName = q0.get('by') ?? '这位作者'
   // 搜索（v0.9.1）：打字停 0.3 秒再查；写进地址栏 ?q=
   let kw = $state(q0.get('q') ?? '')
   let typed = $state(kw)
@@ -40,8 +43,8 @@
     error = ''
     try {
       const r = demo
-        ? { posts: (await import('../demo')).demoPosts.filter((p) => picked.every((c) => p.lineup.goals.some((g) => g.id === c)) && (!strat || p.lineup.strategyId === strat) && (!kw || JSON.stringify([p.lineup, p.author.nickname]).includes(kw))), cursor: null }
-        : await api.posts({ sort, q: kw, covenant: picked, strategy: strat, cursor: more ? cursor : null, anon: !session.me })
+        ? { posts: (await import('../demo')).demoPosts.filter((p) => picked.every((c) => p.lineup.goals.some((g) => g.id === c)) && (!strat || p.lineup.strategyId === strat) && (!kw || JSON.stringify([p.lineup, p.author.nickname]).includes(kw)) && (!author || p.author.id === author)), cursor: null }
+        : await api.posts({ sort, q: kw, covenant: picked, strategy: strat, author: author ?? undefined, cursor: more ? cursor : null, anon: !session.me })
       if (my !== seq) return
       posts = more ? [...posts, ...r.posts] : r.posts
       cursor = r.cursor
@@ -58,6 +61,10 @@
     if (kw) p.set('q', kw)
     for (const c of picked) p.append('covenant', c)
     if (strat) p.set('strategy', strat)
+    if (author) {
+      p.set('author', author)
+      p.set('by', byName)
+    }
     if (demo) p.set('demo', '')
     const qs = p.toString()
     history.replaceState(null, '', qs ? `/plaza?${qs}` : '/plaza')
@@ -75,7 +82,7 @@
   ]
   const core = covenants.filter((c) => c.kind === 'core')
   const extra = covenants.filter((c) => c.kind === 'extra')
-  const filtered = $derived(picked.length + (strat ? 1 : 0))
+  const filtered = $derived(picked.length + (strat ? 1 : 0) + (author ? 1 : 0))
 </script>
 
 <section class="hero">
@@ -118,7 +125,7 @@
       <StrategyPicker bind:value={strat} />
     </div>
     {#if filtered}
-      <button class="btn ghost sm clear" onclick={() => ((picked = []), (strat = null))}>清除筛选</button>
+      <button class="btn ghost sm clear" onclick={() => ((picked = []), (strat = null), (author = null))}>清除筛选</button>
     {/if}
   </aside>
 
@@ -128,6 +135,9 @@
       <input type="search" placeholder="搜阵容名、干员、装备、作者，空格分开多个词" value={typed} oninput={(e) => typing(e.currentTarget.value)} onkeydown={(e) => e.key === 'Escape' && clearSearch()} aria-label="搜索阵容" />
       {#if typed}<button class="x" onclick={clearSearch} aria-label="清空搜索">×</button>{/if}
     </div>
+    {#if author}
+      <div class="who">只看 <b>{byName}</b> 发的阵容（含旧赛季）<button class="x" onclick={() => (author = null)} aria-label="不再只看这个作者" title="不再只看这个作者">×</button></div>
+    {/if}
     {#if error}
       <div class="state"><p class="err">{error}</p><button class="btn ghost sm" onclick={() => load()}>重试</button></div>
     {:else if !posts.length && !loading}
@@ -315,6 +325,25 @@
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
     gap: 14px;
+  }
+  .who {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 12px;
+    font-size: 14px;
+    color: var(--fg-2);
+  }
+  .who b {
+    color: var(--fg-1);
+  }
+  .who .x {
+    color: var(--fg-3);
+    font-size: 16px;
+    line-height: 1;
+  }
+  .who .x:hover {
+    color: var(--fg-1);
   }
   .state {
     display: flex;

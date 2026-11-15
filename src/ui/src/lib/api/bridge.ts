@@ -52,6 +52,7 @@ export const bridgeApi: Api = {
   match: call('match'),
   field: call('field'),
   setFieldOperator: call('setFieldOperator'),
+  recognizeField: call('recognizeField'),
   board: call('board'),
   placement: call('placement'),
   rescan: call('rescan'),
@@ -59,6 +60,8 @@ export const bridgeApi: Api = {
   setMatchStrategy: call('setMatchStrategy'),
   setCovenantIncomplete: call('setCovenantIncomplete'),
   setOperatorBanned: call('setOperatorBanned'),
+  setRoundEnemy: call('setRoundEnemy'),
+  roundEnemyOptions: call('roundEnemyOptions'),
   resetMatch: call('resetMatch'),
   lineups: call('lineups'),
   saveLineup: call('saveLineup'),
@@ -117,4 +120,5 @@ export const bridgeApi: Api = {
   onMaximized: listen('maximized'),
   onDeepLink: listen('deepLink'),
   onHotkey: listen('hotkey'),
+  onFieldHotkey: listen('fieldHotkey'),
 }

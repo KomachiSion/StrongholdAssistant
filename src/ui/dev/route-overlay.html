@@ -58,8 +58,8 @@
     <div class="sub-l">快捷键</div>
     <div class="row"><button id="hotkey" class="key"></button><span class="hint" id="hotkeyHint">点一下，再按想用的键</span></div>
     <div class="sub-l">路线多的时候</div>
-    <label><input type="radio" name="overlap" value="all" checked /> 全部一起显示</label>
-    <label><input type="radio" name="overlap" value="cycle" /> 依次循环，一次突出一条</label>
+    <label><input type="radio" name="overlap" value="all" /> 全部一起显示</label>
+    <label><input type="radio" name="overlap" value="cycle" checked /> 依次循环，一次突出一条（默认）</label>
     <div id="cycleRow" class="row"><span>每条</span><input type="range" id="cycleMs" min="10" max="50" value="22" /><span id="cycleV"></span></div>
     <div class="sub-l">飞行路线</div>
     <select id="flyMode">
@@ -79,7 +79,8 @@
     <legend>样式</legend>
     <label><input type="checkbox" id="width" checked /> 线宽按敌人数量</label>
     <label><input type="checkbox" id="arrows" checked /> 方向箭头</label>
-    <label><input type="checkbox" id="flow" checked /> 流动（慢速）</label>
+    <label><input type="checkbox" id="trace" checked /> 描线：从出生点一笔画到终点</label>
+    <label><input type="checkbox" id="flow" /> 流动（慢速）</label>
     <label><input type="checkbox" id="tag" checked /> 回合标签</label>
     <label style="margin-top:6px">不透明度 <span id="opv"></span></label>
     <input type="range" id="opacity" min="30" max="100" value="85" />
@@ -180,7 +181,7 @@ const state = { visible: true, fade: null }
 let img = { w: 2000, h: 1125 }
 
 function opts() {
-  return { width: $('width').checked, arrows: $('arrows').checked, flow: $('flow').checked, tag: $('tag').checked,
+  return { width: $('width').checked, arrows: $('arrows').checked, flow: $('flow').checked, tag: $('tag').checked, trace: $('trace').checked,
     opacity: $('opacity').value / 100, mode: document.querySelector('[name=mode]:checked').value,
     fly: $('flyMode').value, side: document.querySelector('[name=side]:checked').value, seconds: +$('seconds').value,
     overlap: document.querySelector('[name=overlap]:checked').value, cycleMs: +$('cycleMs').value * 100 }
@@ -196,7 +197,9 @@ function units(seg) {
 }
 // 只改现有图层的透明度，不重画，过渡才会生效
 function setVisible(v, ms) {
+  const was = state.visible
   state.visible = v
+  if (v && !was) setTimeout(replay, 0)
   const g = document.getElementById('routes')
   if (!g) return
   g.style.transition = `opacity ${ms}ms ease`
@@ -293,13 +296,16 @@ function render() {
   if (o.overlap === 'cycle') {
     cycle.i %= Math.max(1, shown.length)
     svg += shown.map((r, i) => `<g class="cyc" data-i="${i}" style="opacity:${i === cycle.i ? 1 : DIM};transition:opacity 400ms ease">${layer([r], o, k)}</g>`).join('')
-  } else svg += layer(shown, o, k)
+  } else svg += `<g id="base" style="transition:opacity 250ms ease">${layer(shown, o, k)}</g>`
   if (scene.spot) svg += spot(scene.spot, k) + bossBadge(scene.spot, k, true)
 
   if (o.tag) svg += roundTag(scene, shown, k)
-  svg += `</g></svg>`
+  svg += `<g id="tracing"></g></g></svg>`
   $('stage').innerHTML = svg
+  drawn = shown
   restartCycle()
+  if (o.overlap !== 'cycle') drawAll()
+  else clearInterval(cometTimer)
 }
 
 // ── 依次循环：重合的路线轮流高亮，当前这条正常显示，其余压到 DIM
@@ -311,7 +317,13 @@ function routeLabel(r) {
   return `地面 · ${r.segs[0][0][1] < 2 ? '上路' : '下路'} ${r.count} 只`
 }
 function showCycle() {
-  document.querySelectorAll('#routes .cyc').forEach(g => g.style.opacity = +g.dataset.i === cycle.i ? 1 : DIM)
+  // 描线时当前这条先压暗，一笔画完再亮起来
+  const o = opts()
+  document.querySelectorAll('#routes .cyc').forEach(g => g.style.opacity = +g.dataset.i === cycle.i && !o.trace ? 1 : DIM)
+  if (o.trace && cycle.items.length) {
+    const g = document.querySelector(`#routes .cyc[data-i="${cycle.i}"]`)
+    trace([cycle.items[cycle.i]], { max: o.cycleMs * 0.55, done: () => g && (g.style.opacity = 1) })
+  }
   const sub = document.getElementById('tagSub')
   if (sub && cycle.items.length) sub.textContent = `${cycle.i + 1}/${cycle.items.length} · ${routeLabel(cycle.items[cycle.i])}`
 }
@@ -320,6 +332,103 @@ function restartCycle() {
   if (!cycle.items.length) return
   showCycle()
   cycle.timer = setInterval(() => { cycle.i = (cycle.i + 1) % cycle.items.length; showCycle() }, opts().cycleMs)
+}
+
+// ── 描线（2026-11-15 用户提）：游戏里路线是一笔画出来的；只画静态线时重合的段看不出谁从哪来。
+// 每条路线从出生点沿路画到终点，前面一个发光的笔头；画完换回静态线。全部显示时画完后每隔几秒有笔头沿线再跑一遍
+const TRACE = { speed: 8, min: 600, max: 1500, comet: 3200 }   // 格 / 秒；毫秒
+let drawn = [], traceRun = 0, cometTimer = null
+function tracePolys(r) {
+  const sh = r.boss ? BOSS_SHIFT : r.motion === 'fly' ? LIFT : [0, 0]
+  return r.segs.map(seg => units(seg).map(([c, rr]) => px([c + sh[0], rr + sh[1]])))
+}
+function traceStyle(r, o, k) {
+  if (r.boss) return { color: COLORS.boss, under: '#2a1d02', w: 5 * k, head: '#fff3cf' }
+  if (r.motion === 'fly') return { color: COLORS.fly, under: '#14081f', w: widthFor(r.count, o, k) * 0.5, head: '#f1e6ff' }
+  return { color: COLORS.walk, under: '#1b0806', w: widthFor(r.count, o, k), head: '#ffe3df' }
+}
+const segLen = pts => pts.slice(1).reduce((s, p, i) => s + Math.hypot(p[0] - pts[i][0], p[1] - pts[i][1]), 0)
+function pointAt(pts, d) {
+  for (let i = 1; i < pts.length; i++) {
+    const [a, b] = [pts[i - 1], pts[i]], l = Math.hypot(b[0] - a[0], b[1] - a[1])
+    if (d <= l || i === pts.length - 1) { const t = l ? Math.min(1, d / l) : 1; return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t] }
+    d -= l
+  }
+  return pts[0]
+}
+const NS = 'http://www.w3.org/2000/svg'
+const el = (tag, attrs) => { const e = document.createElementNS(NS, tag); for (const [a, v] of Object.entries(attrs)) e.setAttribute(a, v); return e }
+// routes 一起画；line=false 只跑笔头（彗星）。时长按格数，多段（首领传送）接着画
+function trace(routes, { line = true, max = TRACE.max, done } = {}) {
+  const host = document.getElementById('tracing')
+  if (!host) return
+  const run = ++traceRun, o = opts(), k = img.h / 1080
+  host.innerHTML = ''
+  host.style.transition = ''
+  host.style.opacity = 1
+  const jobs = routes.map(r => {
+    const st = traceStyle(r, o, k), polys = tracePolys(r)
+    const steps = polys.reduce((s, p) => s + p.length - 1, 0)
+    const ms = Math.max(TRACE.min, Math.min(max, steps / TRACE.speed * 1000))
+    const segs = polys.map(pts => {
+      const L = segLen(pts), g = el('g', {})
+      if (line) for (const [c, w, op] of [[st.under, st.w + 3.5 * k, 0.75], [st.color, st.w, 1]])
+        g.append(el('polyline', { points: pts.map(p => p.join(',')).join(' '), fill: 'none', stroke: c, 'stroke-opacity': op, 'stroke-width': w,
+          'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'stroke-dasharray': `${L} ${L}`, 'stroke-dashoffset': L }))
+      host.append(g)
+      return { pts, L, g }
+    })
+    const total = segs.reduce((s, x) => s + x.L, 0)
+    const glow = el('circle', { r: st.w * 1.6 + 4 * k, fill: st.color, 'fill-opacity': 0.55, filter: 'url(#soft)' })
+    const head = el('circle', { r: st.w * 0.55 + 2 * k, fill: st.head })
+    host.append(glow, head)
+    return { segs, total, ms, glow, head }
+  })
+  const t0 = performance.now()
+  const frame = now => {
+    if (run !== traceRun) return
+    let all = true
+    for (const j of jobs) {
+      const t = Math.min(1, (now - t0) / j.ms)
+      if (t < 1) all = false
+      let d = t * j.total, placed = false
+      for (const s of j.segs) {
+        const got = Math.max(0, Math.min(s.L, d))
+        s.g.querySelectorAll('polyline').forEach(p => p.setAttribute('stroke-dashoffset', s.L - got))
+        if (!placed && (d <= s.L || s === j.segs.at(-1))) {
+          const [x, y] = pointAt(s.pts, Math.max(0, Math.min(d, s.L)))
+          for (const c of [j.glow, j.head]) { c.setAttribute('cx', x); c.setAttribute('cy', y) }
+          placed = true
+        }
+        d -= s.L
+      }
+      j.head.setAttribute('opacity', t < 1 ? 1 : 0)
+      j.glow.setAttribute('opacity', t < 1 ? 1 : 0)
+    }
+    if (!all) return requestAnimationFrame(frame)
+    done?.()
+    // 画完：描线淡出，露出下面的静态线
+    host.style.transition = 'opacity 250ms ease'
+    host.style.opacity = 0
+    setTimeout(() => { if (run === traceRun) host.innerHTML = '' }, 260)
+  }
+  requestAnimationFrame(frame)
+}
+function drawAll() {
+  clearInterval(cometTimer)
+  const base = document.getElementById('base')
+  if (!base) return
+  if (!opts().trace) return void (base.style.opacity = 1)
+  base.style.transition = 'none'
+  base.style.opacity = 0
+  base.getBoundingClientRect()
+  base.style.transition = 'opacity 250ms ease'
+  trace(drawn, { done: () => (base.style.opacity = 1) })
+  cometTimer = setInterval(() => state.visible && trace(drawn, { line: false }), TRACE.comet)
+}
+function replay() {
+  if (opts().overlap === 'cycle') showCycle()
+  else drawAll()
 }
 
 function chevrons(seg, kind, every, k) {
@@ -434,7 +543,7 @@ function loadSample() {
 }
 $('sample').onchange = loadSample
 $('scene').onchange = () => { cycle.i = 0; render() }
-for (const id of ['width', 'arrows', 'flow', 'tag', 'crop', 'flyMode']) $(id).onchange = render
+for (const id of ['width', 'arrows', 'flow', 'tag', 'crop', 'flyMode', 'trace']) $(id).onchange = render
 document.querySelectorAll('[name=side]').forEach(r => r.onchange = render)
 const syncCycleUi = () => { $('cycleRow').style.display = opts().overlap === 'cycle' ? '' : 'none'; $('cycleV').textContent = (opts().cycleMs / 1000).toFixed(1) + ' 秒' }
 document.querySelectorAll('[name=overlap]').forEach(r => r.onchange = () => { syncCycleUi(); cycle.i = 0; render() })

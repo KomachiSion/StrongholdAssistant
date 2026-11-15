@@ -1088,14 +1088,14 @@ test('七位密码和与邮箱相同的密码拒绝', async () => {
  }
 })
 
-test('北京时间零点重置验证码发送、发布与密码失败 IP 配额', async t => {
+test('发布超过十个仍成功，验证码发送与密码失败 IP 配额按北京时间零点重置', async t => {
  let now = Date.parse('2026-11-12T15:30:00.000Z')
  t.mock.method(Date, 'now', () => now)
  const user = await login()
  await setPassword(user)
  for (let i = 0; i < 10; i++) await publish(user, '昨日阵容' + i)
  assert.equal((await request('/api/posts', { method: 'POST', token: user.token,
-  body: { code: encodeLineup(lineup('超额阵容'), catalog), description: '' } })).status, 429)
+  body: { code: encodeLineup(lineup('第十一套阵容'), catalog), description: '' } })).status, 200)
  // 填满同一邮箱和 IP 的昨日发送额度。
  await db.batch(Array.from({ length: 29 }, () => db.prepare(
   'INSERT INTO login_codes(email,ip,code_hash,created_at,expires_at) VALUES(?,?,?,?,?)'

@@ -73,6 +73,7 @@ public sealed partial class HostApi
     {
         _matchReadingGeneration++;
         _enemyReadKey = default;
+        _roundEnemyOrder.Clear();
         _covenantReadAt = DateTimeOffset.MinValue;
         Match = Match with { CovenantBar = [] };
     }
@@ -105,13 +106,23 @@ public sealed partial class HostApi
     {
         lock (_historyGate)
         {
-            // TODO(design): 同名敌人存在多个 ID 时暂取目录第一项，待定义是否按首领/难度细分。
-            var catalog = Catalog.GetProperty("enemies").EnumerateArray().GroupBy(e => e.GetProperty("name").GetString()!)
-                .ToDictionary(g => g.Key, g => g.First().GetProperty("id").GetString()!);
-            var previous = Match.RoundEnemies is { } old && old.Round == round ? old.Enemies : [];
-            var enemies = previous.Concat(names.Select(n => new RoundEnemy(catalog.GetValueOrDefault(n), n)))
-                .DistinctBy(e => e.Name).ToArray();
-            Match = Match with { RoundEnemies = new(round, DateTimeOffset.UtcNow.ToString("O"), enemies) };
+            var previous = RoundEnemiesFor(round);
+            var enemies = previous.Enemies.ToList();
+            var catalog = EnemyIdsByName();
+            foreach (var name in names)
+            {
+                if (previous.Removed.Any(e => e.Name == name)) continue;
+                int index = enemies.FindIndex(e => e.Name == name);
+                if (index >= 0) enemies[index] = enemies[index] with { Source = "read" };
+                else
+                {
+                    int insert = enemies.FindLastIndex(e => e.Source == "read") + 1;
+                    InsertRoundEnemyOrder(enemies, insert, name);
+                    enemies.Insert(insert, new(catalog.GetValueOrDefault(name), name));
+                }
+            }
+            Match = Match with { RoundEnemies = previous with
+                { At = DateTimeOffset.UtcNow.ToString("O"), Enemies = enemies.ToArray() } };
             Changed?.Invoke("match", Match);
         }
     }

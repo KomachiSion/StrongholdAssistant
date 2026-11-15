@@ -139,12 +139,12 @@ public partial class MainWindow
         };
         _scanner.SetShopScanSpeed(_api.Settings.ShopScanSpeed);
         _overlay.PlacementChanged += () => RefreshShopOverlay();
-        _api.ShopChanged += () =>
+        _api.ShopChanged += () => Dispatcher.BeginInvoke(() =>
         {
             _scanner.SetShopScanSpeed(_api.Settings.ShopScanSpeed);
             _overlay.UpdateRouteSettings(_api.Settings.Routes);
             RefreshShopOverlay();
-        };
+        });
         _scanner.EconomyRead += reading => Dispatcher.Invoke(() => _api.ObserveEconomy(reading));
         _scanner.ThemeDetected += reading => Dispatcher.Invoke(() => _api.ObserveTheme(reading));
         _api.InitializeBoardRoutes(data);
@@ -158,9 +158,18 @@ public partial class MainWindow
                 (point.Y - viewport.Top - 8f) / viewport.Height, 48f / viewport.Width, 64f / viewport.Height);
         };
         _scanner.ObserveFieldAsync = _api.ObserveFieldAsync;
+        _api.ReadCurrentField = () => _scanner.ReadCurrentFieldAsync(_api.RecognizeFieldFrameAsync);
         _scanner.BoardRoutesRequested = () => _api.BoardRoutesEnabled;
         _scanner.BoardFrameReady += (frame, reading) =>
         {
+            var upgradeButton = frame is not null && _scanner.BoardMainScreenVisible
+                && _scanner.BoardShopVisible && !_scanner.BoardDetailVisible
+                && reading is { IsRest: true } ? reading.UpgradeButton : null;
+            Dispatcher.BeginInvoke(() =>
+            {
+                _upgradeButton = upgradeButton;
+                RefreshShopOverlay();
+            });
             if (frame is null || !_scanner.BoardMainScreenVisible || reading is { IsRest: false }) _api.HideFieldOverlay();
             _api.ObserveBoardFrame(frame, reading, _scanner.BoardShopVisible, _scanner.BoardMainScreenVisible);
         };
@@ -189,6 +198,11 @@ public partial class MainWindow
         await _api.InitializeRecognitionAsync(data, _ocr, async () =>
         {
             await _scanner.WaitForIdleAsync();
+            if (_automaticOpeningScreenshot is { } opening)
+            {
+                _automaticOpeningScreenshot = null;
+                return opening;
+            }
             return await CaptureInformationScreenAsync();
         });
         _api.InitializeRoster(data, _ocr, _capture.Connection, async paused =>
@@ -238,10 +252,14 @@ public partial class MainWindow
         });
     }
 
+    private byte[]? _automaticOpeningScreenshot;
+
     private async Task RecordAutomaticallyAsync(bool solo)
     {
+        _automaticOpeningScreenshot = _scanner!.OpeningScreenshot;
         try { await _api.HandleOpeningAsync(solo); }
         catch (RecognitionException) { /* 失败已由 scan 事件送达界面，忙碌时跳过自动请求。 */ }
+        finally { _automaticOpeningScreenshot = null; }
     }
 
     private async Task<byte[]?> CaptureInformationScreenAsync()
@@ -336,7 +354,8 @@ public partial class MainWindow
         (_overlayMode, _side) = WindowGeometry.SelectSide(game, gameMonitor.WorkArea, scale,
             _dock.Width * _uiScale, _tracker.IsFullscreen, _api.Settings.DockSide, _api.Settings.OverlaySide);
         offset = _side == "left" ? _dock.FollowLeftOffsetDip : _dock.FollowOffsetDip;
-        ApplyScale(client.Value.Height);
+        // 跟随位置和尺寸只在下方统一应用，避免先写旧的展开宽度再写停靠宽度。
+        ApplyScale(client.Value.Height, updateWindowSize: false);
         PublishConnection();
         var expandedWidth = _dock.Width * _uiScale;
         var target = _overlayMode
@@ -355,6 +374,12 @@ public partial class MainWindow
     private IntPtr OnWindowMessage(IntPtr hwnd, int message, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
         if (HandleWorkbenchMessage(hwnd, message, wParam, lParam, ref handled)) return IntPtr.Zero;
+        if (message == User32.WM_HOTKEY && wParam.ToInt32() == 4)
+        {
+            handled = true;
+            _fieldSystemHotkey.Tap(_api.PublishFieldHotkey);
+            return IntPtr.Zero;
+        }
         if (message == User32.WM_HOTKEY && wParam.ToInt32() == 3)
         {
             handled = true;
@@ -408,7 +433,7 @@ public partial class MainWindow
         return IntPtr.Zero;
     }
 
-    private void ApplyScale(int? clientHeight)
+    private void ApplyScale(int? clientHeight, bool updateWindowSize = true)
     {
         _uiScale = _workbench ? _api.Settings.ScaleValue ?? _uiScale : WindowGeometry.UiScale(_api.Settings.ScaleValue, clientHeight,
             User32.GetWindowDpiScale(new WindowInteropHelper(this).Handle));
@@ -432,7 +457,7 @@ public partial class MainWindow
         var work = CurrentWorkArea();
         MaxWidth = Math.Min(720 * _uiScale, work.Width);
         MinWidth = Math.Min((_collapsed && _collapseUpHeight is null ? 48 : 320) * _uiScale, work.Width);
-        if (_api.Settings.FollowGame)
+        if (_api.Settings.FollowGame && updateWindowSize)
         {
             Width = _collapsed && _collapseUpHeight != null ? _expandedWidth
                 : WindowGeometry.PanelWidth(_dock.Width, _uiScale, _collapsed);
@@ -474,9 +499,13 @@ public partial class MainWindow
         if (!_collapsed && !collapsed) return;
         _collapsed = collapsed;
         _collapseUpHeight = upHeight;
+        if (_api.Settings.FollowGame && _lastGameRect is { } game)
+        {
+            UpdateGame(game);
+            return;
+        }
         ApplyScale(_lastClientRect?.Height);
         (Width, Height) = WindowGeometry.CollapsedSize(_expandedWidth, _expandedHeight, _uiScale, collapsed, upHeight);
-        if (_api.Settings.FollowGame && _lastGameRect is { } game) UpdateGame(game);
     }
 
     private void RememberFreeBounds()
@@ -553,6 +582,7 @@ public partial class MainWindow
         await _automaticScan;
         await _api!.WaitForRecordingAsync();
         _routeSystemHotkey.Dispose(() => User32.UnregisterHotKey(new WindowInteropHelper(this).Handle, 3));
+        _fieldSystemHotkey.Dispose(() => User32.UnregisterHotKey(new WindowInteropHelper(this).Handle, 4));
         UnregisterHotkey();
         _source?.RemoveHook(OnWindowMessage);
         _overlay.Close();
@@ -560,12 +590,15 @@ public partial class MainWindow
         _ = Dispatcher.BeginInvoke(Close);
     }
 
+    private System.Drawing.RectangleF? _upgradeButton;
+
     private void RefreshShopOverlay(bool animate = true)
     {
         _api.UpdateShopTracking(_shopItems);
         var items = _api.Settings.ShopMarkers ? _shopItems : [];
         _overlay.UpdateShopItems(items, animate, _api.Settings.MarkerStyles);
         _overlay.UpdateLayerSettings(_api.Settings.OverlayLayers);
+        _overlay.UpdateUpgrade(_upgradeButton, _api.UpgradeTarget);
         if (!_connectGame || _closing || _capturingInformation || _lastGameRect is null
             || (!items.Any(i => i.IsTracked || i.IsSecondary) && !_overlay.HasOverlayContent))
         {

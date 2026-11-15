@@ -1,7 +1,7 @@
 import type { AdminPost, Post, PostLineup } from '../shared/api'
 import { catalog, covenantNames, decodeLineup, fingerprint } from './catalog'
 import { authenticate, type Context } from './auth'
-import { body, dayStart, description, empty, fail, hasBlocked, hash, ipSource, iso, json, mask, needNickname, stmt, string, type Env } from './common'
+import { body, description, empty, fail, hasBlocked, hash, ipSource, iso, json, mask, needNickname, stmt, string, type Env } from './common'
 
 export interface PostRow {
  id: string; user_id: string; code: string; fingerprint: number; lineup: string; description: string
@@ -28,11 +28,11 @@ function decodePostCode(text: string) {
   if (decoded.error.includes('其他赛季')) fail(400, 'season_mismatch', '这个分享码来自其他赛季或其他版本的数据，请先把助手更新到最新版。')
   fail(400, 'bad_share_code', decoded.error)
  }
- const { name, goals, members, equipment, strategyId, stages } = decoded.lineup
+ const { name, goals, members, equipment, strategyId, stages, groups, upgrades } = decoded.lineup
  if (hasBlocked(name)) fail(400, 'blocked_words', '阵容名或简介里有不允许的词。')
  // 提取分享码正文，格式已由 decodeLineup 校验。
  const code = text.match(/SA\d+-[A-Za-z0-9_-]+/)![0]
- return { code, lineup: JSON.stringify({ name, goals, members, equipment, strategyId, ...(stages && { stages }) }) }
+ return { code, lineup: JSON.stringify({ name, goals, members, equipment, strategyId, ...(stages && { stages }), ...(groups && { groups }), ...(upgrades && { upgrades }) }) }
 }
 export async function listPosts(ctx: Context, viewer: string | null, admin = false) {
  const q = new URL(ctx.request.url).searchParams, env = ctx.env
@@ -132,11 +132,10 @@ export async function posts(ctx: Context, path: string) {
   }
   const id = crypto.randomUUID(), now = iso()
   const inserted = await stmt(env, `INSERT INTO posts(id,user_id,code,fingerprint,lineup,description,created_at,updated_at)
-   SELECT ?,?,?,?,?,?,?,? WHERE (SELECT COUNT(*) FROM posts WHERE user_id=? AND created_at>=?)<10
+   VALUES(?,?,?,?,?,?,?,?)
    ON CONFLICT(user_id,code) DO UPDATE SET description=excluded.description,updated_at=excluded.updated_at RETURNING id`,
-   id, u.id, code, fingerprint, lineup, desc, now, now, u.id, dayStart()).first<{ id: string }>()
-  if (!inserted) fail(429, 'rate_limited', '今天发布次数已用完，请明天再试。')
-  return json(toPost((await getPost(env, inserted.id, u.id))!))
+   id, u.id, code, fingerprint, lineup, desc, now, now).first<{ id: string }>()
+  return json(toPost((await getPost(env, inserted!.id, u.id))!))
  }
  const match = path.match(/^\/api\/posts\/([^/]+)(?:\/(like|import|favorite))?$/)
  if (!match) fail(404, 'not_found', '接口不存在。')

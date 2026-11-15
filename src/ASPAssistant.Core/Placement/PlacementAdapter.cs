@@ -39,6 +39,9 @@ public sealed class PlacementAdapter
 
     public string[]? GetCells(string mapId) => _board.Find(mapId)?.CellRows;
 
+    public IReadOnlyList<RoundStream> RoundStreams(int round, string? mode, bool solo, string[] enemyTypes, string? bossId)
+        => _spawns.Streams(round, solo ? "mode_multi_funny" : mode, enemyTypes, bossId);
+
     public CombatEffect? SelectEquipmentEffect(FieldEquipment item)
     {
         if (!_effects.Equipment.TryGetValue(item.Name, out var versions)) return null;
@@ -145,12 +148,19 @@ public sealed class PlacementAdapter
             int missing = input.CovenantBar.Count(c => c.Layers is null);
             if (missing > 0) assumptions.Add($"{missing} 个盟约层数没读到，按 0 算");
         }
-        var streams = _spawns.Streams(input.Round.Value, input.Solo ? "mode_multi_funny" : input.Mode, input.EnemyTypes, input.BossId);
+        var streams = RoundStreams(input.Round.Value, input.Mode, input.Solo, input.EnemyTypes, input.BossId);
         if (input.RoundEnemyNames is { Length: > 0 } names)
         {
-            var matching = streams.Where(s => names.All(n => s.Spawns.Any(e => e.Profile.Name == n))).ToArray();
-            if (matching.Length > 0) streams = matching;
-            else assumptions.Add("本回合敌人名单没匹配到怪组，按本局敌人类型算");
+            var available = streams.SelectMany(s => s.Spawns).Select(e => e.Profile.Name).ToHashSet();
+            var ignored = names.Where(n => !available.Contains(n)).Distinct().ToArray();
+            if (ignored.Length > 0) assumptions.Add($"{string.Join("、", ignored)} 不在本回合怪组里，没算进模拟");
+            var included = names.Where(available.Contains).ToArray();
+            if (included.Length > 0)
+            {
+                var matching = streams.Where(s => included.All(n => s.Spawns.Any(e => e.Profile.Name == n))).ToArray();
+                if (matching.Length > 0) streams = matching;
+                else assumptions.Add("本回合敌人名单没匹配到怪组，按本局敌人类型算");
+            }
         }
         // 两种摆法使用同一批怪组，输出保持真实强度。
         // 模式未识别时沿用产品 BoardRouteStore 的单人默认模式。

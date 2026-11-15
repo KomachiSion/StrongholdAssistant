@@ -88,6 +88,8 @@ public class OcrScannerService : IDisposable
     /// Fires once per entry; resets after the screen is left.
     /// </summary>
     public event Action<bool>? BanScreenDetected;
+    // 保留已验证的完整开局帧，自动录入不再等下一次截屏。
+    public byte[]? OpeningScreenshot { get; private set; }
     public Func<bool> AwaitingDetail { get; set; } = () => false;
     public event Action? DetailScreenDetected;
 
@@ -145,8 +147,46 @@ public class OcrScannerService : IDisposable
     private byte[]? _boardSurfacePixels;
     private (int, int) _boardSurfaceSize;
     public bool BoardShopVisible => _shopReader.HasVisibleCards;
+    public bool BoardDetailVisible { get; private set; }
     public Func<byte[], DateTimeOffset, EconomyReading?, bool, bool, IReadOnlyList<ShopItem>, Task>? ObserveFieldAsync { get; set; }
     public Func<byte[], int, int, EconomyReading?, double, Task>? ObserveMatchFrameAsync { get; set; }
+
+    // 与定时扫描共用占用标志，当前帧的商店、资金和棋盘判定不会与扫描交错。
+    public async Task<FieldState> ReadCurrentFieldAsync(
+        Func<byte[], DateTimeOffset, EconomyReading?, bool, bool, IReadOnlyList<ShopItem>, Task<FieldState>> recognize)
+    {
+        while (Interlocked.CompareExchange(ref _scanning, 1, 0) != 0) await Task.Delay(20);
+        try
+        {
+            var frame = await Task.Run(() => _captureService.CaptureScreen());
+            if (frame is null) throw new InvalidOperationException("还没连上游戏");
+            return await ReadFieldFrameAsync(frame, DateTimeOffset.UtcNow, recognize);
+        }
+        finally { Interlocked.Exchange(ref _scanning, 0); }
+    }
+
+    public async Task<FieldState> ReadFieldFrameAsync(byte[] frame, DateTimeOffset at,
+        Func<byte[], DateTimeOffset, EconomyReading?, bool, bool, IReadOnlyList<ShopItem>, Task<FieldState>> recognize)
+    {
+        var (width, height) = GetPngDimensions(frame);
+        var surface = FieldReader.InspectSurface(frame);
+        if (surface.Obscured || surface.Detail)
+            throw new InvalidOperationException("棋盘被面板挡住了，关掉面板再点");
+        if (surface.ConfirmationCandidate)
+        {
+            double scale = Math.Min(width / 1920d, height / 1080d);
+            var text = await _ocrEngine.RecognizeRegionAsync(frame, (int)(650 * scale), (int)(400 * scale),
+                (int)(620 * scale), (int)(150 * scale));
+            if (text.Any(t => t.Text.Replace(" ", "").Contains("确认准备", StringComparison.Ordinal)))
+                throw new InvalidOperationException("棋盘被面板挡住了，关掉面板再点");
+        }
+        var economy = await new EconomyReader(_ocrEngine, _shopReader.Theme).ReadAsync(frame, width, height);
+        bool main = await new BoardSurfaceReader(_ocrEngine).IsMainScreenAsync(frame, width, height);
+        if (!economy.IsRest || !main)
+            throw new InvalidOperationException("现在不在休整期的棋盘画面，切到棋盘再点");
+        await _shopReader.ReadAsync(frame, width, height, _getTrackedNames());
+        return await recognize(frame, at, economy, main, _shopReader.HasVisibleCards, _shopReader.AllItems);
+    }
 
     public void Start() => _scanTimer.Start();
 
@@ -242,7 +282,29 @@ public class OcrScannerService : IDisposable
     {
         lock (_shopGate)
             if (!_refreshWindow.Accept(capturedAt)) return;
+        // 开局页也有大片纯色，不能先套用棋盘遮挡判断；完整页可能只停留一帧。
+        var informationClock = Stopwatch.StartNew();
+        bool informationChanged = fingerprint is null || _informationContext is null
+            || !_informationContext.AsSpan().SequenceEqual(fingerprint.Context);
+        bool opening = false;
+        if (informationChanged || _readVersion != Volatile.Read(ref _cacheVersion)
+            || _banScreenActive || _informationState.IsConsumed || AwaitingDetail() || !_shopReader.HasVisibleCards)
+        {
+            opening = await DetectBanScreenAsync(screenshot, width, height);
+            _informationContext = fingerprint?.Context;
+        }
+        double informationMs = informationClock.Elapsed.TotalMilliseconds;
+        if (opening || _pauseBanScreenDetection)
+        {
+            BoardMainScreenVisible = false;
+            _boardSurfacePixels = null;
+            UpdateScanInterval(false);
+            BoardFrameReady?.Invoke(null, null);
+            PublishShopItems([], false, capturedAt);
+            return;
+        }
         var fieldSurface = ObserveFieldAsync is not null ? FieldReader.InspectSurface(screenshot) : default;
+        BoardDetailVisible = fieldSurface.Detail;
         bool confirmation = false;
         if (!fieldSurface.Obscured && fieldSurface.ConfirmationCandidate)
         {
@@ -285,7 +347,7 @@ public class OcrScannerService : IDisposable
                 }
             }
         }
-        double? shopMs = null, economyMs = null, informationMs = null;
+        double? shopMs = null, economyMs = null;
         if (changed)
         {
             clock.Restart();
@@ -326,16 +388,6 @@ public class OcrScannerService : IDisposable
             EconomyRead?.Invoke(reading);
             economyMs = clock.Elapsed.TotalMilliseconds;
         }
-        // 状态机尚未稳定、等待对局详情时继续确认；稳定的商店静帧不再做信息页 OCR。
-        bool informationChanged = _informationContext is null || !_informationContext.AsSpan().SequenceEqual(fingerprint.Context);
-        if (!_pauseBanScreenDetection && (forced || informationChanged || _banScreenActive
-            || _informationState.IsConsumed || AwaitingDetail() || !_shopReader.HasVisibleCards))
-        {
-            clock.Restart();
-            await DetectBanScreenAsync(screenshot, width, height);
-            _informationContext = fingerprint.Context;
-            informationMs = clock.Elapsed.TotalMilliseconds;
-        }
         if (_pauseBanScreenDetection || _banScreenActive) PublishShopItems([], false, capturedAt);
         // 商店已先发布，棋盘识别不会推迟本轮商店结果。
         if (BoardRoutesRequested() || ObserveFieldAsync is not null)
@@ -351,7 +403,7 @@ public class OcrScannerService : IDisposable
         }
         if (!_pauseBanScreenDetection && ObserveMatchFrameAsync is { } observeMatch)
             await observeMatch(screenshot, width, height, boardEconomy, _shopReader.UiScale ?? 1);
-        double total = captureMs + fingerprintMs + (shopMs ?? 0) + publishMs + (economyMs ?? 0) + (informationMs ?? 0);
+        double total = captureMs + fingerprintMs + (shopMs ?? 0) + publishMs + (economyMs ?? 0) + informationMs;
         // 有卡片时至多每两秒一行；慢轮（超过 800 ms）始终记录。
         if (total >= 800 || _shopReader.HasVisibleCards && Environment.TickCount64 - _lastTimingLog >= 2000)
         {
@@ -564,12 +616,13 @@ public class OcrScannerService : IDisposable
     /// <summary>Successful manual recording also consumes this opening screen.</summary>
     public void MarkInformationRecorded() => _informationState.MarkRecorded();
 
-    private async Task DetectBanScreenAsync(byte[] screenshot, int width, int height)
+    private async Task<bool> DetectBanScreenAsync(byte[] screenshot, int width, int height)
     {
+        if (_pauseBanScreenDetection) return false;
         bool opening = await _informationDetector.IsOpeningScreenAsync(screenshot, width, height);
         bool gameplay = !opening && _informationState.IsConsumed
             && await _informationDetector.IsGameplayAsync(screenshot, width, height);
-        if (_pauseBanScreenDetection) return;
+        if (_pauseBanScreenDetection) return false;
 
         if (opening)
         {
@@ -585,11 +638,13 @@ public class OcrScannerService : IDisposable
         {
             AppLogger.Info("BanScreen", "Validated opening info screen detected");
             bool solo = await _informationDetector.HasSoloPromptAsync(screenshot, width, height);
+            OpeningScreenshot = screenshot;
             BanScreenDetected?.Invoke(solo);
         }
         if (!opening && AwaitingDetail()
             && await _informationDetector.IsInformationScreenAsync(screenshot, width, height))
             DetailScreenDetected?.Invoke();
+        return opening;
     }
 
     public void Dispose()

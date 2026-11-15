@@ -128,7 +128,7 @@
     <div class="head">
       <div class="ht">
         <h1>{l.name}{#if p.featured}<span class="feat"><Icon name="star" size={12} />精选</span>{/if}</h1>
-        <div class="by">{p.author.nickname} · 发布于 {ago(p.createdAt)}{#if p.updatedAt !== p.createdAt} · 更新于 {ago(p.updatedAt)}{/if}</div>
+        <div class="by"><a class="who" href="/plaza?author={encodeURIComponent(p.author.id)}&by={encodeURIComponent(p.author.nickname)}" use:link title="只看 {p.author.nickname} 发的阵容">{p.author.nickname}</a> · 发布于 {ago(p.createdAt)}{#if p.updatedAt !== p.createdAt} · 更新于 {ago(p.updatedAt)}{/if}</div>
       </div>
       <div class="acts">
         <a class="btn ghost" class:off={!p.current} href={p.current ? `stronghold://import?post=${encodeURIComponent(p.id)}` : undefined} title="装了高效雅雅的话，直接在助手里打开这个阵容">在助手里打开</a>

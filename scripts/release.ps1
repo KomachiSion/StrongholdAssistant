@@ -104,8 +104,8 @@ try {
             $files = @(& git -c core.quotepath=false -C $public ls-files --modified --deleted --others --exclude-standard)
             if ($LASTEXITCODE -ne 0) { throw '读取公开仓库变更失败。' }
             if ($files.Count) {
-                Run { git -C $public add -- $files }
-                Run { git -C $public commit -m "Release v$Version" -- $files }
+                Run { git -C $public add -A }
+                Run { git -C $public commit -m "Release v$Version" }
             }
             $tag = & git -C $public tag --list "v$Version"
             if (!$tag) { Run { git -C $public tag "v$Version" } }

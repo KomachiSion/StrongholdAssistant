@@ -39,6 +39,9 @@
     picking = false
   }
   const classic = $derived(plainSkin(skin.id))
+  // 升本提示（v1.0.1）：目标阵容的升本计划到了这一回合、调度中心还没到那一级（同宿主，等级没读到时不提示）
+  const due = $derived(e && e.level != null ? (app.target?.upgrades?.find((u) => u.round === e.round && e.level! < u.level) ?? null) : null)
+  const steps = $derived(due && e?.level ? due.level - e.level : 0)
 </script>
 
 <svelte:window onkeydown={(ev) => ev.key === 'Escape' && (picking = false)} />
@@ -60,7 +63,7 @@
       {/if}
       {#if e.upgradeCost !== null}
         <span class="sep"></span>
-        <span class="up" title={e.level ? `调度中心 ${ROMAN[e.level]} 级，升级要花的钱` : '升级调度中心要花的钱'}>
+        <span class="up" class:due title={e.level ? `调度中心 ${ROMAN[e.level]} 级，升级要花的钱` : '升级调度中心要花的钱'}>
           {#if e.level && !classic}<img class="lv" src={asset.skin(`level_${e.level}`)} alt="{ROMAN[e.level]} 级" />{/if}升级 <b>{e.upgradeCost}</b>
         </span>
       {/if}
@@ -72,6 +75,12 @@
         </button>
       {/if}
     </div>
+
+    {#if due && e.upgradeCost !== null}
+      <p class="due" transition:fly={{ y: -4, duration: 160 }}>
+        <b>这回合该升本</b>：升到 {due.level} 级{steps > 1 ? `（还要升 ${steps} 次）` : ''}，这次要 <span class="term">{e.upgradeCost}</span>{e.money < e.upgradeCost ? `，还差 ${e.upgradeCost - e.money}` : ''}
+      </p>
+    {/if}
 
     {#if !compact}
       {#if e.next === null && e.basis === 'none' && !saving}
@@ -175,6 +184,34 @@
     display: inline-flex;
     align-items: center;
     gap: 3px;
+  }
+  /* 这回合该升本：升级那一格描金，下面一条金色提示 */
+  .up.due {
+    padding: 0 4px;
+    color: var(--gold);
+    box-shadow: inset 0 0 0 1px rgb(var(--gold-rgb) / 0.6);
+    animation: due-glow 1.6s ease-in-out infinite;
+  }
+  @keyframes due-glow {
+    50% {
+      box-shadow:
+        inset 0 0 0 1px var(--gold),
+        0 0 8px rgb(var(--gold-rgb) / 0.45);
+    }
+  }
+  .due {
+    margin: 4px 0 0;
+    padding: 3px 8px;
+    font-size: var(--fs-sm);
+    color: var(--fg-2);
+    background: rgb(var(--gold-rgb) / 0.1);
+    box-shadow: inset var(--edge) 0 0 var(--gold);
+  }
+  .due b {
+    color: var(--gold);
+  }
+  .due .term {
+    color: var(--gold);
   }
   /* 调度中心等级牌（皮肤位图 63×58） */
   .lv {

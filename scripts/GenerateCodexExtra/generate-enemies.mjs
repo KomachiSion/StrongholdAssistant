@@ -31,12 +31,30 @@ for (const level of levels) {
 if (missingLevels.length) console.warn(`缺关卡：${missingLevels.join('、')}`);
 // 特训敌人会携带普通敌人（例如宿主士兵），这些运行时追加项不在关卡 enemyDbRefs 内。
 const activity = read(activityFile).activity.AUTOCHESS.act3autochess.V3_1;
+const clean = text => text.replace(/<[@$][^>]*>|<\/>/g, '').replace(/\\n/g, '\n');
+const bountyKinds = { add_enemy_kill_gain_coin: 'kill', add_enemy_selfbattle_win_gain_coin: 'perfect' };
+const bounties = Object.keys(activity.effectInfoDataDict).sort()
+  .filter(id => activity.effectInfoDataDict[id].effectType === 'ENEMY_GAIN').map(id => {
+    const effect = activity.effectInfoDataDict[id];
+    const buff = activity.effectBuffInfoDataDict[id].find(b => b.key in bountyKinds);
+    if (!buff) throw new Error(`悬赏缺少奖励效果：${id}`);
+    const values = Object.fromEntries(buff.blackboard.map(b => [b.key, b.valueStr ?? b.value]));
+    if (![1, 2, 99].includes(values.round)) throw new Error(`未知悬赏持续场数：${id} ${values.round}`);
+    return {
+      id, name: effect.effectName, kind: bountyKinds[buff.key], enemyId: values.enemy_id,
+      enemyName: handbook[values.enemy_id]?.name ?? database.get(values.enemy_id)?.name.m_value ?? values.enemy_id,
+      count: values.count, coin: values.coin, rounds: values.round === 99 ? null : values.round,
+      tag: effect.effectName.match(/飞行|频次|损伤|持续|隐匿|折射|特异/)?.[0] ?? null,
+      grade: effect.effectName.match(/I{1,3}$/)?.[0].length ?? null,
+      text: clean(effect.effectDesc),
+    };
+  });
 const extraEnemies = [...Object.values(activity.enemyInfoDict).flat(),
-  ...Object.values(activity.specialEnemyInfoDict).flatMap(e => e.attachedNormalEnemyKeys ?? [])];
+  ...Object.values(activity.specialEnemyInfoDict).flatMap(e => e.attachedNormalEnemyKeys ?? []),
+  ...bounties.map(b => b.enemyId)];
 for (const id of extraEnemies)
   if (!targets.has(id)) targets.set(id, { name: database.get(id)?.name.m_value ?? id, level: 'NORMAL' });
 
-const clean = text => text.replace(/<[@$][^>]*>|<\/>/g, '').replace(/\\n/g, '\n');
 const damageNames = { PHYSIC: '物理', MAGIC: '法术', HEAL: '治疗', NO_DAMAGE: '无' };
 const missingHandbook = [], missingDatabase = [];
 const enemies = [...targets.keys()].sort().map(id => {
@@ -60,11 +78,14 @@ const enemies = [...targets.keys()].sort().map(id => {
   };
 });
 fs.writeFileSync('data/enemies.json', JSON.stringify(enemies, null, 2) + '\n');
+fs.writeFileSync('data/bounties.json', JSON.stringify(bounties, null, 2) + '\n');
 // 界面假数据由设计负责；需要同步时显式传入 --mock。
 if (process.argv.includes('--mock')) {
   const mockPath = 'src/ui/src/lib/mock/catalog.json';
   const mock = read(mockPath);
   mock.enemies = enemies;
+  mock.bounties = bounties;
   fs.writeFileSync(mockPath, JSON.stringify(mock, null, 1) + '\n');
 }
 console.log(`输出：${enemies.length} 个敌人；缺图鉴：${missingHandbook.join('、') || '无'}；缺属性：${missingDatabase.join('、') || '无'}`);
+console.log(`悬赏：${bounties.length} 条，涉及 ${new Set(bounties.map(b => b.enemyId)).size} 种敌人`);

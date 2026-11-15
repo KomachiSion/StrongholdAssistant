@@ -121,8 +121,7 @@ public sealed class NewMatchTests
     public async Task MissedOpeningThenDetailRecordingLeavesModeUnknown()
     {
         var state = new InformationScreenState();
-        // 日志时序：一帧完整开局，随后滚动失去标题，最后在局内手动录入。
-        Assert.False(state.Observe(true, false));
+        // 完全错过开局后，在局内手动录入仍不能推断模式。
         Assert.False(state.Observe(false, false));
         Assert.False(state.IsConsumed);
         var api = await CreateApi();

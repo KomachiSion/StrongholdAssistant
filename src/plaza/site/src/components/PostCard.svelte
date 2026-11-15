@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Post } from '../api'
-  import { link } from '../router.svelte'
+  import { link, router } from '../router.svelte'
   import { ago, asset, strategy } from '../data'
   import OpAvatar from './OpAvatar.svelte'
   import BondChip from './BondChip.svelte'
@@ -10,6 +10,12 @@
   let { post }: { post: Post } = $props()
   const l = $derived(post.lineup)
   const st = $derived(strategy(l.strategyId))
+  // 作者名（v1.0.1）：卡片本身是链接，作者名不能再套 <a>，点了拦下来改去「只看这个作者」
+  const byAuthor = (e: Event) => {
+    e.preventDefault()
+    e.stopPropagation()
+    router.go(`/plaza?author=${encodeURIComponent(post.author.id)}&by=${encodeURIComponent(post.author.nickname)}`)
+  }
   const pri = (m: (typeof l.members)[number]) => m.equipment?.filter((x) => x.priority).map((x) => x.name) ?? []
 </script>
 
@@ -20,7 +26,7 @@
     {#if !post.current}<span class="oldtag">旧赛季</span>{/if}
     {#if l.stages?.length}<span class="stg" title="卡片上是成型阵容；前面还有 {l.stages.length} 个回合阶段">{l.stages.length + 1} 阶段</span>{/if}
   </div>
-  <div class="by">{post.author.nickname} · {ago(post.createdAt)}</div>
+  <div class="by"><span class="who" role="link" tabindex="0" title="只看 {post.author.nickname} 发的阵容" onclick={byAuthor} onkeydown={(e) => e.key === 'Enter' && byAuthor(e)}>{post.author.nickname}</span> · {ago(post.createdAt)}</div>
   {#if l.goals.length}
     <div class="goals">
       {#each l.goals as g (g.id)}<BondChip id={g.id} level={g.level} />{/each}
@@ -121,6 +127,10 @@
     margin-top: -4px;
     font-size: 12px;
     color: var(--fg-3);
+  }
+  .who:hover {
+    color: var(--mint);
+    text-decoration: underline;
   }
   .goals {
     display: flex;

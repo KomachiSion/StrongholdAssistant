@@ -15,11 +15,20 @@ public sealed record LineupMember(string Name,
     public string? Module { get; init; }
     public ASPAssistant.Core.Models.MemberEquip[] Equipment { get; init; } = [];
 }
+public sealed record LineupGroupDto(int Need, LineupMember[] Members);
 public sealed record LineupStageDto(string Name, int FromRound, int ToRound,
-    ASPAssistant.Core.Models.CovenantGoal[] Goals, LineupMember[] Members, string[] Equipment);
+    ASPAssistant.Core.Models.CovenantGoal[] Goals, LineupMember[] Members, string[] Equipment)
+{
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public LineupGroupDto[]? Groups { get; init; }
+}
 public sealed record LineupDto(string Id, string Name, LineupMember[] Members, string Source,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Note, DateTime UpdatedAt)
 {
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public LineupGroupDto[]? Groups { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ASPAssistant.Core.Models.LineupUpgrade[]? Upgrades { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public LineupStageDto[]? Stages { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -42,6 +51,8 @@ public sealed record SettingsDto(string GameTheme, bool ShopMarkers, bool AutoCh
 {
     // TODO(design): 将 placementGoal 加入前端云同步 PREF_KEYS 和 CloudPrefsData。
     public string PlacementGoal { get; init; } = "balanced";
+    public bool FieldAuto { get; init; } = true;
+    public string FieldHotkey { get; init; } = "Alt+F";
     public MarkerStyles MarkerStyles { get; init; } = new();
     public bool GameThemeAuto { get; init; } = true;
     public bool RunAsAdmin { get; init; }
@@ -97,8 +108,14 @@ public sealed record MatchInfo(string Source, string? StrategyId, CovenantState[
     public CovenantBarItem[] CovenantBar { get; init; } = [];
 }
 public sealed record CovenantBarItem(string Id, int? Level, int? Layers, int? Round, string At);
-public sealed record RoundEnemy(string? Id, string Name);
-public sealed record RoundEnemies(int Round, string At, RoundEnemy[] Enemies);
+public sealed record RoundEnemy(string? Id, string Name, string Source = "read");
+public sealed record RoundEnemies(int Round, string At, RoundEnemy[] Enemies)
+{
+    public RoundEnemy[] Removed { get; init; } = [];
+}
+public sealed record RoundEnemyOption(string? Id, string Name, int Count);
+public sealed record RoundEnemyGroup(string Label, double Weight, RoundEnemyOption[] Enemies);
+public sealed record RoundEnemyOptions(int Round, RoundEnemyGroup[] Groups);
 public sealed record BanGroup(string Covenant, BanSlot[] Slots, bool Complete);
 public sealed record BanSlot(string? Name, int Tier, string[] Candidates,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] bool? Inferred = null);

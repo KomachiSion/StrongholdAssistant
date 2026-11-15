@@ -7,6 +7,7 @@
   import { openMenu, operatorMenu, equipmentMenu, targetMenu } from '../lib/menu.svelte'
   import Icon from './Icon.svelte'
   import { allStages, stageLabel } from '../lib/stages'
+  import { field } from '../lib/field.svelte'
 
   // 常驻顶栏：追踪列表 = 商店里会标记的干员和装备，任何页面都可见。
   // 不做「待购」和盟约进度：干员会反复买卖，盟约有没有生效游戏里也看得到。点头像取消追踪
@@ -18,7 +19,16 @@
     return s.final ? '成型' : stageLabel(s)
   })
   const keys = $derived(new Set(app.active?.members.filter((m) => m.key).map((m) => m.name) ?? []))
-  const total = $derived(app.trackedOps.length + app.session.trackedEquipment.length)
+  // 「一组」干员（v1.0.1）：拿到的人数（本局有的人里没卖的）没够 need 时，组里没拿到、没被禁的都在商店标记（宿主算）；够了就不标
+  const owned = $derived(new Set(field.state?.roster?.filter((r) => !r.sold).map((r) => r.operator) ?? []))
+  const groups = $derived(
+    (app.active?.groups ?? []).map((g) => {
+      const got = g.members.filter((m) => owned.has(m.name)).length
+      return { ...g, got, done: got >= g.need }
+    }),
+  )
+  const groupTracked = $derived(groups.filter((g) => !g.done).flatMap((g) => g.members.filter((m) => !owned.has(m.name) && !app.banned.has(m.name))).length)
+  const total = $derived(app.trackedOps.length + app.session.trackedEquipment.length + groupTracked)
   // 向上收起时点目标名也先展开
   const goTarget = () => (app.collapsed && app.setCollapsed(false), app.setTab('lineup'), (app.lineupView = 'target'))
   const fx = { duration: 160, easing: cubicOut, start: 0.6 }
@@ -64,7 +74,19 @@
           <span class="x"><Icon name="close" size={14} /></span>
         </button>
       {/each}
-      {#if app.trackedOps.length && app.session.trackedEquipment.length}<i class="div"></i>{/if}
+      {#each groups as g, gi (gi)}
+        <span class="grp" class:done={g.done} title={g.done ? `组里任选 ${g.need} 个，已经拿到 ${g.got} 个，剩下的不再标记` : `组里任选 ${g.need} 个，拿到 ${g.got} 个；没拿够时组里的人都在商店标记`}>
+          <em>{g.done ? '够了' : `任${g.need}`}</em>
+          {#each g.members as m (m.name)}
+            <span class="av gm" class:got={owned.has(m.name)} class:banned={app.banned.has(m.name)} class:key={m.key}>
+              <img src={asset.operator(m.name)} alt={m.name} />
+              {#if app.banned.has(m.name)}<img class="ban" src={asset.stage('img_chess_banned')} alt="禁用" />{/if}
+              {#if owned.has(m.name)}<b class="ok"><Icon name="check" size={11} /></b>{/if}
+            </span>
+          {/each}
+        </span>
+      {/each}
+      {#if (app.trackedOps.length || groups.length) && app.session.trackedEquipment.length}<i class="div"></i>{/if}
       {#each app.session.trackedEquipment as n (n)}
         <button
           class="av eq"
@@ -249,6 +271,44 @@
     height: 9px;
     background: var(--gold);
     clip-path: polygon(0 0, 100% 0, 0 100%);
+  }
+  /* 「一组」干员：一组框在一起，左边写「任 N」；拿到的打勾，够了整组压暗 */
+  .grp {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 3px 2px 0;
+    box-shadow: inset 0 0 0 1px rgb(var(--mint-rgb) / 0.35);
+    transition: opacity var(--t-fast);
+  }
+  .grp em {
+    padding: 0 4px;
+    font-style: normal;
+    font-size: var(--fs-xs);
+    color: var(--mint);
+    writing-mode: vertical-rl;
+    letter-spacing: 1px;
+  }
+  .grp.done {
+    opacity: 0.45;
+    box-shadow: inset 0 0 0 1px var(--line);
+  }
+  .grp.done em {
+    color: var(--fg-3);
+  }
+  .av.gm.got img {
+    filter: brightness(0.55);
+  }
+  .ok {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    display: grid;
+    place-items: center;
+    width: 14px;
+    height: 14px;
+    color: var(--mint-ink, #04110d);
+    background: var(--mint);
   }
   .div {
     width: 1px;

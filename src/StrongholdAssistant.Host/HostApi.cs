@@ -59,9 +59,11 @@ public sealed partial class HostApi
         using var bosses = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(dataDirectory, "bosses.json")));
         using var enemies = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(dataDirectory, "enemy_types.json")));
         using var enemyDetails = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(dataDirectory, "enemies.json")));
+        using var bounties = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(dataDirectory, "bounties.json")));
         var catalog = JsonSerializer.SerializeToElement(new
         {
             enemies = enemyDetails.RootElement,
+            bounties = bounties.RootElement,
             incomeSources = BuildIncomeSources(equipment, operators),
             covenants = covenants.Select(c => new
             {
@@ -177,18 +179,29 @@ public sealed partial class HostApi
         return slot;
     }
 
+    private LineupGroupDto[]? ToGroups(LineupGroup[]? groups) => groups?.Select(g =>
+        new LineupGroupDto(g.Need, g.Members.Select(ToMember).ToArray())).ToArray();
+
+    private LineupGroup[]? ToStoredGroups(LineupGroupDto[]? groups) => groups?.Select(g =>
+        new LineupGroup(g.Need, g.Members.Select(m => ToSlot(m)).ToArray())).ToArray();
+
     private LineupDto ToDto(Lineup lineup) => new(lineup.Id, lineup.Name,
         lineup.Slots.Select(ToMember).ToArray(), lineup.Source, lineup.Note, lineup.UpdatedAt)
         { Goals = lineup.Goals ?? InferGoals(lineup), Equipment = lineup.Equipment, StrategyId = lineup.StrategyId,
+            Groups = ToGroups(lineup.Groups), Upgrades = lineup.Upgrades,
             Description = lineup.Description, Stages = lineup.Stages?.Select(s => new LineupStageDto(
-                s.Name, s.FromRound, s.ToRound, s.Goals, s.Members.Select(ToMember).ToArray(), s.Equipment)).ToArray() };
+                s.Name, s.FromRound, s.ToRound, s.Goals, s.Members.Select(ToMember).ToArray(), s.Equipment)
+                { Groups = ToGroups(s.Groups) }).ToArray() };
 
     private Lineup ApplyLineup(LineupDto input, Lineup lineup)
     {
         var oldSlots = lineup.Slots.ToDictionary(s => s.OperatorName);
         lineup.Slots = input.Members.Select(m => ToSlot(m, oldSlots.GetValueOrDefault(m.Name))).ToList();
         lineup.Stages = input.Stages?.Select(s => new LineupStage(s.Name, s.FromRound, s.ToRound,
-            s.Goals, s.Members.Select(m => ToSlot(m)).ToArray(), s.Equipment)).ToArray();
+            s.Goals, s.Members.Select(m => ToSlot(m)).ToArray(), s.Equipment)
+            { Groups = ToStoredGroups(s.Groups) }).ToArray();
+        lineup.Groups = ToStoredGroups(input.Groups);
+        lineup.Upgrades = input.Upgrades;
         lineup.Goals = input.Goals;
         lineup.Equipment = input.Equipment;
         lineup.Name = input.Name;
@@ -248,7 +261,8 @@ public sealed partial class HostApi
     private void ValidateLineup(LineupDto input)
     {
         foreach (var stage in input.Stages ?? [])
-            ValidateLineup(input with { Members = stage.Members, Goals = stage.Goals, Equipment = stage.Equipment, Stages = null });
+            ValidateLineup(input with { Members = stage.Members, Goals = stage.Goals, Equipment = stage.Equipment,
+                Groups = stage.Groups, Upgrades = null, Stages = null });
         if (input.Description?.Length > 500) throw new ArgumentException("简介最多 500 字。");
         if (input.StrategyId is not null && !Catalog.GetProperty("strategies").EnumerateArray()
                 .Any(s => s.GetProperty("id").GetString() == input.StrategyId))
@@ -266,7 +280,26 @@ public sealed partial class HostApi
                 .Any(c => c.GetProperty("id").GetString() == g.Id
                     && g.Level is 1 or 2 && g.Level <= c.GetProperty("thresholds").GetArrayLength())))
             throw new ArgumentException("阵容的目标盟约无效。");
-        foreach (var member in input.Members)
+        var groupNames = input.Members.Select(m => m.Name).ToHashSet();
+        foreach (var group in input.Groups ?? [])
+        {
+            if (group is null || group.Members is null || group.Members.Length < 2
+                || group.Need < 1 || group.Need >= group.Members.Length)
+                throw new ArgumentException("每组至少要有 2 名干员，「任选几个」至少 1 个、要少于组里的人数。");
+            foreach (var member in group.Members)
+                if (member is null || !_operators.Any(o => o.Name == member.Name) || !groupNames.Add(member.Name))
+                    throw new ArgumentException("组里有无效的干员，或者和固定干员、其他组里的干员重复了。");
+        }
+        int previousRound = 0, previousLevel = 1;
+        foreach (var upgrade in input.Upgrades ?? [])
+        {
+            // 调度中心最高六级，与 EconomyReader 的等级识别一致。
+            if (upgrade is null || upgrade.Round <= previousRound || upgrade.Level <= previousLevel || upgrade.Level > 6)
+                throw new ArgumentException("升本计划要按回合从早到晚排，同一回合只写一次，等级越来越高、在 2～6 级之间。");
+            previousRound = upgrade.Round;
+            previousLevel = upgrade.Level;
+        }
+        foreach (var member in input.Members.Concat((input.Groups ?? []).SelectMany(g => g.Members)))
         {
             if (member.Equipment is null || member.Equipment.Any(e => e is null))
                 throw new ArgumentException("装备不存在。");
@@ -297,10 +330,15 @@ public sealed partial class HostApi
 
     private async Task<SessionDto> ReadSessionAsync()
     {
-        if (!File.Exists(_sessionPath)) return new(null, [], []);
-        using var json = JsonDocument.Parse(await File.ReadAllTextAsync(_sessionPath));
-        var session = json.RootElement.Deserialize<SessionDto>(JsonOptions)!;
-        if (!json.RootElement.TryGetProperty("trackedEquipment", out _))
+        var loaded = UserJsonFile.Read(_sessionPath, text =>
+        {
+            using var json = JsonDocument.Parse(text);
+            return Tuple.Create(json.RootElement.Deserialize<SessionDto>(JsonOptions)!,
+                json.RootElement.TryGetProperty("trackedEquipment", out _));
+        });
+        if (loaded is null) return new(null, [], []);
+        var session = loaded.Item1;
+        if (!loaded.Item2)
         {
             var target = (await LineupsAsync()).SingleOrDefault(l => l.Id == session.TargetLineupId);
             session = session with
@@ -323,11 +361,10 @@ public sealed partial class HostApi
         await RefreshTrackingAsync();
     }
 
-    private async Task WriteSessionAsync(SessionDto session)
+    private Task WriteSessionAsync(SessionDto session)
     {
-        Directory.CreateDirectory(DataDirectory);
-        await File.WriteAllTextAsync(_sessionPath + ".tmp", JsonSerializer.Serialize(session, JsonOptions));
-        File.Move(_sessionPath + ".tmp", _sessionPath, overwrite: true);
+        UserJsonFile.Write(_sessionPath, JsonSerializer.Serialize(session, JsonOptions));
+        return Task.CompletedTask;
     }
 
     public Task<MatchInfo> ResetMatchAsync() => ResetMatchAsync(false);
@@ -415,6 +452,7 @@ public sealed partial class HostApi
                 .Select(d => new EmulatorInstance(d.Kind, d.Serial, d.Name)).ToArray());
             case "match": return Match;
             case "field": return Field;
+            case "recognizeField": return await RecognizeFieldAsync();
             case "placement": return Placement;
             case "board": return Board();
             case "setFieldOperator": return SetFieldOperator(Read<FieldCell>(0), Read<string?>(1));
@@ -432,6 +470,8 @@ public sealed partial class HostApi
             case "setOperatorBanned": return SetOperatorBanned(Read<string>(0), Read<bool>(1));
             case "lineups": return await LineupsAsync();
             case "putLineups": return await PutLineupsAsync(Read<LineupDto[]>(0), Read<string[]>(1));
+            case "setRoundEnemy": return SetRoundEnemy(Read<string>(0), Read<bool>(1));
+            case "roundEnemyOptions": return GetRoundEnemyOptions();
             case "setMatchStrategy": return SetMatchStrategy(Read<string?>(0));
             case "resetShareId": ResetShareId(); return null;
             case "saveLineup": return await SaveLineupAsync(Read<LineupDto>(0));

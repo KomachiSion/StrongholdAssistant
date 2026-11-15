@@ -202,6 +202,12 @@ public sealed partial class FieldTracker
             if (_tierChanges.ContainsKey(cell)) continue;
             before.TryGetValue(cell, out var old);
             _pictures[cell] = patch;
+            // 整排商店已限定候选；本轮结果不再被本局名单或全阶模板覆盖。
+            if (_purchaseCandidates.ContainsKey(cell))
+            {
+                SetIdentity(cell, unit, patch);
+                continue;
+            }
             bool arrival = old is null;
             bool unexplainedGain = _untrackedGains.Contains(cell);
             var context = _gainContexts.GetValueOrDefault(cell);

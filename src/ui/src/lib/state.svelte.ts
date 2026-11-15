@@ -358,6 +358,12 @@ export class AppState {
   async toggleBanned(name: string) {
     this.match = await api.setOperatorBanned(name, !this.banned.has(name))
   }
+  /** 本回合敌人手动补上 / 去掉（任务 200） */
+  setRoundEnemy(name: string, present: boolean) {
+    return this.attempt(async () => {
+      this.match = await api.setRoundEnemy(name, present)
+    })
+  }
   /** 明确设成禁用 / 不禁用：确认推测、说「不是他」、从候选里选 */
   async setBanned(name: string, v: boolean) {
     this.match = await api.setOperatorBanned(name, v)

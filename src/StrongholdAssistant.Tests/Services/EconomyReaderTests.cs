@@ -14,7 +14,8 @@ public sealed class EconomyReaderTests(ASPAssistant.Tests.Services.EnemyRecognit
         var bytes = await File.ReadAllBytesAsync(Path.Combine(AppContext.BaseDirectory,
             "TestData", "shop-closure-round1-1600x1024.png"));
         var result = await new EconomyReader(_ocr, GameShopTheme.Closure).ReadAsync(bytes, 1600, 1024);
-        Assert.Equal(new EconomyReading(1, 4, 1, 5, true), result);
+        Assert.NotNull(result.UpgradeButton);
+        Assert.Equal(new EconomyReading(1, 4, 1, 5, true), result with { UpgradeButton = null });
     }
 
     [Theory]
@@ -25,7 +26,8 @@ public sealed class EconomyReaderTests(ASPAssistant.Tests.Services.EnemyRecognit
     {
         var bytes = await File.ReadAllBytesAsync(Path.Combine(AppContext.BaseDirectory, "TestData", file));
         var result = await new EconomyReader(_ocr, file.Contains("terminal") ? GameShopTheme.Terminal : file.Contains("ursus") ? GameShopTheme.Ursus : GameShopTheme.Closure).ReadAsync(bytes, 2000, 1125);
-        Assert.Equal(new EconomyReading(1, 4, 1, 5, true), result);
+        Assert.NotNull(result.UpgradeButton);
+        Assert.Equal(new EconomyReading(1, 4, 1, 5, true), result with { UpgradeButton = null });
     }
 
     [Theory]
@@ -36,7 +38,8 @@ public sealed class EconomyReaderTests(ASPAssistant.Tests.Services.EnemyRecognit
         var bytes = await File.ReadAllBytesAsync(Path.Combine(AppContext.BaseDirectory, "TestData", file));
         var reader = new EconomyReader(_ocr, file.Contains("terminal") ? GameShopTheme.Terminal : file.Contains("ursus") ? GameShopTheme.Ursus : GameShopTheme.Closure);
         var result = await reader.ReadAsync(bytes, 1920, 1080);
-        Assert.Equal(new EconomyReading(null, money, level, cost, false), result);
+        Assert.NotNull(result.UpgradeButton);
+        Assert.Equal(new EconomyReading(null, money, level, cost, false), result with { UpgradeButton = null });
         Assert.Equal(result, await reader.ReadAsync(bytes, 1920, 1080));
     }
 

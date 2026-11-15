@@ -35,7 +35,7 @@ public partial class UpdateService
                 Start-Process -FilePath {{Q(Path.Combine(appDir, AppExecutableName))}} -WorkingDirectory {{Q(appDir)}} -ArgumentList '--keep-identity' -WindowStyle Hidden
             } catch {
                 Add-Type -AssemblyName System.Windows.Forms
-                [System.Windows.Forms.MessageBox]::Show("卫戍协议助手更新没有完成。重新运行这个安装包就能修好：$setupPath", '卫戍协议助手') | Out-Null
+                [System.Windows.Forms.MessageBox]::Show("高效雅雅·卫戍协议助手更新没有完成。重新运行这个安装包就能修好：$setupPath", '高效雅雅·卫戍协议助手') | Out-Null
                 exit 1
             }
             """;

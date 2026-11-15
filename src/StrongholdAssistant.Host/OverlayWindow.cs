@@ -6,6 +6,7 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using ASPAssistant.Core.Interop;
 using ASPAssistant.Core.Models;
+using ASPAssistant.Core.Services;
 
 namespace StrongholdAssistant.Host;
 
@@ -13,13 +14,21 @@ public sealed class OverlayWindow : Window
 {
     private readonly ShopMarkerLayer _canvas = new();
     private readonly RouteLayer _routes = new();
+    private readonly PendingLayer _pending = new();
+    private readonly PlacementLayer _placement = new();
+    private FieldState? _field;
+    private FieldOverlayGeometry? _fieldGeometry;
+    private OverlayPlacementPlan? _placementPlan;
+    private OverlayLayerSettings _layerSettings = new();
     private BoardRoutes? _boardRoutes;
     private RouteOverlaySettings _routeSettings = new();
     private IReadOnlyList<ShopItem> _items = [];
     private MarkerStyles _markerStyles = new();
     private RECT? _client;
+    public event Action? PlacementChanged;
     public bool HasMarkers => _canvas.Children.Count > 0;
     public bool HasRoutes => _routes.HasRoutes;
+    public bool HasOverlayContent => HasMarkers || HasRoutes || _pending.Children.Count > 0 || _placement.Children.Count > 0;
 
     public OverlayWindow()
     {
@@ -30,9 +39,9 @@ public sealed class OverlayWindow : Window
         Topmost = true;
         ShowActivated = false;
         ShowInTaskbar = false;
-        Content = new System.Windows.Controls.Grid { Children = { _routes, _canvas } };
-        // 商店标记清空时，还有路线就留着窗口
-        _canvas.Emptied += () => { if (!HasRoutes) Hide(); };
+        Content = new System.Windows.Controls.Grid { Children = { _routes, _placement, _pending, _canvas } };
+        // 任一层仍有内容时保留窗口。
+        _canvas.Emptied += () => { if (!HasOverlayContent) Hide(); };
         SourceInitialized += (_, _) =>
         {
             var hwnd = new WindowInteropHelper(this).Handle;
@@ -44,6 +53,7 @@ public sealed class OverlayWindow : Window
         {
             UpdateShopItems(_items);
             _routes.Resize(ActualWidth, ActualHeight);
+            RedrawFieldLayers();
         };
     }
 
@@ -62,6 +72,7 @@ public sealed class OverlayWindow : Window
             if (_client is { } client) UpdatePosition(client);
             UpdateShopItems(_items);
             _routes.Resize(ActualWidth, ActualHeight);
+            RedrawFieldLayers();
         });
     }
 
@@ -77,6 +88,34 @@ public sealed class OverlayWindow : Window
         _boardRoutes = routes;
         _routeSettings = settings;
         _routes.Update(routes, settings, ActualWidth, ActualHeight);
+    }
+
+    public void UpdateField(FieldState? field, FieldOverlayGeometry? geometry)
+    {
+        _field = field;
+        _fieldGeometry = geometry;
+        RedrawFieldLayers();
+    }
+
+    public void UpdatePlacement(OverlayPlacementPlan? plan)
+    {
+        _placementPlan = plan;
+        RedrawFieldLayers();
+        PlacementChanged?.Invoke();
+    }
+
+    public void UpdateLayerSettings(OverlayLayerSettings settings)
+    {
+        if (_layerSettings == settings) return;
+        _layerSettings = settings;
+        RedrawFieldLayers();
+    }
+
+    private void RedrawFieldLayers()
+    {
+        _pending.Update(_field, _fieldGeometry, _layerSettings.Pending, ActualWidth, ActualHeight);
+        _placement.Update(_placementPlan, _field, _fieldGeometry?.Projection, _layerSettings.Placement, ActualWidth, ActualHeight);
+        if (!HasOverlayContent) Hide();
     }
 
     public void UpdateRouteSettings(RouteOverlaySettings settings)

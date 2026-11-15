@@ -15,9 +15,9 @@
 </script>
 
 <div class="bar">
-  <span class="logo" aria-hidden="true"><i></i></span>
-  <span class="title">卫戍协议助手</span>
-  <span class="sub term">Stronghold<br />Assistant</span>
+  <img class="logo" src="./brand/icon-128.png" alt="" aria-hidden="true" draggable="false" />
+  <span class="title">高效雅雅</span>
+  <span class="sub">卫戍协议助手<br /><span class="term">GXYY · Stronghold Assistant</span></span>
   <span class="spacer"></span>
   <!-- 连上游戏只亮绿点（分辨率放进提示里，标题栏窄，显示了会挤掉「覆盖」）；没连上才写字 -->
   <!-- 找到游戏但用不了（模拟器分辨率不对、多开没选、ADB 没开）时写「无法连接」，原因放提示里 -->
@@ -108,19 +108,12 @@
     border-bottom: 1px solid var(--line-soft);
     flex: none;
   }
+  /* 雅雅徽章（v1.0 改名换图标）：透明底，深浅皮肤都能用 */
   .logo {
     flex: none;
-    position: relative;
-    width: 16px;
-    height: 16px;
-    border: 1.5px solid var(--mint);
-    transform: rotate(45deg);
-    box-shadow: 0 0 6px rgb(var(--mint-rgb) / 0.4);
-  }
-  .logo i {
-    position: absolute;
-    inset: 3px;
-    background: var(--mint);
+    width: 24px;
+    height: 24px;
+    margin: 0 -2px 0 -3px;
   }
   /* 名字在按钮之后让出宽度，按钮永远不被挤掉（用户 2026-11-12 反馈） */
   .title {

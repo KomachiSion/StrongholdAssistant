@@ -169,6 +169,28 @@ export interface Catalog {
   enemies: Enemy[]
   /** 识别不了、要用户自己点上的收入来源（v0.7.0），见 IncomeSource */
   incomeSources: IncomeSource[]
+  /**
+   * 敌人回合加成（v1.0.0）：卫戍协议每个模式每回合的累计加成，键是模式 id（同 BossHp.mode，如 "mode_multi_normal"），
+   * 数组下标 = 回合 − 1。超出表的回合用最后一项。没有数据的模式不在里面，界面只显示基础属性
+   */
+  enemyBuffs: Record<string, EnemyBuff[]>
+}
+
+/**
+ * 一个回合的敌人累计加成。实际属性：生命 = 基础 × hp，攻击 = 基础 × atk，
+ * 攻击间隔 = 基础 ÷ ((100 + attackSpeed) / 100)，移速 = 基础 × speed；防御、法抗、重量不变（数据里有别的加成时工程在汇报里提）
+ */
+export interface EnemyBuff {
+  hp: number
+  atk: number
+  /** 攻速加数（游戏里的攻击速度，100 为基准） */
+  attackSpeed: number
+  speed: number
+  /**
+   * 不吃部分加成的敌人（v1.0.0）：游戏的加成效果带排除名单（如部分生命加成不加在器伥上），
+   * 这些敌人这一回合的累计加成另算，键是敌人 id。不在里面的按上面的通用值
+   */
+  overrides?: Record<string, { hp: number; atk: number; attackSpeed: number; speed: number }>
 }
 
 /** 游戏窗口连接状态 */
@@ -283,11 +305,30 @@ export interface MatchInfo {
    */
   roundEnemies: RoundEnemies | null
   /**
-   * 本局自选干员（v0.9.9）：开局「确定自选编队」页（第 3/3 步）选完时读到的。玩家最多带 6 名自选干员进来，
+   * 本局自选干员（v1.0.0）：开局「确定自选编队」页（第 3/3 步）选完时读到的。玩家最多带 6 名自选干员进来，
    * V 阶、VI 阶各选 0～2 名。键是阶数，值是干员名（和 bannedOperators 一样用名字）。
    * null = 这一局没读到这一页；读到了但一个没选是 { 5: [], 6: [] }。新局、清空本局时为 null
    */
   customPicks: { 5: string[]; 6: string[] } | null
+  /**
+   * 顶栏盟约（任务 168，设计见 docs/design.md「盟约信息显示」）：对局里顶部那排盟约图标读到的档位和层数。
+   * 按 id 合并：每次读到的覆盖同 id 的旧值，这次没看见的（顶栏放不下被截断、或画面没有顶栏）保留上次的。
+   * 宿主还没接上时为 undefined；新局、清空本局时为 []
+   */
+  covenantBar?: CovenantBarItem[]
+}
+
+/** 顶栏一个盟约图标读到的状态 */
+export interface CovenantBarItem {
+  id: CovenantId
+  /** 图标上方的罗马数字：激活到第几档（1 起）；读不出为 null */
+  level: number | null
+  /** 图标里的数字：当前层数；这个盟约没有层数（图标里没数字）或读不出为 null */
+  layers: number | null
+  /** 最近一次读到时的回合（economy.round）；不知道为 null */
+  round: number | null
+  /** 最近一次读到的时间（ISO） */
+  at: string
 }
 
 export interface RoundEnemies {
@@ -573,6 +614,19 @@ export interface Settings {
   shopScanSpeed: 'normal' | 'fast'
   /** 敌人路线覆盖（v0.9.0）：在游戏棋盘上画本回合敌人会走的路线。本局页「敌方情报」里的快速开关就是 routes.enabled */
   routes: RouteOverlaySettings
+  /**
+   * 游戏覆盖层新加的两项各自的开关（v1.0.0，任务 169，设计见 docs/design.md「本局页小棋盘」）。
+   * 覆盖层每项都能单独开关：商店标记仍是 shopMarkers，敌人路线仍是 routes.enabled，这里只放新加的。
+   * placement：在游戏棋盘格子上标推荐放谁（有站位推荐时才画），默认 true；
+   * pending：在待确认的小人头上标问号，玩家到侧栏小棋盘里点选，默认 true。
+   * 两项都只在休整期、棋盘主画面、没有面板盖住时画（同路线）。旧设置文件没有这一项时宿主补默认值
+   */
+  overlayLayers: { placement: boolean; pending: boolean }
+  /**
+   * 站位推荐按什么目标算（v1.0.0，任务 170，默认 'balanced'）：漏怪最少 / 平衡 / 叠层最多。
+   * 小棋盘推荐区里切换；改了宿主重算。跟着设置文件存，进云同步和备份
+   */
+  placementGoal: PlacementGoal
   autoCheckUpdate: boolean // 启动时检查新版本
   /**
    * 更新源（v0.7.2，默认 'github'）。mirrorchyan：检查走 Mirror酱；填了有效 CDK 时从 Mirror酱 下载，
@@ -912,6 +966,19 @@ export interface FieldState {
   units: FieldUnit[]
   /** 最近的事件，新的在前，最多 20 条 */
   log: FieldEvent[]
+  /**
+   * 本局有的人（v1.0.0）：小人比对只在这里面挑。按得到的先后；卖掉的不删（sold 为 true，比对时排后），
+   * 新局、清空本局时清空
+   */
+  roster: FieldRosterEntry[]
+}
+
+export interface FieldRosterEntry {
+  operator: string
+  /** purchase 商店买的；strategy 策略送的；equipment 装备给的（简易通讯机等）；dispatch 零费调度挑的；ethan 卖伊桑给的；custom 自选编队选的；manual 玩家确认格子时补进来的 */
+  source: 'purchase' | 'strategy' | 'equipment' | 'dispatch' | 'ethan' | 'custom' | 'manual'
+  at: string
+  sold: boolean
 }
 
 /** 格子。整备区 zone='bench'，col 为 1～10（左到右），row 为 0；棋盘 zone='board'，col / row 与敌人路线用的格坐标相同 */
@@ -926,8 +993,32 @@ export interface FieldUnit extends FieldCell {
   tier: number
   /** 干员名；不知道是谁为 null */
   operator: string | null
-  /** 身份从哪来：purchase 买进时的商店卡、drag 拖动时的详情面板、manual 用户指定；operator 为 null 时也为 null */
-  source: 'purchase' | 'drag' | 'manual' | null
+  /**
+   * 身份从哪来：purchase 买进时的商店卡、drag 拖动时的详情面板、manual 用户指定（含点选确认）；
+   * v1.0.0 起另有：carry 从别的格子挪过来跟着走的、merge 三合一后沿用、only 这一阶本局只有这一个人、sprite 小人比对。
+   * operator 为 null 时也为 null
+   */
+  source: 'purchase' | 'drag' | 'manual' | 'carry' | 'merge' | 'only' | 'sprite' | null
+  /**
+   * 确定程度（v1.0.0，设计见 docs/design.md「场上认人：什么时候让玩家 3 选 1」）：
+   * sure = 商店卡、拖动面板、挪格、三合一、唯一、手动这些确定来源；auto = 小人比对把握大、自动填的（玩家可改）；
+   * pending = 待玩家确认，operator 暂填第 1 名、candidates 给前 3；unknown = 本局有的人里一个都对不上（operator 为 null）
+   */
+  status: 'sure' | 'auto' | 'pending' | 'unknown'
+  /** auto / pending 时的候选：本局有的人里同阶前 3 名，按把握从大到小（score 只用来排序）；其他情况为空 */
+  candidates: { operator: string; score: number }[]
+  /**
+   * 身上带的装备（v1.0.0）：玩家点开或拖动这个人时，详情面板左侧装备栏读到的装备名，按栏位顺序，空栏不列。
+   * 一般干员 2 栏，暴躁铁皮 6 栏。没有这个字段或 null = 还没看到过这个人的详情面板；[] = 看到了，没带装备。
+   * 跟着这个人走（挪格、三合一后沿用），这格变空后作废。
+   * v1.0.0 起每件带 elite（进阶装备，数值更高）：按面板上这件的效果描述对 equipment.json 的 normal / elite 描述定；对不上为 null
+   */
+  equipment?: { name: string; elite: boolean | null }[] | null
+  /**
+   * 是不是精锐（v1.0.0，卫戍协议里三合一后的金色棋子）：三合一事件、买进金卡、详情面板上的精锐标记都能定。
+   * 没有这个字段或 null = 不知道（站位推荐按普通算）
+   */
+  elite?: boolean | null
 }
 
 /**
@@ -944,6 +1035,109 @@ export interface FieldEvent {
   operator: string | null
   from: FieldCell | null
   to: FieldCell | null
+}
+
+/**
+ * 小棋盘的地图和本回合路线（v1.0.0，任务 169，设计见 docs/design.md「本局页小棋盘」）。
+ * 宿主按 FieldState.mapId 和本局模式、回合、首领选关卡，和覆盖层画路线用同一份数据（garrison_routes.json）；
+ * 不管覆盖层的路线开没开都给。还没认出过地图为 null。坐标都是「格坐标」：同 FieldCell 的棋盘 col / row，
+ * 格 (c, r) 的中心是 (c + 0.5, r + 0.5)；能放人的格子在列 0～6、行 0～3 里（具体哪格能放看 cells），行 4 整行不能放，
+ * 列 −1 是防守点那列，列 7 是出生点那列
+ */
+export interface BoardView {
+  mapId: string
+  /** 路线对应的回合；没读到回合为 null，这时 routes、bossSpots 为空 */
+  round: number | null
+  /** 首领回合（关卡 h07_*、h08_*）：地形用 bossWalkable */
+  bossRound: boolean
+  /** 单人模式 */
+  solo: boolean
+  /** 普通回合的可走格（地面敌人能走），5 行 × 12 列：walkable[row][col + 2]，col −2～9、row 0～4 */
+  walkable: boolean[][]
+  /**
+   * 自己棋盘每格能不能放人（v1.0.0），5 个字符串 × 12 个字符：cells[row][col + 2]，col −2～9、row 0～4，
+   * 原样取 data/garrison_maps.json 这张图的 cells（任务 170 带进来，来自 CarlosDJY）：
+   * 'X' 不能放；'G' 地面（近战、远程都能放）；'H' 高台（只能放远程）；'T' 特殊地面（能放，地图有特殊效果）；
+   * 'D' 防守点；'S' 出生点。这张图没有数据时为 null（界面按列 0～6、行 0～3 都能放处理）。首领回合也用这一份
+   */
+  cells: string[] | null
+  /**
+   * 首领回合的可走格，两边棋盘连成一块，6 行 × 17 列：bossWalkable[row + 1][i]，row −1～4。
+   * i = col + 1 是自己这边（列 −1～7，i 0～8），i 9～16 是另一边（镜像，i = 15 − col），中间 i = 8 是出生点那列
+   */
+  bossWalkable: boolean[][]
+  routes: BoardRoute[]
+  /** 不走动的大体型首领站的位置（格中心坐标） */
+  bossSpots: { col: number; row: number }[]
+  /** 联机首领回合自己在哪一侧：认出来的，或设置里 routes.side 手选的；单人、普通回合、认不出为 null */
+  side: 'left' | 'right' | null
+}
+
+/** 一条敌人路线（同 garrison_routes.json 里的一条，按本回合挑出来） */
+export interface BoardRoute {
+  motion: 'walk' | 'fly'
+  boss: boolean
+  /** 联机首领回合两只首领：'left' / 'right' 是哪一侧的那只（右边那只经过另一边的段已镜像回自己的棋盘）；其他为 null */
+  side: 'left' | 'right' | null
+  /** 巡逻：在检查点之间来回，不走向防守点 */
+  patrol: boolean
+  /** 地面路线在有多条等长路时是推算的 */
+  approx: boolean
+  /** 这条路线的敌人数 */
+  count: number
+  /** 折线，点是格中心坐标；传送（消失再出现）处断开成几段 */
+  segments: { col: number; row: number }[][]
+}
+
+/**
+ * 站位推荐（152 方案 B，任务 170 接）。场上的人、地图、回合、模式、首领、本回合敌人、盟约层数、我的干员变了时，
+ * 宿主防抖约 1 秒后在后台重算，算完推送；算不了（没地图、没回合、场上没人）、新局、清空本局时为 null。
+ * 界面拿 basedOn 和 FieldState.updatedAt 比，对不上就标「场上变了，等重新算」
+ */
+export interface PlacementPlan {
+  /** 依据的场上状态（FieldState.updatedAt） */
+  basedOn: string
+  /** 算完的时间（ISO） */
+  computedAt: string
+  /** 这次按哪个目标算的（Settings.placementGoal） */
+  goal: PlacementGoal
+  /** 参与推荐的每个人一条 */
+  moves: PlacementMove[]
+  /** 其中待确认、按第 1 名算的人数（「有 n 格是猜的」） */
+  guessed: number
+  /** 认不出是谁、或没有计算资料、没算进去的格子 */
+  skipped: FieldCell[]
+  /** 照推荐摆的模拟结果（近似）；算不了为 null */
+  recommended: PlacementOutcome | null
+  /** 不挪人、照现在摆的模拟结果（近似；现在的朝向看不到，由计算挑或按默认）；算不了为 null */
+  current: PlacementOutcome | null
+  /** 这次用了哪些假设，每条一句话，给玩家看，如「潜能按 1 算」「盟约层数按 0 算」 */
+  assumptions: string[]
+}
+
+/** 站位推荐的目标：leak 漏怪最少；balanced 平衡（默认）；layers 叠层最多 */
+export type PlacementGoal = 'leak' | 'balanced' | 'layers'
+
+/** 一种摆法的模拟结果（近似）：按真实强度 */
+export interface PlacementOutcome {
+  /** 本回合总敌人数（各种可能的怪组按概率平均，保留一位小数） */
+  enemies: number
+  /** 预计漏怪数（同上） */
+  leaked: number
+  /** 每种可能的怪组各自的结果，chance 0～1，按 chance 从大到小 */
+  streams: { label: string; chance: number; enemies: number; leaked: number }[]
+  /** 这一回合各盟约预计能叠几层，没有的不列 */
+  layers: { covenant: CovenantId; layers: number }[]
+}
+
+export interface PlacementMove {
+  operator: string
+  /** 现在在哪 */
+  from: FieldCell
+  /** 推荐站哪；留在或下到整备区的 to.zone = 'bench'（原来在整备区的 to = from） */
+  to: FieldCell
+  /** 上场的朝向；整备区为 null */
+  facing: 'up' | 'down' | 'left' | 'right' | null
 }
 
 /**
@@ -975,14 +1169,11 @@ export interface RosterOperator {
   skill: string | null
   /** 打勾的模组（Operator.modules 的 id）；'' = 没有选模组（含这名干员没有模组）；认不出为 null */
   module: string | null
-  /** 潜能 1～6；认不出为 null */
-  potential: number | null
   /**
-   * 精英化 0～2、等级。卡上有两个数字（如「55/50」「1/60」），哪个是什么由 162 实机核实后定；
-   * 确认读不出来就一直为 null
+   * 潜能 1～6；认不出为 null。卡上的星形图标潜能 n 有 n−1 笔（最新一笔蓝色），满潜五笔全白，潜能 1 没有图标。
+   * 卡上竖着的两个等级数字是模式定死的（用户 2026-11-15 确认），不读
    */
-  elite: number | null
-  level: number | null
+  potential: number | null
   /** 这一条最近一次读到的时间（ISO）；用户手动改过也更新 */
   readAt: string
   /** 用户手动改过的项；再读一遍时这些项照样用读到的覆盖，并从这里去掉 */
@@ -1014,6 +1205,10 @@ export interface Api {
    * 这格变空后作废。返回更新后的状态，也会推送 field
    */
   setFieldOperator(cell: FieldCell, operator: string | null): Promise<FieldState>
+  /** 小棋盘的地图和本回合路线（任务 169）；还没认出地图为 null */
+  board(): Promise<BoardView | null>
+  /** 站位推荐（任务 169 只定接口，还没接）：现在总是 null */
+  placement(): Promise<PlacementPlan | null>
   /** 立即识别当前画面的开局信息页；失败时以错误返回，错误文字直接给用户看 */
   rescan(): Promise<MatchInfo>
   /**
@@ -1067,7 +1262,7 @@ export interface Api {
   emulatorInstances(): Promise<EmulatorInstance[]>
   /**
    * 弹出系统保存对话框导出备份（.json：我的阵容、特别关注、偏好设置；不含本局状态、窗口位置）。
-   * 默认文件名「卫戍协议助手-备份-YYYY-MM-DD.json」。用户取消返回 null，否则返回保存的完整路径。
+   * 默认文件名「高效雅雅-备份-YYYY-MM-DD.json」。用户取消返回 null，否则返回保存的完整路径。
    */
   exportData(): Promise<string | null>
   /**
@@ -1182,8 +1377,10 @@ export interface Api {
    */
   windowCommand(cmd: 'minimize' | 'close' | 'collapse' | 'expand' | 'ready' | 'workbench' | 'sidebar' | 'redock' | 'maximize' | 'restore'): Promise<void>
   /**
-   * 拖边改大小（v0.9.8，只在工作台、没最大化时）：界面在窗口四边、四角画了透明的拖动区，按下鼠标时发，
-   * 宿主接着按系统的方式拖这条边或这个角（鼠标还按着）。最小尺寸照 windowCommand('workbench') 说明
+   * 拖边改大小（工作台 v0.9.8；侧栏 v1.0.0）：界面在窗口四边、四角画了透明的拖动区，按下鼠标时发，
+   * 宿主接着按系统的方式拖这条边或这个角（鼠标还按着）。工作台最大化时、侧栏收起时界面不发。
+   * 工作台最小尺寸照 windowCommand('workbench') 说明；侧栏宽 320～720、高至少 480（DIP × 界面缩放），
+   * 拖完记住，贴着游戏、盖在画面、自由放置各记各的，见任务 165
    */
   resizeWindow(edge: ResizeEdge): Promise<void>
   /** 后端推送：工作台最大化 / 还原（v0.9.8，含双击标题栏、Win+↑、拖标题栏离开最大化）；进工作台时也推一次当前状态 */
@@ -1212,13 +1409,19 @@ export interface Api {
   onScan(cb: (s: ScanStatus) => void): () => void
   /** 后端推送：场上与整备区有变化（任务 137）；同样的状态不重复推 */
   onField(cb: (f: FieldState) => void): () => void
+  /** 后端推送：小棋盘的地图或本回合路线变了（认出新地图、换回合、首领、单人联机、自己在哪一侧变了）；同样的不重复推 */
+  onBoard(cb: (b: BoardView | null) => void): () => void
+  /** 后端推送：站位推荐变了（任务 169 只定接口，还没接，现在不推） */
+  onPlacement(cb: (p: PlacementPlan | null) => void): () => void
   /** 我的干员（任务 163）；没读过是 { readAt: null, operators: [], customSquad: [] } */
   roster(): Promise<Roster>
   /**
    * 开始「读取我的干员」（任务 163）：先截一张，认不出是物资调配页就 reject（message 给用户看，如
-   * 「先在游戏里打开卫戍协议的「物资调配」页，再点读取。」）。认出了就 resolve，之后在后台：
-   * 先把列表滑到最左，再一屏一屏往右滑、截图、识别，读到的随时并进 Roster 并推送 roster、rosterScan。
-   * 只在列表区域横向滑动，不点任何卡片和按钮。滑到头、画面离开这一页、用户动了鼠标或按键、游戏窗口丢了就停，
+   * 「先在游戏里打开卫戍协议的「物资调配」页，再点读取。」）。游戏是管理员身份、助手不是时也 reject
+   * （「游戏是以管理员身份运行的，助手也要以管理员身份运行才能滑动列表。」，162 实测这时发不进操作）。认出了就 resolve，之后在后台：
+   * 排序是「按盟约」时先点一下右上角的等阶图标切到「按等阶」（列表短一半，用户 2026-11-15 同意助手点这一下），
+   * 再把列表滑到最左，一屏一屏往右滑、截图、识别，读到的随时并进 Roster 并推送 roster、rosterScan。
+   * 除了这一下排序，只在列表区域横向滑动，不点任何卡片和按钮。滑到头、画面离开这一页、用户动了鼠标或按键、游戏窗口丢了就停，
    * 推送 rosterScan { running: false, reason, message }。已经在读时再调直接 resolve
    */
   startRosterScan(): Promise<void>

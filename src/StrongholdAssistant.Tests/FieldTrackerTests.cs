@@ -132,7 +132,18 @@ public sealed class FieldTrackerTests
         t.Observe(new(Start.AddSeconds(.8), true, "m01", 1, new Dictionary<FieldCell, int>()));
         Assert.Equal("慕斯", Assert.Single(t.State!.Units).Operator);
         t.Observe(O(1.6, rest: false)); Assert.Single(t.State.Units);
-        t.Observe(O(2.4, board: 2)); Assert.Null(Assert.Single(t.State.Units).Operator); Assert.Empty(t.State.Log);
+        t.Observe(O(2.4, board: 2)); Assert.Equal("慕斯", Assert.Single(t.State.Units).Operator);
+        t.Observe(O(3.2, board: 2)); Assert.Null(Assert.Single(t.State.Units).Operator); Assert.Empty(t.State.Log);
+    }
+
+    [Fact]
+    public void DraggedOriginDoesNotWaitForSecondTierReading()
+    {
+        var t = new FieldTracker(); t.Observe(O(0, bench: 1)); t.SetOperator(Bench, "慕斯", Start);
+        t.Observe(O(.8, drag: "慕斯"));
+        t.Observe(O(1.6, bench: 2));
+        var unit = Assert.Single(t.State!.Units);
+        Assert.Equal(2, unit.Tier); Assert.Null(unit.Operator);
     }
 
     [Fact]

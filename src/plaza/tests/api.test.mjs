@@ -303,10 +303,10 @@ for (const configured of [false, true]) test('102 配置切换发信服务：' +
   for (const [key, value] of Object.entries({
    AccessKeyId: aliyunConfig.ALIYUN_DM_ACCESS_KEY_ID, AccountName: aliyunConfig.ALIYUN_DM_ACCOUNT,
    Action: 'SingleSendMail', AddressType: '1', ReplyToAddress: 'false', ToAddress: 'mail@example.com',
-   FromAlias: '卫戍协议助手', ClickTrace: '0', Format: 'JSON', Version: '2015-11-23',
+   FromAlias: '高效雅雅·卫戍协议助手', ClickTrace: '0', Format: 'JSON', Version: '2015-11-23',
    RegionId: 'cn-hangzhou', SignatureMethod: 'HMAC-SHA1', SignatureVersion: '1.0',
   })) assert.equal(params[key], value)
-  assert.match(params.Subject, /^卫戍协议助手验证码：\d{6}$/)
+  assert.match(params.Subject, /^高效雅雅·卫戍协议助手验证码：\d{6}$/)
   const code = params.Subject.slice(-6)
   assert.equal(params.TextBody, undefined)
   assert.ok(params.HtmlBody.includes(`>${code}</div>`))

@@ -34,11 +34,11 @@
 
 <header class="top" class:solid={scrolled || menu}>
   <div class="wrap bar">
-    <a class="brand" href="/" aria-label="卫戍协议助手 首页">
+    <a class="brand" href="/" aria-label="高效雅雅·卫戍协议助手 首页">
       <img src={logo} alt="" width="30" height="30" />
       <span class="bt">
-        <b>卫戍协议助手</b>
-        <span class="lbl">Stronghold Assistant</span>
+        <b>高效雅雅·卫戍协议助手</b>
+        <span class="lbl">GXYY · Stronghold Assistant</span>
       </span>
     </a>
 
@@ -94,9 +94,9 @@
       <div class="col me">
         <a class="brand" href="/">
           <img src={logo} alt="" width="30" height="30" />
-          <span class="bt"><b>卫戍协议助手</b><span class="lbl">Stronghold Assistant</span></span>
+          <span class="bt"><b>高效雅雅·卫戍协议助手</b><span class="lbl">GXYY · Stronghold Assistant</span></span>
         </a>
-        <p class="dim">《明日方舟》卫戍协议的 PC 辅助侧栏。<br />免费，以 Apache-2.0 开源。</p>
+        <p class="dim">《明日方舟》卫戍协议的 PC 辅助侧栏。<br />原名「卫戍协议助手」，新名字由群友「明」提议。<br />免费，以 Apache-2.0 开源。</p>
       </div>
       <div class="col">
         <span class="lbl">Product</span>

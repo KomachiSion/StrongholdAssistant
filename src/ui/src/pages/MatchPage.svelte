@@ -2,6 +2,7 @@
   import { slide } from 'svelte/transition'
   import { cubicOut } from 'svelte/easing'
   import { app } from '../lib/state.svelte'
+  import { diyPool } from '../lib/roster.svelte'
   import { fmtHp, asset, ROMAN } from '../lib/assets'
   import SectionHeader from '../components/SectionHeader.svelte'
   import BondIcon from '../components/BondIcon.svelte'
@@ -9,8 +10,10 @@
   import LineupCard from '../components/LineupCard.svelte'
   import Icon from '../components/Icon.svelte'
   import EconomyBar from '../components/EconomyBar.svelte'
+  import FieldBoard from '../components/FieldBoard.svelte'
   import StrategyGrid from '../components/StrategyGrid.svelte'
   import ErrorNote from '../components/ErrorNote.svelte'
+  import BondStatus from '../components/BondStatus.svelte'
   import { api } from '../lib/api'
   import { openMenu, operatorMenu, slotMenu } from '../lib/menu.svelte'
 
@@ -144,8 +147,10 @@
   const rank = new Map(app.catalog.operators.map((o, i) => [o.name, i]))
   const byTier = (a: string, b: string) => app.op(b).tier - app.op(a).tier || rank.get(a)! - rank.get(b)!
   // 自选干员会被规则禁用（商店标记、详情照常按禁用算），但游戏的禁用列表里不显示它们，这里也不进分组和人数
-  const diyBanned = $derived(m.bannedOperators.filter((n) => app.op(n).diy))
-  const listedBans = $derived(m.bannedOperators.length - diyBanned.length)
+  // 本局读到「确定自选编队」或读过物资调配页时，只算可能出现的自选干员（docs/design.md「本局盟约里的自选干员」）
+  const pool = $derived(diyPool())
+  const diyBanned = $derived(m.bannedOperators.filter((n) => app.op(n).diy && (!pool || pool.names.has(n))))
+  const listedBans = $derived(m.bannedOperators.filter((n) => !app.op(n).diy).length)
   const bannedGroups = $derived.by(() => {
     const banned = m.bannedOperators.filter((n) => !app.op(n).diy)
     const groups: { id: string | null; names: string[] }[] = [
@@ -365,7 +370,7 @@
           </div>
         {/each}
         {#if diyBanned.length}
-          <p class="rule">另有 {diyBanned.length} 名自选干员按规则被禁，游戏的禁用列表里不显示，在「确定自选编队」页能看到。</p>
+          <p class="rule">另有 {diyBanned.length} 名{pool ? '你自选编队里的' : ''}自选干员按规则被禁，游戏的禁用列表里不显示，在「确定自选编队」页能看到。</p>
         {/if}
       </div>
     {/if}
@@ -520,15 +525,17 @@
   {#if wide}
     <!-- 工作台：三栏一屏放下。左：盟约；中：资金、提醒、策略、敌方情报、禁用；右：本局可用阵容 -->
     <div class="cols">
-      <div class="col">{@render bCore()}{@render bExtra()}</div>
-      <div class="col">{@render bInfo()}{@render bStrategy()}{@render bEnemy()}{@render bBanned()}</div>
+      <div class="col">{@render bCore()}{@render bExtra()}<BondStatus /></div>
+      <div class="col">{@render bInfo()}{@render bStrategy()}<FieldBoard />{@render bEnemy()}{@render bBanned()}</div>
       <div class="col">{@render bLineups()}</div>
     </div>
   {:else}
     {@render bInfo()}
     {@render bStrategy()}
+    <FieldBoard />
     {@render bCore()}
     {@render bExtra()}
+    <BondStatus />
     {@render bBanned()}
     {@render bEnemy()}
     {@render bLineups()}

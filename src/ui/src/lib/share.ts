@@ -91,7 +91,7 @@ export function encodeLineup(l: Lineup, c: Catalog): string {
 }
 
 /** 复制到剪贴板的整段文字：带上名字，贴到群里也看得懂是什么 */
-export const shareText = (l: Lineup, c: Catalog) => `【卫戍协议助手阵容】${l.name} ${encodeLineup(l, c)}`
+export const shareText = (l: Lineup, c: Catalog) => `【高效雅雅阵容】${l.name} ${encodeLineup(l, c)}`
 
 export type Decoded = { ok: true; lineup: Lineup } | { ok: false; error: string }
 

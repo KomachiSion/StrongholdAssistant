@@ -8,6 +8,8 @@
   import { openMenu, equipmentMenu } from '../lib/menu.svelte'
   import Seg from '../components/Seg.svelte'
   import StrategyGrid from '../components/StrategyGrid.svelte'
+  import RosterBar from '../components/RosterBar.svelte'
+  import { roster } from '../lib/roster.svelte'
   import { fly } from 'svelte/transition'
   import { cubicOut } from 'svelte/easing'
 
@@ -40,6 +42,9 @@
   let onlyTracked = $state(false)
   let onlyFocus = $state(false)
   let hideBanned = $state(false)
+  // 我的干员（任务 163）：只看没认全的
+  let onlyIncomplete = $state(false)
+  const incompleteNames = $derived(new Set(roster.incomplete.map((o) => o.name)))
   let cat = $state<string | null>(null)
 
   // 效果时机：干员效果文字里的 <战斗中>、<休整期结束时> 这类标签，从数据里统计；少见的并成「其他时机」
@@ -68,7 +73,8 @@
         (!timings.length || timings.some((t) => hasTiming(o.name, t))) &&
         (!onlyTracked || app.tracked.has(o.name)) &&
         (!onlyFocus || app.focusOps.has(o.name)) &&
-        (!hideBanned || !app.banned.has(o.name)),
+        (!hideBanned || !app.banned.has(o.name)) &&
+        (!onlyIncomplete || incompleteNames.has(o.name)),
     ),
   )
   const cats = [...new Set(app.catalog.equipment.flatMap((e) => e.categories))]
@@ -92,7 +98,7 @@
       .filter((g) => (kind === 'operator' ? g.ops.length : g.eqs.length)),
   )
   const cur = $derived(app.detail)
-  const filtered = $derived(tiers.length + bonds.length + timings.length + (onlyTracked ? 1 : 0) + (onlyFocus ? 1 : 0) + (hideBanned ? 1 : 0) + (cat ? 1 : 0) + (q ? 1 : 0))
+  const filtered = $derived(tiers.length + bonds.length + timings.length + (onlyTracked ? 1 : 0) + (onlyFocus ? 1 : 0) + (hideBanned ? 1 : 0) + (onlyIncomplete ? 1 : 0) + (cat ? 1 : 0) + (q ? 1 : 0))
 </script>
 
 <div class="page">
@@ -103,7 +109,7 @@
       <span class="si"><Icon name="search" size={15} /></span>
       <input bind:value={q} placeholder={kind === 'operator' ? '搜索干员' : kind === 'equipment' ? '搜索装备' : kind === 'boss' ? '搜索首领' : '搜索策略、发起者或效果'} />
       {#if filtered}
-        <button class="clear" onclick={() => { q = ''; tiers = []; bonds = []; timings = []; onlyTracked = false; onlyFocus = false; hideBanned = false; cat = null }}>清除筛选</button>
+        <button class="clear" onclick={() => { q = ''; tiers = []; bonds = []; timings = []; onlyTracked = false; onlyFocus = false; hideBanned = false; onlyIncomplete = false; cat = null }}>清除筛选</button>
       {/if}
     </div>
   </div>
@@ -133,6 +139,7 @@
       {/each}
     </div>
   {:else}
+  {#if kind === 'operator'}<RosterBar {onlyIncomplete} ontoggle={() => (onlyIncomplete = !onlyIncomplete)} />{/if}
   <div class="filters">
     <div class="chips">
       {#each [1, 2, 3, 4, 5, 6] as t (t)}

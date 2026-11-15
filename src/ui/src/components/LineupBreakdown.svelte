@@ -40,7 +40,7 @@
         {#if ef}
           <span class="cf">
             {#if sk}<img src={asset.skill(sk.id)} alt={sk.name} title="技能：{sk.name}" />{/if}
-            {#if md}<img class="mo" src={asset.module(md.id)} alt={md.name} title="模组：{md.name}" />{:else if o.modules?.length}<i title="不带模组">—</i>{/if}
+            {#if md}<img class="mo" src={asset.module(md.id)} alt={md.name} title="模组：{md.name}" />{:else if o.modules?.length}<img class="mo" src={asset.moduleNone} alt="不带模组" title="不带模组" />{/if}
           </span>
         {/if}
         <span class="nm">{m.name}</span>
@@ -125,13 +125,6 @@
   .cf .mo {
     object-fit: contain;
     padding: 1px;
-  }
-  .cf i {
-    width: 18px;
-    font-style: normal;
-    font-size: var(--fs-xs);
-    text-align: center;
-    color: var(--fg-4);
   }
   .nm {
     max-width: 100%;

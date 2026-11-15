@@ -26,7 +26,7 @@ public sealed partial class HostApi
         {
             Filter = "ZIP (*.zip)|*.zip", DefaultExt = ".zip",
             InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),
-            FileName = $"卫戍协议助手-诊断-{DateTime.Now:yyyyMMdd-HHmmss}.zip"
+            FileName = $"高效雅雅-诊断-{DateTime.Now:yyyyMMdd-HHmmss}.zip"
         };
         if (dialog.ShowDialog(DialogOwner) != true) return null;
         var system = ReadDiagnosticSystem();

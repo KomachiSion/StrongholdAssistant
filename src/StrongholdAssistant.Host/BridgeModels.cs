@@ -40,10 +40,13 @@ public sealed record CloudSyncState(bool Enabled, string? Since, string? PushedA
 }
 public sealed record SettingsDto(string GameTheme, bool ShopMarkers, bool AutoCheckUpdate)
 {
+    // TODO(design): 将 placementGoal 加入前端云同步 PREF_KEYS 和 CloudPrefsData。
+    public string PlacementGoal { get; init; } = "balanced";
     public MarkerStyles MarkerStyles { get; init; } = new();
     public bool GameThemeAuto { get; init; } = true;
     public bool RunAsAdmin { get; init; }
     public RouteOverlaySettings Routes { get; init; } = new();
+    public OverlayLayerSettings OverlayLayers { get; init; } = new();
     public string UiSkin { get; init; } = "follow";
     public string UiScheme { get; init; } = "system";
     private string _uiAccent = "";
@@ -91,7 +94,9 @@ public sealed record MatchInfo(string Source, string? StrategyId, CovenantState[
     public string? StrategySource { get; init; }
     public RoundEnemies? RoundEnemies { get; init; }
     public Dictionary<int, string[]>? CustomPicks { get; init; }
+    public CovenantBarItem[] CovenantBar { get; init; } = [];
 }
+public sealed record CovenantBarItem(string Id, int? Level, int? Layers, int? Round, string At);
 public sealed record RoundEnemy(string? Id, string Name);
 public sealed record RoundEnemies(int Round, string At, RoundEnemy[] Enemies);
 public sealed record BanGroup(string Covenant, BanSlot[] Slots, bool Complete);

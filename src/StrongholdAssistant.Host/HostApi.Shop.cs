@@ -65,7 +65,9 @@ public sealed partial class HostApi
         var theme = Theme(settings.GameTheme);
         SettingsStore.SaveSettings(settings);
         Settings = settings;
+        SchedulePlacement();
         BoardRoutesEnabled = settings.Routes.Enabled;
+        PublishBoardView();
         if (_shopReader is not null) _shopReader.Theme = theme;
         ShopChanged?.Invoke();
     }

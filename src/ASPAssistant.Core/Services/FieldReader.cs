@@ -2,36 +2,59 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
 using ASPAssistant.Core.Models;
+using ASPAssistant.Core.Placement;
 
 namespace ASPAssistant.Core.Services;
 
-public sealed record FieldBadge(double X, double Y, int Tier, double Score);
+public sealed record FieldBadge(double X, double Y, int Tier, double Score, double Size = 40);
+public sealed record FieldOverlayGeometry(BoardProjection Projection,
+    IReadOnlyDictionary<FieldCell, (double X, double Y)> Anchors,
+    IReadOnlyDictionary<FieldCell, FieldBadge> Badges);
 
 /// <summary>角标决定占用；名字只读拖动详情。模板匹配不使用小人身份特征。</summary>
-public sealed class FieldReader
+public sealed partial class FieldReader
 {
     private readonly IOcrEngine _ocr;
+    private readonly FieldEquipmentReader _equipment;
     private readonly string[] _names;
     private readonly List<(int Tier, int Size, double[] Values, double[] Fine)> _templates = [];
     private readonly BoardRecognizer _board;
+    private readonly GarrisonBoardData _maps;
     private readonly Dictionary<(int, int, bool), BoardMatch> _boards = new();
     private readonly Dictionary<bool, BoardProjection> _projections;
+    private readonly Dictionary<bool, BoardProjection> _bossProjections;
     private int? _round;
     private Dictionary<int, ShopItem> _shopCards = new();
     private (int, int, bool)? _frameKey;
     public GameShopTheme Theme { get; set; }
+    public FieldOverlayGeometry? OverlayGeometry { get; private set; }
 
     public FieldReader(string directory, IOcrEngine ocr, IEnumerable<string> names)
     {
+        _equipment = new(directory, ocr);
         _ocr = ocr; _names = names.OrderByDescending(n => n.Length).ToArray();
         _board = new(directory);
+        using var maps = System.Text.Json.JsonDocument.Parse(File.ReadAllText(Path.Combine(directory, "garrison_maps.json")));
+        _maps = GarrisonBoardStore.Parse(maps.RootElement);
         using var doc = System.Text.Json.JsonDocument.Parse(File.ReadAllText(Path.Combine(directory, "garrison_board_refs.json")));
         _projections = doc.RootElement.GetProperty("cameras").EnumerateObject().ToDictionary(p => p.Name == "expanded",
+            p => new BoardProjection(p.Value.EnumerateArray().Select(v =>
+                ((v[0][0].GetDouble(), v[0][1].GetDouble()), (v[1][0].GetDouble(), v[1][1].GetDouble()))).ToArray()));
+        _bossProjections = doc.RootElement.GetProperty("bossCameras").EnumerateObject().ToDictionary(p => p.Name == "expanded",
             p => new BoardProjection(p.Value.EnumerateArray().Select(v =>
                 ((v[0][0].GetDouble(), v[0][1].GetDouble()), (v[1][0].GetDouble(), v[1][1].GetDouble()))).ToArray()));
         for (int tier = 1; tier <= 6; tier++)
         {
             using var image = new Bitmap(Path.Combine(directory, "field", $"tier-{tier}.png"));
+            // IV/VI 原图是暗框图标；复用共用亮框，将原字形还原到场上角标比例。
+            if (tier is 4 or 6)
+            {
+                using var glyph = (Bitmap)image.Clone();
+                using var border = new Bitmap(Path.Combine(directory, "field", "tier-3.png"));
+                using var g = Graphics.FromImage(image);
+                g.DrawImageUnscaled(border, 0, 0);
+                g.DrawImage(glyph, new Rectangle(5, 5, 30, 30), new Rectangle(8, 8, 24, 24), GraphicsUnit.Pixel);
+            }
             foreach (int size in new[] { 34, 40, 44 })
             {
                 using var scaled = new Bitmap(size, size);
@@ -84,6 +107,7 @@ public sealed class FieldReader
     public async Task<FieldObservation> ReadAsync(byte[] frame, DateTimeOffset at, EconomyReading? economy,
         bool mainScreen, bool shopVisible, IReadOnlyList<ShopItem> shop, RectangleF? cursorRegion = null)
     {
+        OverlayGeometry = null;
         if (economy is not { IsRest: true }) return new(at, false, null, economy?.Round, new Dictionary<FieldCell, int>());
         if (_round != economy.Round) { _boards.Clear(); _round = economy.Round; }
         using var stream = new MemoryStream(frame);
@@ -92,17 +116,30 @@ public sealed class FieldReader
         bool panel = HasDetailPanel(bitmap, scale);
         bool dragging = panel && HasDragPreview(bitmap, scale);
         string? drag = null;
-        if (dragging)
+        if (panel)
         {
             var texts = await _ocr.RecognizeRegionAsync(frame, 0, (int)(285 * scale), (int)(230 * scale), (int)(65 * scale));
             string text = string.Join("", texts.Select(t => t.Text.Replace(" ", "")));
             drag = _names.FirstOrDefault(n => text.Contains(n, StringComparison.Ordinal));
         }
+        // 商店预览也有同款详情；只有拖动或已选中己方单位的“出售”控件才读取装备。
+        bool selected = dragging;
+        if (drag is not null && !dragging)
+        {
+            var controls = await _ocr.RecognizeRegionAsync(frame, (int)(650 * scale), (int)(280 * scale),
+                (int)(1080 * scale), (int)(500 * scale));
+            selected = controls.Any(t => t.Text.Replace(" ", "") == "出售");
+        }
+        var equipment = drag is not null && selected ? await _equipment.ReadAsync(frame, drag) : null;
         if (dragging || !mainScreen)
-            return new(at, true, null, economy.Round, new Dictionary<FieldCell, int>(), Money: economy.Money, DragOperator: drag, MainScreen: false);
+            return new(at, true, null, economy.Round, new Dictionary<FieldCell, int>(), Money: economy.Money, DragOperator: dragging ? drag : null, MainScreen: false)
+                { PanelOperator = drag, Equipment = equipment };
         var key = (bitmap.Width, bitmap.Height, shopVisible);
         if (_frameKey != key) { _boards.Clear(); _frameKey = key; }
-        if (!_boards.TryGetValue(key, out var board))
+        _boards.TryGetValue(key, out var board);
+        if (BossRound && KnownMap is not null)
+            board = _board.RecognizeDetailed(frame, KnownMap, bossRound: true).Match;
+        else if (board is null)
         {
             // 空卡较多时商店长边会漏检；镜头由棋盘本身判定，不能直接把“没检测到卡”当收店。
             board = _board.Recognize(frame);
@@ -113,6 +150,7 @@ public sealed class FieldReader
         if (panel) hidden.Add(new(0, .17f, .33f, .75f));
         if (cursorRegion is { } cursor) hidden.Add(cursor);
         var cells = ReadCells(bitmap, board, shopVisible, hidden);
+        if (panel) OverlayGeometry = null;
         Dictionary<int, string>? cards = null;
         if (shopVisible)
         {
@@ -124,7 +162,8 @@ public sealed class FieldReader
         }
         else _shopCards.Clear();
         return new(at, true, board?.MapId, economy.Round, cells,
-            cards, economy.Money);
+            cards, economy.Money) { PanelOperator = drag, Equipment = equipment,
+                Sprites = ReadSprites(frame, cells) };
     }
 
     private static bool HasDetailPanel(Bitmap bitmap, double scale)
@@ -189,40 +228,70 @@ public sealed class FieldReader
     public Dictionary<FieldCell, int> ReadCells(Bitmap bitmap, BoardMatch? board, bool shopVisible,
         IReadOnlyList<RectangleF>? hidden = null)
     {
-        var badges = ReadBadges(bitmap);
+        var px = new Pixels(bitmap);
+        _spriteFeet.Clear();
         var cells = new Dictionary<FieldCell, int>();
         bool expanded = board?.Camera == BoardCamera.Expanded || board is null && shopVisible;
         // 就绪主画面的镜头可确定格坐标；地图颜色不明确时 mapId 仍保持未知。
         var projection = board?.Projection ?? _projections[expanded];
         var anchors = new Dictionary<FieldCell, (double X, double Y)>();
+        var map = board is null ? null : _maps.Find(board.MapId);
         double width = bitmap.Width, height = bitmap.Height;
-        for (int row = 0; row <= 4; row++)
+        // 最下面的第 4 行只放装备，不生成干员观测或身份裁块。
+        for (int row = 0; row < 4; row++)
             for (int col = 0; col <= 6; col++)
             {
+                if (map is not null && !GarrisonMap.CanDeploy(map.At(new(col, row)), melee: false)) continue;
                 var p = projection.Project(col + .5, row + .5);
                 var p2 = projection.Project(col + 1.5, row + .5);
-                double tile = (p2.X - p.X) * width;
-                anchors[new("board", col, row)] = (p.X * width - tile * .35, p.Y * height - 112 * width / 1920);
+                // 棋盘坐标会镜像，角色阶数角标仍在角色左上方。
+                double tile = Math.Abs(p2.X - p.X) * width;
+                double offsetX = expanded ? board?.PlayerSide switch
+                {
+                    "left" => 7 * width / 1920,
+                    "right" => (-42 - row * 4) * width / 1920,
+                    _ => -tile * .4
+                } : board?.PlayerSide == "right" ? (-18 - row * 5) * width / 1920 : -tile * .35;
+                double offsetY = expanded ? 110 : 116 - row * 2;
+                if (!expanded && board?.PlayerSide == "right") offsetY = 98 + row * 3;
+                anchors[new("board", col, row)] = (p.X * width + offsetX, p.Y * height - offsetY * width / 1920);
             }
         // 整备区与棋盘共享镜头；用投影中的基准点校正整条木板的位置。
         var origin = projection.Project(0, 0);
-        double baseX = expanded ? .346875 : .35;
-        double baseY = expanded ? .222222222 : .283333333;
-        double dx = (origin.X - baseX) * width, dy = (origin.Y - baseY) * height;
+        // 整备区不随棋盘镜像；取相应镜头相对自身标定的平移与缩放。
+        var baselineProjection = (board?.PlayerSide == "right" ? _bossProjections : _projections)[expanded];
+        var baseline = baselineProjection.Project(0, 0);
+        var end = projection.Project(6, 0);
+        var baselineEnd = baselineProjection.Project(6, 0);
+        double zoom = Math.Abs((end.X - origin.X) / (baselineEnd.X - baseline.X));
         for (int col = 1; col <= 10; col++)
-            anchors[new("bench", col, 0)] = ((expanded ? 239 + (col - 1) * 122.8 : 170 + (col - 1) * 149.5) * width / 1920 + dx,
-                (expanded ? 609 : 798) * height / 1080 + dy);
+        {
+            double x = expanded ? 254 + (col - 1) * 121.2 : 170 + (col - 1) * 149.5;
+            if (expanded) x += board?.PlayerSide switch { "left" => 59, "right" => 11, _ => 0 };
+            double y = expanded ? 609 : 798;
+            anchors[new("bench", col, 0)] = (origin.X * width + (x / 1920 - baseline.X) * width * zoom,
+                origin.Y * height + (y / 1080 - baseline.Y) * height * zoom);
+        }
         foreach (var (cell, p) in anchors)
         {
             // 商店和屏幕外格子没有观测，保留追踪器中的旧值。
             if (p.X < 20 || p.X > width - 55 || p.Y < 180 * height / 1080 || p.Y + 55 > height * (shopVisible ? .72 : .94)) continue;
             cells[cell] = 0;
         }
-        foreach (var badge in badges)
+        var matchedBadges = new Dictionary<FieldCell, FieldBadge>();
+        foreach (var cell in cells.Keys.ToArray())
         {
-            var near = anchors.MinBy(p => Math.Pow(p.Value.X - badge.X, 2) + Math.Pow(p.Value.Y - badge.Y, 2));
-            if (Math.Abs(near.Value.X - badge.X) < width * .035 && Math.Abs(near.Value.Y - badge.Y) < height * .045)
-                cells[near.Key] = badge.Tier;
+            var p = anchors[cell];
+            var badge = ReadBadge(px, bitmap.Width, bitmap.Height, p.X, p.Y, cell.Zone == "board");
+            if (badge is null) continue;
+            if (badge.X + 90 * width / 1920 < width && badge.Y + 150 * width / 1920 < height && (cell.Zone == "bench" ? HasSummonCount(px, badge, width / 1920)
+                : HasSummonTriangle(px, badge, width / 1920))) continue;
+            // 全片仍有无法凭令牌分类的过渡/遮挡候选，保留原人体证据门槛。
+            if (!HasUnitEvidence(px, badge, width, height, cell.Zone == "board")) continue;
+            cells[cell] = badge.Tier;
+            _spriteFeet[cell] = (badge.X * 1920 / width + 35,
+                badge.Y * 1080 / height + (cell.Zone == "bench" ? 132 : 112));
+            matchedBadges[cell] = badge with { X = badge.X / width, Y = badge.Y / height, Size = badge.Size / height };
         }
         foreach (var (cell, p) in anchors)
         {
@@ -230,9 +299,124 @@ public sealed class FieldReader
                 (float)(90 / width), (float)(155 / height));
             if (hidden?.Any(r => r.IntersectsWith(area)) == true) cells.Remove(cell);
         }
+        OverlayGeometry = new(projection, anchors.ToDictionary(p => p.Key, p => (p.Value.X / width, p.Value.Y / height)), matchedBadges);
         return cells;
     }
 
+    // 每格分别检查平地和高台的固定位置；角标不再按最近距离分配到其他格。
+    private FieldBadge? ReadBadge(Pixels px, int width, int height, double cx, double cy, bool board)
+    {
+        double scale = width / 1920d;
+        FieldBadge? best = null;
+        foreach (int size in new[] { 34, 40, 44 })
+        {
+            var templates = _templates.Where(t => t.Size == size).ToArray();
+            int actualSize = Math.Max(10, (int)Math.Round(size * scale));
+            int radius = (int)Math.Ceiling((board ? 9 : 12) * scale);
+            foreach (int lift in board ? new[] { 0, 26 } : new[] { 0 })
+            {
+                int left = (int)Math.Round(cx) - actualSize / 2;
+                int top = (int)Math.Round(cy - lift * scale) - actualSize / 2;
+                for (int y = Math.Max(0, top - radius); y <= Math.Min(height - actualSize - 1, top + radius); y += 2)
+                    for (int x = Math.Max(0, left - radius); x <= Math.Min(width - actualSize - 1, left + radius); x += 2)
+                    {
+                        // 位置已受约束，亮框预筛允许比整屏搜索更低的对比度。
+                        int mid = actualSize / 2;
+                        int outer = Math.Max(1, (int)Math.Round(2 * scale));
+                        int inner = Math.Max(outer + 1, (int)Math.Round(7 * scale));
+                        if (px.Gray(x + outer, y + mid) < px.Gray(x + inner, y + mid) + 6
+                            && px.Gray(x + actualSize - outer - 1, y + mid) < px.Gray(x + actualSize - inner - 1, y + mid) + 6) continue;
+                        var values = Sample(px, x, y, actualSize); Normalize(values);
+                        if (templates.Max(t => Dot(t.Values, values)) < .60) continue;
+                        for (int yy = y; yy <= Math.Min(y + 1, height - actualSize - 1); yy++)
+                            for (int xx = x; xx <= Math.Min(x + 1, width - actualSize - 1); xx++)
+                            {
+                                var fine = Sample(px, xx, yy, actualSize, 20); Normalize(fine);
+                                foreach (var t in templates)
+                                {
+                                    double score = Dot(t.Fine, fine);
+                                    if (score < .73 || best is not null && score <= best.Score) continue;
+                                    best = new FieldBadge(xx + actualSize / 2, yy + actualSize / 2, t.Tier, score, actualSize);
+                                }
+                            }
+                    }
+            }
+        }
+        return best;
+    }
+
+    // 整备区召唤物的数量标签：角标右侧为暗色胶囊，内部有亮色 X 与数字。
+    private static bool HasSummonCount(Pixels px, FieldBadge badge, double scale)
+    {
+        int Gray(double x, double y) => px.Gray((int)(badge.X + x * scale), (int)(badge.Y + y * scale));
+        int border = 0, ink = 0;
+        for (int x = 30; x <= 74; x += 2)
+        {
+            if (Gray(x, -17) > Gray(x, -9) + 18 && Gray(x, 17) > Gray(x, 9) + 18) border++;
+            for (int y = -7; y <= 7; y += 2) if (Gray(x, y) > 150) ink++;
+        }
+        return border >= 19 && ink >= 12;
+    }
+
+    private static bool HasUnitEvidence(Pixels px, FieldBadge badge, double width, double height, bool board)
+    {
+        double scale = width / 1920;
+        int Edges(int top)
+        {
+            int edges = 0;
+            for (int row = top; row < top + 20; row += 2)
+                for (int col = 18; col < 65; col += 2)
+                {
+                    int x = (int)(badge.X + col * scale), y = (int)(badge.Y + row * scale);
+                    int x2 = x + Math.Max(1, (int)Math.Round(2 * scale));
+                    if (x2 < width && y < height && Math.Abs(px.Gray(x, y) - px.Gray(x2, y)) > 32) edges++;
+                }
+            return edges;
+        }
+        int body = Edges(55);
+        return body >= 22 && (badge.Tier is not (4 or 6)
+            || Edges(15) >= (board ? 12 : 22) && body + Edges(75) >= 130);
+    }
+
+    // 906 秒既有测试裁片的倒三角灰度描述子（16×16），不含角标或鸟形身份。
+    // 原画来自用户录屏，归上海鹰角网络所有；避免把身体稀疏本身当成装备证据。
+    private static readonly double[] SummonTriangle = TriangleDescriptor();
+    private static double[] TriangleDescriptor()
+    {
+        var values = Convert.FromBase64String("gIaHjpKRjZFgMkmMiYaFhpqen6CkM3iDkJSQf3FumZx8ZGlpdyiAR3l6dWtGWXWfo2BjZGpuSXh2eXl5V4R7nJweZl5gZmJxdWNyeGJ1mJecnBVfQGAvZGwqc3FgVZ2dl5qYrFyDaGBBV0JKYJiYmJWVlZhnUIJeXWQ7Q2WWlZSRkJGUUpZdUURFU1yQkZCQkJCPj5BNblhKWVhdjo6PkISEhoeGh5tdWVwSf4uIiYiVkY6Ki4uQp1pae42LjY6OiYuJiouKimtdVjuKiYmKiomIiYmJiIiKOVCIiYeIh4aGh4eHhIODgH1kgoKCg4SGgnl0ZlxXVE9PT1BPUVdZYA==")
+            .Select(v => (double)v).ToArray();
+        Normalize(values);
+        return values;
+    }
+
+    private static bool HasSummonTriangle(Pixels px, FieldBadge badge, double scale)
+    {
+        // 当前有画面证据的是四阶夜莺幻影；其余召唤物不能凭同阶或身高直接排除。
+        if (badge.Tier != 4) return false;
+        int edges = 0;
+        for (int y = 55; y < 95; y += 2)
+            for (int x = 18; x < 65; x += 2)
+                if (Math.Abs(px.Gray((int)(badge.X + x * scale), (int)(badge.Y + y * scale))
+                    - px.Gray((int)(badge.X + (x + 2) * scale), (int)(badge.Y + y * scale))) > 32) edges++;
+        if (edges >= 130) return false;
+        // 倒三角会绕竖轴转动；蓝色鸟形提供第二条证据，允许侧面令牌的相关分数降低。
+        int blue = 0;
+        for (int y = 42; y < 90; y += 2)
+            for (int x = 15; x < 70; x += 2)
+                if (px.IsBlue((int)(badge.X + x * scale), (int)(badge.Y + y * scale))) blue++;
+        double threshold = blue >= 30 ? .25 : .40;
+        foreach (int size in new[] { 46, 50, 54, 58, 62 })
+            for (int y = 68; y <= 86; y += 2)
+                for (int x = 5; x <= 24; x += 2)
+                {
+                    var values = Sample(px, (int)(badge.X + x * scale), (int)(badge.Y + y * scale),
+                        (int)(size * scale), 16);
+                    Normalize(values);
+                    if (Dot(values, SummonTriangle) >= threshold) return true;
+                }
+        return false;
+    }
+    // 兼容无棋盘投影的离线截图诊断；产品 ReadCells/ReadAsync 仅按格读取。
     public IReadOnlyList<FieldBadge> ReadBadges(Bitmap bitmap)
     {
         var px = new Pixels(bitmap);
@@ -263,7 +447,7 @@ public sealed class FieldReader
                                 double value = Dot(t.Fine, fine);
                                 if (value > score) { score = value; tier = t.Tier; }
                             }
-                            if (score >= .75) found.Add(new(xx + mid, yy + mid, tier, score));
+                            if (score >= .75) found.Add(new(xx + mid, yy + mid, tier, score, size));
                         }
                 }
         }
@@ -315,5 +499,7 @@ public sealed class FieldReader
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public int Gray(int x, int y)
         { int i = y * _stride + x * 3; return (_bytes[i] * 29 + _bytes[i + 1] * 150 + _bytes[i + 2] * 77) >> 8; }
+        public bool IsBlue(int x, int y)
+        { int i = y * _stride + x * 3; return _bytes[i] > 90 && _bytes[i] > _bytes[i + 2] * 1.4 && _bytes[i + 1] > _bytes[i + 2] * 1.2; }
     }
 }

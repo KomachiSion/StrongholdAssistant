@@ -109,9 +109,12 @@ public sealed partial class HostApi
         api._modes = extra["modes"]!.Deserialize<GameModeInfo[]>(JsonOptions)!;
         api.SettingsStore = new HostSettingsStore(Path.Combine(userDirectory, "settings.json"));
         api.Settings = api.SettingsStore.LoadSettings();
+        api._boardRouteStore = new BoardRouteStore(dataDirectory);
+        api.Changed += (name, _) => { if (name is "field" or "match") api.PublishBoardView(); };
         api.BoardRoutesEnabled = api.Settings.Routes.Enabled;
         api.StartupWorkbench = api.SettingsStore.StartInWorkbench();
         await api.RefreshTrackingAsync();
+        await api.InitializePlacementAsync(dataDirectory);
         return api;
     }
 
@@ -390,6 +393,10 @@ public sealed partial class HostApi
                 && args[0].TryGetProperty("silent", out var silent) && silent.GetBoolean());
             case "plazaToken": return new PlazaTokenStore(DataDirectory).Read();
             case "plazaLogout": await PlazaLogoutAsync(); return null;
+            case "roster": return ReadRoster();
+            case "startRosterScan": await StartRosterScanAsync(); return null;
+            case "stopRosterScan": await StopRosterScanAsync(); return null;
+            case "setRosterOperator": return SetRosterOperator(Read<string>(0), args[1]);
             case "catalog": return Catalog;
             case "settings": return Settings;
             case "listFonts": return ListFonts();
@@ -408,6 +415,8 @@ public sealed partial class HostApi
                 .Select(d => new EmulatorInstance(d.Kind, d.Serial, d.Name)).ToArray());
             case "match": return Match;
             case "field": return Field;
+            case "placement": return Placement;
+            case "board": return Board();
             case "setFieldOperator": return SetFieldOperator(Read<FieldCell>(0), Read<string?>(1));
             case "addIncome": return AddIncome(Read<string>(0), Read<bool>(1));
             case "removeIncome": return RemoveIncome(Read<string>(0));

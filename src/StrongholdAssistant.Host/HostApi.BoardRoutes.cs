@@ -129,6 +129,7 @@ public sealed partial class HostApi
                     if (_boardPlayerSide is null && board.Camera == BoardCamera.Expanded && board.PlayerSide is not null)
                     {
                         _boardPlayerSide = board.PlayerSide;
+                        PublishBoardView();
                         // 收起镜头可能先独立判过侧边；展开确认后按本局侧边重新识别。
                         _boardCameras.Clear();
                     }

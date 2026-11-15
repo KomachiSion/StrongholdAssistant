@@ -8,7 +8,7 @@
 <header class="ph">
   <div class="wrap">
     <span class="ghost" aria-hidden="true">{en}</span>
-    <span class="lbl"><a href="/">Stronghold Assistant</a> <span class="mint">//</span> {en}</span>
+    <span class="lbl"><a href="/">GXYY · Stronghold Assistant</a> <span class="mint">//</span> {en}</span>
     <h1>{title}</h1>
     <div class="bars" aria-hidden="true"><i></i><i></i><i></i></div>
     {#if children}<p class="lead">{@render children()}</p>{/if}
@@ -38,8 +38,8 @@
     line-height: 1;
     text-transform: uppercase;
     white-space: nowrap;
-    color: transparent;
-    -webkit-text-stroke: 1px rgb(var(--hl-rgb) / 0.07);
+    /* 不用描边：字形内部有重叠轮廓，描边会画出多余的方框 */
+    color: rgb(var(--hl-rgb) / 0.035);
     pointer-events: none;
   }
   .lbl a:hover {

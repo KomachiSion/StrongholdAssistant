@@ -81,7 +81,7 @@
 <section class="hero">
   <div class="in">
     <h1>阵容广场<span class="term">Lineup Plaza</span></h1>
-    <p>看大家的卫戍协议阵容怎么搭。点开阵容复制分享码，到卫戍协议助手「阵容 → 我的阵容 → 导入」里粘贴就能用。想分享自己的阵容，可以在这里<a href="/new" use:link class="hl">新建阵容</a>，也可以在助手里右键阵容卡「发布到广场」。</p>
+    <p>看大家的卫戍协议阵容怎么搭。点开阵容复制分享码，到高效雅雅「阵容 → 我的阵容 → 导入」里粘贴就能用。想分享自己的阵容，可以在这里<a href="/new" use:link class="hl">新建阵容</a>，也可以在助手里右键阵容卡「发布到广场」。</p>
   </div>
 </section>
 
@@ -132,7 +132,7 @@
       <div class="state"><p class="err">{error}</p><button class="btn ghost sm" onclick={() => load()}>重试</button></div>
     {:else if !posts.length && !loading}
       <div class="state">
-        <p>{filtered || kw ? '没有符合条件的阵容，换个关键词或筛选试试。' : sort === 'featured' ? '还没有精选阵容。' : '广场里还没有阵容。点上面的「新建阵容」，或者在卫戍协议助手里右键阵容卡「发布到广场」。'}</p>
+        <p>{filtered || kw ? '没有符合条件的阵容，换个关键词或筛选试试。' : sort === 'featured' ? '还没有精选阵容。' : '广场里还没有阵容。点上面的「新建阵容」，或者在高效雅雅里右键阵容卡「发布到广场」。'}</p>
       </div>
     {:else}
       <div class="grid">

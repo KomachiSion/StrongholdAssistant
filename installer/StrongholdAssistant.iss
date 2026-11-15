@@ -1,12 +1,13 @@
 ﻿; 版本与发布目录由 scripts/package.ps1 传入。
 [Setup]
 AppId={{C4B65DDD-AB40-40BD-8B72-422B90E13403}
-AppName=卫戍协议助手
+AppName=高效雅雅·卫戍协议助手
 AppVersion={#AppVersion}
 AppPublisher=LBEILC
 DefaultDirName={localappdata}\Programs\StrongholdAssistant
 DisableDirPage=no
-DefaultGroupName=卫戍协议助手
+DefaultGroupName=高效雅雅·卫戍协议助手
+UsePreviousGroup=no
 DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
 ArchitecturesAllowed=x64compatible
@@ -18,6 +19,7 @@ OutputDir={#ReleaseDir}
 OutputBaseFilename=StrongholdAssistant-v{#AppVersion}-setup
 Compression=lzma2
 SolidCompression=yes
+SetupIconFile=..\branding\icon.ico
 UninstallDisplayIcon={app}\StrongholdAssistant.exe
 
 [Languages]
@@ -27,6 +29,10 @@ Name: "chinesesimplified"; MessagesFile: "ChineseSimplified.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
 
 [InstallDelete]
+; 改名后清理旧快捷方式，旧程序组仅在为空时删除。
+Type: files; Name: "{autoprograms}\卫戍协议助手\卫戍协议助手.lnk"
+Type: files; Name: "{autodesktop}\卫戍协议助手.lnk"
+Type: dirifempty; Name: "{autoprograms}\卫戍协议助手"
 ; 仅清理应用拥有的文件，不删除用户选定目录里的其他文件和卸载记录。
 Type: files; Name: "{app}\StrongholdAssistant.exe"
 Type: files; Name: "{app}\*.dll"
@@ -50,11 +56,11 @@ Root: HKCU; Subkey: "Software\Classes\stronghold"; ValueType: string; ValueName:
 Root: HKCU; Subkey: "Software\Classes\stronghold\shell\open\command"; ValueType: string; ValueData: """{app}\StrongholdAssistant.exe"" ""%1"""
 
 [Icons]
-Name: "{group}\卫戍协议助手"; Filename: "{app}\StrongholdAssistant.exe"
-Name: "{autodesktop}\卫戍协议助手"; Filename: "{app}\StrongholdAssistant.exe"; Tasks: desktopicon
+Name: "{group}\高效雅雅·卫戍协议助手"; Filename: "{app}\StrongholdAssistant.exe"
+Name: "{autodesktop}\高效雅雅·卫戍协议助手"; Filename: "{app}\StrongholdAssistant.exe"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\StrongholdAssistant.exe"; Description: "运行卫戍协议助手"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\StrongholdAssistant.exe"; Description: "运行高效雅雅·卫戍协议助手"; Flags: nowait postinstall skipifsilent
 
 [Code]
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);

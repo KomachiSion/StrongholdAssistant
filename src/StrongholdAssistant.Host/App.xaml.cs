@@ -123,8 +123,8 @@ public partial class App : Application
 
     private void RecoverInstance(string[] args, bool noGame, string settingsPath)
     {
-        if (MessageBox.Show("卫戍协议助手已经在运行，但没有响应，可能卡住了。\n要结束它并重新打开吗？",
-                "卫戍协议助手", MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
+        if (MessageBox.Show("高效雅雅·卫戍协议助手已经在运行，但没有响应，可能卡住了。\n要结束它并重新打开吗？",
+                "高效雅雅·卫戍协议助手", MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
         AppLogger.Initialize(noGame
             ? Path.Combine(Path.GetTempPath(), "StrongholdAssistant-StartupCheck", Guid.NewGuid().ToString("N"), "logs")
             : Path.Combine(Path.GetDirectoryName(settingsPath)!, "logs"));
@@ -142,7 +142,7 @@ public partial class App : Application
         catch (Exception ex) when (ex is Win32Exception or InvalidOperationException or TimeoutException or UnauthorizedAccessException)
         {
             MessageBox.Show("结束不了，可能是以管理员身份运行的。请在任务管理器里结束 StrongholdAssistant 后再打开",
-                "卫戍协议助手", MessageBoxButton.OK);
+                "高效雅雅·卫戍协议助手", MessageBoxButton.OK);
         }
     }
 
@@ -181,7 +181,7 @@ public partial class App : Application
         if (Interlocked.Exchange(ref _failureDialogShown, 1) != 0) return;
         try
         {
-            if (MessageBox.Show(message, "卫戍协议助手", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
+            if (MessageBox.Show(message, "高效雅雅·卫戍协议助手", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
                 Process.Start(new ProcessStartInfo(target) { UseShellExecute = true });
         }
         finally

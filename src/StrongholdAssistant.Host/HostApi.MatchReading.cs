@@ -8,6 +8,8 @@ public sealed partial class HostApi
     private MatchStrategyReader _strategyReader = null!;
     private CustomPickReader _customPickReader = null!;
     private RoundEnemyReader _roundEnemyReader = null!;
+    private CovenantBarReader _covenantBarReader = null!;
+    private DateTimeOffset _covenantReadAt = DateTimeOffset.MinValue;
     private (string? Match, int? Round) _enemyReadKey;
     private int _matchReadingGeneration;
 
@@ -16,6 +18,8 @@ public sealed partial class HostApi
         _strategyReader = new(ocr, data, Catalog.GetProperty("strategies").EnumerateArray()
             .ToDictionary(s => s.GetProperty("id").GetString()!, s => s.GetProperty("name").GetString()!));
         _roundEnemyReader = new(ocr);
+        _covenantBarReader = new(ocr, data, Catalog.GetProperty("covenants").EnumerateArray()
+            .ToDictionary(c => c.GetProperty("id").GetString()!, c => c.GetProperty("name").GetString()!));
         _customPickReader = new(ocr, _operators.Where(o => o.Diy).Select(o => o.Name).ToArray());
     }
 
@@ -23,6 +27,27 @@ public sealed partial class HostApi
     {
         string? match = _activeRecord;
         int generation = _matchReadingGeneration;
+        if (reading is not null)
+        {
+            bool read;
+            lock (_historyGate)
+            {
+                var now = DateTimeOffset.UtcNow;
+                read = now - _covenantReadAt >= TimeSpan.FromSeconds(3);
+                if (read) _covenantReadAt = now;
+            }
+            if (read)
+            {
+                int? round = Match.Economy?.Round;
+                var result = await _covenantBarReader.ReadAsync(frame, uiScale);
+                lock (_historyGate)
+                {
+                    if (generation == _matchReadingGeneration && match == _activeRecord && Match.Economy?.Round == round
+                        && !result.Skipped && result.Items.Length > 0)
+                        ApplyCovenantBar(result.Items, round);
+                }
+            }
+        }
         if (reading is null)
         {
             var picks = await _customPickReader.ReadAsync(frame, width, height);
@@ -48,6 +73,20 @@ public sealed partial class HostApi
     {
         _matchReadingGeneration++;
         _enemyReadKey = default;
+        _covenantReadAt = DateTimeOffset.MinValue;
+        Match = Match with { CovenantBar = [] };
+    }
+
+    internal void ApplyCovenantBar(CovenantBarReading[] items, int? round)
+    {
+        lock (_historyGate)
+        {
+            string at = DateTimeOffset.UtcNow.ToString("O");
+            var merged = Match.CovenantBar.ToDictionary(c => c.Id);
+            foreach (var item in items) merged[item.Id] = new(item.Id, item.Level, item.Layers, round, at);
+            Match = Match with { CovenantBar = merged.Values.ToArray() };
+            Changed?.Invoke("match", Match);
+        }
     }
 
     internal void ApplyRecognizedStrategy(string id) => UpdateMatchStrategy(id, "recognized");

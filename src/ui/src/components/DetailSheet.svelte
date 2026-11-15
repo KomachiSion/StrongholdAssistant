@@ -9,7 +9,8 @@
   import GameText from './GameText.svelte'
   import Icon from './Icon.svelte'
   import { effective, defaultsFor, setMyDefault } from '../lib/opconfig'
-  import { api, type Operator } from '../lib/api'
+  import { api, type Enemy, type Operator } from '../lib/api'
+  import { roster, diyPool } from '../lib/roster.svelte'
 
   // 底部详情面板：点击打开，固定不随鼠标消失；Esc 或点遮罩关闭
   const d = $derived(app.detail)
@@ -25,6 +26,29 @@
   // 敌人资料（v0.9.5）：特训敌人变体和首领；更细的去 PRTS 看（页面名就是敌人名）
   const enemyById = (id: string) => app.catalog.enemies.find((e) => e.id === id)!
   const openPrts = (name: string) => api.openUrl(`https://prts.wiki/w/${encodeURIComponent(name)}`)
+  // 敌人实际属性（v1.0.0）：本局模式 + 回合的累计加成；回合默认当前回合，可以往前后翻着看；没模式或没数据只显示基础属性
+  const buffMode = $derived(app.match.mode && app.catalog.enemyBuffs?.[app.match.mode.id] ? app.match.mode : null)
+  const buffTable = $derived(buffMode ? app.catalog.enemyBuffs[buffMode.id] : null)
+  let pickRound = $state<number | null>(null)
+  $effect(() => {
+    d?.kind === 'enemy' && d.id
+    pickRound = null
+  })
+  const statRound = $derived(buffTable ? Math.min(Math.max(pickRound ?? app.match.economy?.round ?? 1, 1), 20) : null)
+  function enemyStats(en: Enemy) {
+    const row = buffTable && statRound ? buffTable[Math.min(statRound, buffTable.length) - 1] : null
+    const b = row ? (row.overrides?.[en.id] ?? row) : null
+    const t = b ? en.attackTime / ((100 + b.attackSpeed) / 100) : en.attackTime
+    return [
+      ['生命', b ? Math.round(en.hp * b.hp) : en.hp, en.hp],
+      ['攻击', b ? Math.round(en.atk * b.atk) : en.atk, en.atk],
+      ['防御', en.def, en.def],
+      ['法抗', en.res, en.res],
+      ['攻击间隔', `${+t.toFixed(2)} 秒`, `${en.attackTime} 秒`],
+      ['移速', b ? +(en.speed * b.speed).toFixed(2) : en.speed, en.speed],
+      ['重量', en.weight, en.weight],
+    ] as const
+  }
 </script>
 
 <svelte:window onkeydown={(e) => e.key === 'Escape' && close()} />
@@ -122,6 +146,7 @@
       {@const tm = app.active?.members.find((m) => m.name === o.name)}
       {@const inTarget = !!tm}
       {@const ef = tm ? effective(tm, o, app.settings.operatorDefaults) : null}
+      {@const rr = roster.byName.get(o.name)}
       <!-- 普通和精锐并排一屏看，精锐里变化的数字高亮 -->
       <div class="body">
         {#each o.normal as t, i (i)}
@@ -136,35 +161,64 @@
             {/if}
           </div>
         {/each}
-        {#if o.skills?.length > 1 || o.modules?.length}
+        <!-- 我的干员（任务 163）：读过物资调配页的干员，这里显示读到的皮肤、技能、模组、潜能，能手动改；
+             技能、模组就是我的默认（读到时一起设好），改了两边一起改。没读过的只显示我的默认 -->
+        {#if rr || o.skills?.length > 1 || o.modules?.length}
           {@const dd = defaultsFor(o, my)}
           {@const changed = !!my[o.name]}
-          <div class="mydef">
+          {@const pick = (k: 'skill' | 'module', v: string) => (rr ? roster.edit(o, { [k]: v }) : setDef(o, { [k]: v }))}
+          <div class="mydef" class:mine={!!rr}>
             <div class="mdh">
-              <span class="tt">我的默认</span>
-              {#if changed}<em class="chg">已改</em><button class="link" onclick={() => setDef(o, null)}>恢复</button>{/if}
-              <span class="hint">加进阵容时按这个预填</span>
+              <span class="tt">{rr ? '我的干员' : '我的默认'}</span>
+              {#if rr?.edited?.length}<em class="chg">手动改过</em>
+              {:else if !rr && changed}<em class="chg">已改</em><button class="link" onclick={() => setDef(o, null)}>恢复</button>{/if}
+              <span class="hint">{rr ? '游戏里读到' : '加进阵容时按这个预填'}</span>
             </div>
+            {#if rr && o.skins?.length}
+              <div class="mdo">
+                <span class="cl">皮肤</span>
+                {#each o.skins as k (k.id)}
+                  <button class="opt skin" class:on={rr.skin === k.id} title={k.name} onclick={() => roster.edit(o, { skin: k.id })}>
+                    <img src={asset.avatar(k.id)} alt={k.name} onerror={(e) => { const im = e.currentTarget as HTMLImageElement; if (!im.dataset.fb) { im.dataset.fb = '1'; im.src = asset.operator(o.name) } }} />
+                  </button>
+                {/each}
+                {#if rr.skin === null}<span class="miss">没认出，点一个</span>{/if}
+              </div>
+            {/if}
+            {#if o.skills.length > 1 || o.modules?.length}
             <div class="mdo">
               {#if o.skills.length > 1}
                 <span class="cl">技能</span>
                 {#each o.skills as k (k.id)}
-                  <button class="opt" class:on={dd.skill === k.id} title={k.name} onclick={() => setDef(o, { skill: k.id })}>
-                    <img src={asset.skill(k.id)} alt={k.name} />{#if changed && k.id === o.defaultSkill}<em title="数据默认">原</em>{/if}
+                  <button class="opt" class:on={dd.skill === k.id} title={k.name} onclick={() => pick('skill', k.id)}>
+                    <img src={asset.skill(k.id)} alt={k.name} />{#if !rr && changed && k.id === o.defaultSkill}<em title="数据默认">原</em>{/if}
                   </button>
                 {/each}
               {/if}
               {#if o.modules?.length}
                 <span class="cl">模组</span>
-                <button class="opt txt" class:on={dd.module === ''} onclick={() => setDef(o, { module: '' })}>不带{#if changed && !o.defaultModule}<em title="数据默认">原</em>{/if}</button>
+                <button class="opt" class:on={dd.module === ''} title="不带模组" onclick={() => pick('module', '')}><img src={asset.moduleNone} alt="不带模组" />{#if !rr && changed && !o.defaultModule}<em title="数据默认">原</em>{/if}</button>
                 {#each o.modules as k (k.id)}
-                  <button class="opt" class:on={dd.module === k.id} title={k.name} onclick={() => setDef(o, { module: k.id })}>
-                    <img src={asset.module(k.id)} alt={k.name} />{#if changed && k.id === o.defaultModule}<em title="数据默认">原</em>{/if}
+                  <button class="opt" class:on={dd.module === k.id} title={k.name} onclick={() => pick('module', k.id)}>
+                    <img src={asset.module(k.id)} alt={k.name} />{#if !rr && changed && k.id === o.defaultModule}<em title="数据默认">原</em>{/if}
                   </button>
                 {/each}
               {/if}
+              {#if rr && (rr.skill === null || rr.module === null)}<span class="miss">{rr.skill === null ? '技能' : '模组'}没认出</span>{/if}
             </div>
-            <p class="mdn">{o.skills.find((k) => k.id === dd.skill)?.name ?? ''}{o.modules?.length ? ` · ${o.modules.find((k) => k.id === dd.module)?.name ?? '不带模组'}` : ''}</p>
+            {/if}
+            {#if rr}
+              <div class="mdo">
+                <span class="cl">潜能</span>
+                {#each [1, 2, 3, 4, 5, 6] as p (p)}
+                  <button class="opt txt pot" class:on={rr.potential === p} onclick={() => roster.edit(o, { potential: p })}>{p}</button>
+                {/each}
+                {#if rr.potential === null}<span class="miss">没认出</span>{/if}
+              </div>
+            {/if}
+            <p class="mdn">
+              {[rr && o.skins?.find((k) => k.id === rr.skin)?.name, o.skills.find((k) => k.id === dd.skill)?.name, o.modules?.length ? (o.modules.find((k) => k.id === dd.module)?.name ?? '不带模组') : ''].filter(Boolean).join(' · ')}{#if rr}<span class="mdx">技能、模组也是加进阵容时的默认</span>{/if}
+            </p>
           </div>
         {/if}
         {#if o.givesEquipment?.length}
@@ -240,7 +294,11 @@
     {:else if d.kind === 'covenant'}
       {@const c = app.cov(d.id)}
       {@const mc = app.matchCovenant(c.id)}
-      {@const members = app.catalog.operators.filter((o) => o.core.includes(c.id) || o.extra.includes(c.id)).sort((a, b) => a.tier - b.tier)}
+      {@const pool = diyPool()}
+      {@const all = app.catalog.operators.filter((o) => o.core.includes(c.id) || o.extra.includes(c.id)).sort((a, b) => a.tier - b.tier)}
+      <!-- 自选干员只列本局选的（或自选编队里的）；没读到时列全部 -->
+      {@const members = all.filter((o) => !o.diy || !pool || pool.names.has(o.name))}
+      {@const hiddenDiy = all.length - members.length}
       {@const out = members.filter((o) => app.banned.has(o.name))}
       <div class="body">
         {#each c.effects as e, i (i)}
@@ -257,14 +315,25 @@
             {/each}
           </div>
         {/each}
+        {#if hiddenDiy}<p class="mhide">自选干员只列{pool?.from === 'match' ? '本局选的' : '你自选编队里的'}，另有 {hiddenDiy} 名没列出</p>{/if}
       </div>
     {:else if d.kind === 'enemy'}
       {@const en = enemyById(d.id)}
       <!-- 简单资料：基础属性一行排开，能力逐条；更细的（各级数值、关卡出现位置）去 PRTS 看 -->
-      <div class="hph"><b>基础属性</b><em>卫戍协议里还会按模式和回合加成</em></div>
+      {#if buffMode && statRound}
+        <div class="hph">
+          <b>第 {statRound} 回合属性</b><em>{buffMode.name}，已算上回合加成</em>
+          <span class="rstep">
+            <button aria-label="上一回合" disabled={statRound <= 1} onclick={() => (pickRound = statRound - 1)}><Icon name="arrowLeft" size={14} /></button>
+            <button aria-label="下一回合" disabled={statRound >= buffTable!.length} onclick={() => (pickRound = statRound + 1)}><Icon name="arrowRight" size={14} /></button>
+          </span>
+        </div>
+      {:else}
+        <div class="hph"><b>基础属性</b><em>{app.match.mode ? `${app.match.mode.name}还没有回合加成数据` : '进了对局会按模式和回合算上加成'}</em></div>
+      {/if}
       <div class="stats">
-        {#each [['生命', en.hp], ['攻击', en.atk], ['防御', en.def], ['法抗', en.res], ['攻击间隔', `${en.attackTime} 秒`], ['移速', en.speed], ['重量', en.weight]] as [k, v] (k)}
-          <div class="st"><span>{k}</span><b class="term">{v}</b></div>
+        {#each enemyStats(en) as [k, v, base] (k)}
+          <div class="st"><span>{k}</span><b class="term">{v}</b>{#if v !== base}<i class="base">基础 {base}</i>{/if}</div>
         {/each}
       </div>
       {#if en.abilities.length}
@@ -606,6 +675,11 @@
   .mgh b {
     color: var(--mint);
   }
+  .mhide {
+    margin: 2px 0 0;
+    font-size: var(--fs-sm);
+    color: var(--fg-4);
+  }
   .mgh.bad,
   .mgh.bad b {
     color: var(--red);
@@ -718,6 +792,31 @@
     font-size: var(--fs-md);
     color: var(--fg-1);
   }
+  .st .base {
+    font-style: normal;
+    font-size: var(--fs-2xs);
+    color: var(--fg-4);
+  }
+  .rstep {
+    display: inline-flex;
+    gap: 2px;
+    margin-left: auto;
+  }
+  .rstep button {
+    width: 22px;
+    height: 22px;
+    display: grid;
+    place-items: center;
+    color: var(--fg-3);
+    background: var(--bg-3);
+  }
+  .rstep button:hover:not(:disabled) {
+    color: var(--fg-1);
+    background: var(--bg-4);
+  }
+  .rstep button:disabled {
+    opacity: 0.35;
+  }
   .favbtn.fav {
     color: var(--gold);
   }
@@ -821,5 +920,33 @@
     margin: 4px 0 0;
     font-size: var(--fs-sm);
     color: var(--fg-3);
+  }
+  .mydef.mine {
+    border-style: solid;
+    border-color: rgb(var(--mint-rgb) / 0.35);
+  }
+  .opt.skin {
+    width: 34px;
+    height: 34px;
+    overflow: hidden;
+  }
+  .opt.skin img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .opt.pot {
+    min-width: 24px;
+    padding: 0 6px;
+    font-variant-numeric: tabular-nums;
+  }
+  .miss {
+    margin-left: 4px;
+    font-size: var(--fs-xs);
+    color: var(--gold);
+  }
+  .mdx {
+    margin-left: 8px;
+    color: var(--fg-4);
   }
 </style>

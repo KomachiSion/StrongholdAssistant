@@ -10,10 +10,13 @@
 
 | 位置 | 内容 | 来源 |
 |---|---|---|
+| `src/ui/public/assets/game/module-none.png` | 不带模组图标，64×64 PNG，原样复制，保留透明度 | [ArknightsAssets/ArknightsAssets2](https://github.com/ArknightsAssets/ArknightsAssets2) `cn` 分支 commit `774d93398fc56df29b4f55e406edda1a9df451e9`，`assets/dyn/ui/uniequip/uniequip_clickable_type_icon_item/empty_gray_back.png`；游戏美术归上海鹰角网络科技有限公司所有 |
+| `data/covenant_bar_digits.json`、`src/StrongholdAssistant.Tests/TestData/covenant-bar-*.png` | 顶栏层数的二值字形模板与只含顶栏的测试裁片，不含玩家昵称；模板取 2026-11-15 录屏 950、1050、1600 秒和 2026-11-14 录屏 630、900、1800 秒，测试取 2026-11-15 录屏 140、500、1222、550、1785、2015 秒和 2026-11-14 录屏 1200 秒 | 用户于 2026-11-14、2026-11-15 录制的卫戍协议对局；游戏画面与字形归上海鹰角网络所有 |
 | `data/field/tier-1.png`、`tier-2.png`、`tier-3.png`、`tier-5.png` | 场上阶数识别模板，40×40 裁剪 | 用户提供的 `prep-ready-1920x1080.png` 游戏截图；游戏美术归上海鹰角网络所有 |
 | `data/field/tier-4.png`、`tier-6.png` | 场上 IV、VI 阶识别模板，原图补到 40×40 黑底画布 | [ArknightsAssets/ArknightsAssets2](https://github.com/ArknightsAssets/ArknightsAssets2) `cn` 分支 commit `774d93398fc56df29b4f55e406edda1a9df451e9`，`assets/dyn/ui/autochess/[uc]autochesscommon/chess/common_chess_level/img_chess_level_4.png`、`img_chess_level_6.png`；游戏美术归上海鹰角网络所有 |
 | `src/StrongholdAssistant.Tests/TestData/field-*.jpg` | 场上占用及拖动详情测试，5 张录屏帧，只用于测试 | 用户于 2026-11-13 提供的三主题录屏第 47、55.5、57、345、350 秒；游戏画面归上海鹰角网络所有 |
 | `src/StrongholdAssistant.Tests/TestData/board-boss-right-*.jpg`、`board-city-r13-expanded.jpg` | 联机首领回合（玩家在右侧）和普通回合的棋盘识别测试，3 张录屏帧，只用于测试 | 用户于 2026-11-14 提供的整局录屏第 40:00、44:00、45:45；游戏画面归上海鹰角网络所有 |
+| `src/StrongholdAssistant.Tests/TestData/roster-*-1920x1080.jpg` | 物资调配页（我的干员）识别测试，4 张截图，只用于测试 | 2026-11-15 在用户的游戏里实机截取（任务 162）；游戏画面归上海鹰角网络所有 |
 | `src/ui/public/assets/game/bond/` | 盟约图标（文件名为游戏盟约 id 去掉 `Ship`） | [ArknightsAssets/ArknightsAssets2](https://github.com/ArknightsAssets/ArknightsAssets2) `cn` 分支，commit `774d93398fc56df29b4f55e406edda1a9df451e9`，`assets/dyn/ui/autochess/[uc]autochesscommon/arts/bondicon/` |
 | `src/ui/public/assets/game/card/` | 商店卡底、等阶框与等阶角标、冻结等 | 同上，`…/[uc]autochessbattle/shop/autochess_shop_card_item/` |
 | `src/ui/public/assets/game/card/icon_golden.png` | 精锐标记（图鉴里的精锐状态标签） | 同上，`…/[uc]autochessouter/handbook/act_auto_chess_handbook_state/` |
@@ -27,7 +30,8 @@
 
 | `.github/readme/` | README 与发版页的图片（含上面的界面素材、盟约图标与界面截图） | 由本项目用上面的素材和界面截图渲染 |
 | `src/site/src/assets/shots/` | 官网用的界面截图（助手界面、阵容广场网站，示例数据）和一张游戏商店画面（由测试样图 `shop-terminal-ui100-2000x1125.png` 缩小转为 WebP） | 界面截图由本项目拍摄，画面里的游戏素材同上；游戏画面归上海鹰角网络所有 |
-| `branding/` | 应用图标、QQ 群头像（`icon.png`、`icon.ico`、`qq-avatar.png`），图案用了上面的「独行」盟约图标 | 由本项目渲染，生成页见 `docs/readme/panels.html` |
+| `branding/` | 应用图标、QQ 群头像（`icon.png` 1024×1024、`icon.ico` 16～256 多尺寸、`qq-avatar.png` 是徽章放在深色方底上）；v1.0 起换成「高效雅雅」徽章：Q 版霍尔海雅托腮，从青绿发光圆框里探出来，左下角城堡塔徽章 | 本项目用 AI 生图做的同人二创（2026-11-15）：外观参考官方立绘，构图与贴纸画风参考上游「鸿雪·卫戍助手」的图标；角色形象归上海鹰角网络科技有限公司所有 |
+| `src/ui/public/brand/icon-128.png`、`src/site/static/`、`src/plaza/site/static/` 的 favicon 与图标、`src/plaza/site/public/mail/logo.png` | 同上图标缩小的版本（网站 favicon、标题栏、关于页、邮件 logo） | 由 `branding/` 的原图缩放 |
 
 ## 字体与通用图标
 
@@ -51,8 +55,15 @@
 | `src/ui/public/assets/data/operators/` | 干员头像（缩放并转为 webp） | [bingyunhe/asp-assistant-arknights](https://github.com/bingyunhe/asp-assistant-arknights) `data/icons/`（取自 PRTS） |
 | `data/operator_avatars/*.png` | 头像识别模板（默认头像），141 张 128×128 PNG；与界面头像同源 | 同上 `data/icons/operators/`，由原始 PNG 缩放；游戏美术归上海鹰角网络所有 |
 | `data/operator_avatars/<干员名>/` | 头像识别模板（默认、精二、各皮肤头像），463 张 128×128 PNG，由 `scripts/generate-avatar-templates.ps1` 生成 | [yuanyan3060/ArknightsGameResource](https://github.com/yuanyan3060/ArknightsGameResource) `avatar/`，commit `62fe51e`，由原始 PNG 缩放；游戏美术归上海鹰角网络所有 |
+| `data/sprite-templates.bin.gz` | 场上小人比对模板：卫戍协议 217 名干员默认皮肤的战斗小人，正背面、Idle 4 个姿势，归一小图加透明蒙版，由 `scripts/generate-sprite-templates.py` 从离线渲染图生成 | 小人素材取自 [PRTS](https://prts.wiki) 的 Spine 资源，开发时用 Spine 运行库离线渲染成图片（运行库不进发布包，用户 2026-11-15 定可以发布渲染图）；游戏美术归上海鹰角网络所有 |
+| `data/skins/*.webp`、`data/roster_templates.json` | 我的干员（任务 163）：当期 217 名干员的 710 套皮肤头像（96×96 WebP，界面显示用，约 11 MiB），以及物资调配页识别用的皮肤 / 技能 / 模组特征；皮肤编号和名字进 `data/codex_extra.json` | 头像、半身图来自 [yuanyan3060/ArknightsGameResource](https://github.com/yuanyan3060/ArknightsGameResource) `avatar/`、`portrait/`；皮肤编号和名字来自 [ArknightsGameData](https://github.com/Kengxxiao/ArknightsGameData) `skin_table.json`；游戏美术与数据归上海鹰角网络所有 |
 | `src/ui/public/assets/data/equipment/`、`bosses/`、`enemy_types/`、`enemies/`、`strategies/` | 装备、首领、敌人类型、特训敌人候选（`enemies/`，由 `scripts/convert-enemy-icons.gd` 转换）、策略图标（缩放并转为 webp） | 同上（取自 PRTS、SPDatabase） |
 | `data/*.json` | 宿主读取的当期数据（干员、盟约、装备、首领、敌人类型、策略等）；`covenant_ids.json` 是盟约中文名到盟约 id 的对照 | [bingyunhe/asp-assistant-arknights](https://github.com/bingyunhe/asp-assistant-arknights) `data/`（取自 PRTS、SPDatabase）；盟约 id 取自 [PRTS](https://prts.wiki) 的 `activity_table.json` |
+| `data/enemy_buffs.json` | 卫戍协议联机四个模式（标准 / 险境 / 绝境 / 终极模拟）每回合的敌人累计加成（生命、攻击倍率，攻速加数，移速倍率），由 `scripts/generate-enemy-buffs.mjs` 生成 | 加成参数取自 [Kengxxiao/ArknightsGameData](https://github.com/Kengxxiao/ArknightsGameData) zh_CN `activity_table.json`（commit `6f63c14`）的 `effectBuffInfoDataDict`；各回合发放哪些加成取自[路标档案馆·卫戍协议出怪预览](https://www.lubiao.wiki/tools/garrison-spawn-preview)（经 [CarlosDJY/asp-assistant-arknights](https://github.com/CarlosDJY/asp-assistant-arknights) 的 `data/garrison_spawns.json` 整理，用户 2026-11-14 确认可用）；游戏数据归上海鹰角网络所有 |
+| `data/operator_profiles.json`、`data/chess_skill_overrides.json` | 站位推荐（任务 170）：217 名干员（含自选干员和暴躁铁皮）普通 / 精锐棋子的战斗面板、全部技能（582 个）和模组（330 个）、潜能、天赋、召唤物和攻击范围，由 `data/build_operator_profiles.py`、`data/talent_effects.py` 生成 | 生成器和最初的 141 份资料改编自 [CarlosDJY/asp-assistant-arknights](https://github.com/CarlosDJY/asp-assistant-arknights) `feature/port-upstream-v1.8.0`（`d3dc2f9`，Apache-2.0）；原始数据取自 [Kengxxiao/ArknightsGameData](https://github.com/Kengxxiao/ArknightsGameData) zh_CN 的 `activity_table.json`、`character_table.json`、`skill_table.json`、`uniequip_table.json`、`battle_equip_table.json`、`range_table.json`、`handbook_team_table.json`；游戏数据归上海鹰角网络所有 |
+| `data/garrison_maps.json` | 站位推荐：10 张卫戍协议地图每格能不能放人（地面 / 高台 / 特殊地形）、地形效果，由 `data/build_garrison_terrain.py` 生成 | 改编自 [CarlosDJY/asp-assistant-arknights](https://github.com/CarlosDJY/asp-assistant-arknights)（`d3dc2f9`，Apache-2.0），地图 id 换成本项目的 m01～m12；原始数据取自 [ArknightsGameData](https://github.com/Kengxxiao/ArknightsGameData) 卫戍协议关卡文件；游戏数据归上海鹰角网络所有 |
+| `data/garrison_spawns.json` | 站位推荐：联机 1～13 回合的怪组（敌人、数量、出怪间隔、概率）、第 14～15 回合首领波次和 225 种敌人的模拟属性，由 `data/build_garrison_spawns.py` 生成（数据生成于 2026-11-11 00:08）；运行时的敌人加成改用本项目 `data/enemy_buffs.json` | 怪组、波次和部分属性取自[路标档案馆·卫戍协议出怪预览](https://www.lubiao.wiki/tools/garrison-spawn-preview)（用户 2026-11-14 确认可用），经 [CarlosDJY/asp-assistant-arknights](https://github.com/CarlosDJY/asp-assistant-arknights)（`d3dc2f9`）整理；速度、攻击间隔等取自 [ArknightsGameData](https://github.com/Kengxxiao/ArknightsGameData) `enemy_database.json`、`activity_table.json`；游戏数据归上海鹰角网络所有 |
+| `data/equipment_effects.json`、`data/strategy_effects.json` | 站位推荐（任务 173）：70 件装备、61 个策略的战斗效果（模拟器能用的加成和触发，以及不模拟的原因），由 `data/build_combat_effects.py` 从 `data/equipment.json`、`data/strategies.json` 的效果文字解析加人工补 | 效果文字同 `data/equipment.json`、`data/strategies.json`，取自 [Kengxxiao/ArknightsGameData](https://github.com/Kengxxiao/ArknightsGameData) `activity_table.json`；游戏数据归上海鹰角网络所有 |
 | `data/model/ocr/` | 文字识别模型（`det.onnx`、`rec.onnx`、`keys.txt`），由 MaaFramework 加载 | [bingyunhe/asp-assistant-arknights](https://github.com/bingyunhe/asp-assistant-arknights) `data/model/ocr/`，为 [PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR) 模型（Apache-2.0） |
 | `src/StrongholdAssistant.Tests/TestData/*.png` | 测试用的游戏截图（开局信息页、商店、局内画面），只用于测试，不进发布包 | [bingyunhe/asp-assistant-arknights](https://github.com/bingyunhe/asp-assistant-arknights) `src/ASPAssistant.Tests/TestData/`；画面内容归上海鹰角网络所有 |
 | `src/StrongholdAssistant.Tests/TestData/user-ban-4-1920x1080.png` | 用户提供的禁用信息页截图，只用于测试 | 用户于 2026-11-11 提供；画面内容归上海鹰角网络所有 |
@@ -65,5 +76,7 @@
 | `src/StrongholdAssistant.Tests/TestData/strategy-selection.jpg`、`strategy-board.jpg` | 用户录屏里的选策略页和对局休整期画面，用来测试认策略；选策略页的昵称和玩家列表已涂黑，只用于测试，不进发布包 | 用户于 2026-11-14 录制；画面内容归上海鹰角网络所有 |
 | `src/StrongholdAssistant.Tests/TestData/custom-picks-selection.png`、`custom-picks-none.png` | 用户录屏里的「确定自选编队」页（选择中、倒计时结束未选择），用来测试读自选干员；左侧玩家列表已涂黑，只用于测试，不进发布包 | 用户于 2026-11-15 录制；画面内容归上海鹰角网络所有 |
 | `src/StrongholdAssistant.Tests/TestData/custom-picks-solo-selecting-2v2.png`、`custom-picks-solo-final-2v2.png` | 用户截图的单人局「确定自选编队」页（选择中、选完两阶各 2 名），用来测试读自选干员；左侧玩家栏已涂黑，只用于测试，不进发布包 | 用户于 2026-11-15 截图；画面内容归上海鹰角网络所有 |
+| `src/StrongholdAssistant.Tests/TestData/sprite-N24.png`、`sprite-N29.png`、`sprite-N30.png` | 用户录屏里整备区单格裁块（906 秒灰喉、2046 秒霍尔海雅和星极），用来测试小人比对；只含目标人物，只用于测试，不进发布包 | 用户于 2026-11-15 录制；画面内容归上海鹰角网络所有 |
+| `src/StrongholdAssistant.Tests/TestData/equipment-panel-2139.png`、`equipment-panel-2298.png`、`equipment-panel-263.png`、`equipment-panel-269.png` | 用户录屏里干员详情面板的装备列表，用来测试读装备；只裁面板一块，不含昵称，只用于测试，不进发布包 | 用户于 2026-11-15 录制；画面内容归上海鹰角网络所有 |
 | `src/StrongholdAssistant.Tests/TestData/board-enemy-panel.png`、`shop-wide-ui100.png`、`shop-terminal-frozen-1610.png` | 诊断包中的敌人面板、宽屏商店和冻结商店截图；商店图只保留底部区域，只用于测试，不进发布包 | 用户于 2026-11-13 提供；画面内容归上海鹰角网络所有 |
 | `src/ui/src/lib/mock/catalog.json` | 盟约、干员、装备、首领、敌人类型、策略的当期数据 | 同上 `data/*.json`；盟约 id 与激活人数取自 [PRTS](https://prts.wiki) 的 `activity_table.json`（`act3autochess` / `V3_1`） |

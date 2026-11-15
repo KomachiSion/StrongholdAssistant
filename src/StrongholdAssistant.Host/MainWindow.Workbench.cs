@@ -107,7 +107,7 @@ public partial class MainWindow
 
     private void ResizeWindow(string edge)
     {
-        if (!_workbench || WindowState != WindowState.Normal) return;
+        if (_collapsed || WindowState != WindowState.Normal) return;
         ReleaseCapture();
         User32.GetCursorPos(out var point);
         var position = (IntPtr)((point.Y << 16) | (point.X & 0xffff));
@@ -123,7 +123,7 @@ public partial class MainWindow
             handled = true;
             return true;
         }
-        if (_workbench && message == 0x0024) // WM_GETMINMAXINFO，物理像素，坐标相对当前屏幕。
+        if ((_workbench || !_collapsed) && message == 0x0024) // WM_GETMINMAXINFO，物理像素，坐标相对当前屏幕。
         {
             var rect = User32.ReadWindowRect(hwnd);
             var monitor = User32.GetMonitorGeometry(rect.Left + rect.Width / 2, rect.Top + rect.Height / 2);
@@ -131,7 +131,13 @@ public partial class MainWindow
             info.MaxPosition = new() { X = monitor.WorkArea.Left - monitor.Bounds.Left, Y = monitor.WorkArea.Top - monitor.Bounds.Top };
             info.MaxSize = new() { X = monitor.WorkArea.Width, Y = monitor.WorkArea.Height };
             var dpi = User32.GetWindowDpiScale(hwnd);
-            info.MinTrackSize = new() { X = (int)Math.Ceiling(MinWidth * dpi), Y = (int)Math.Ceiling(MinHeight * dpi) };
+            info.MinTrackSize = new()
+            {
+                X = _workbench ? (int)Math.Ceiling(MinWidth * dpi) : Math.Min((int)Math.Ceiling(320 * _uiScale * dpi), monitor.WorkArea.Width),
+                Y = _workbench ? (int)Math.Ceiling(MinHeight * dpi) : Math.Min((int)Math.Ceiling(480 * _uiScale * dpi), monitor.WorkArea.Height)
+            };
+            if (!_workbench)
+                info.MaxTrackSize = new() { X = Math.Min((int)Math.Ceiling(720 * _uiScale * dpi), monitor.WorkArea.Width), Y = monitor.WorkArea.Height };
             Marshal.StructureToPtr(info, lParam, false);
             handled = true;
             return true;

@@ -42,7 +42,7 @@
     <div class="frame">
       {#if open}
         {#key skin}
-          <iframe title="卫戍协议助手侧栏演示" src="/demo/?demo&skin={skin}#match" onload={() => (loaded = true)}></iframe>
+          <iframe title="高效雅雅·卫戍协议助手侧栏演示" src="/demo/?demo&skin={skin}#match" onload={() => (loaded = true)}></iframe>
         {/key}
       {/if}
       {#if !loaded}<div class="loading"><span class="live-dot"></span><span class="lbl">Connecting…</span></div>{/if}

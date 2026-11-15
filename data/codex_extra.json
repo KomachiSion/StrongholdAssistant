@@ -491,7 +491,21 @@
         }
       ],
       "defaultSkill": "skchr_kaitou_2",
-      "defaultModule": "uniequip_002_kaitou"
+      "defaultModule": "uniequip_002_kaitou",
+      "skins": [
+        {
+          "id": "char_499_kaitou#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_499_kaitou#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_499_kaitou@epoque#37",
+          "name": "斜照"
+        }
+      ]
     },
     "车尔尼": {
       "equipSlots": {
@@ -519,7 +533,21 @@
         }
       ],
       "defaultSkill": "skchr_pianst_2",
-      "defaultModule": "uniequip_002_pianst"
+      "defaultModule": "uniequip_002_pianst",
+      "skins": [
+        {
+          "id": "char_4047_pianst#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4047_pianst#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_4047_pianst@wild#8",
+          "name": "荒野寻音"
+        }
+      ]
     },
     "黑键": {
       "equipSlots": {
@@ -556,7 +584,21 @@
         }
       ],
       "defaultSkill": "skchr_ebnhlz_2",
-      "defaultModule": "uniequip_004_ebnhlz"
+      "defaultModule": "uniequip_004_ebnhlz",
+      "skins": [
+        {
+          "id": "char_4046_ebnhlz#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4046_ebnhlz#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_4046_ebnhlz@boc#6",
+          "name": "变奏"
+        }
+      ]
     },
     "卡涅利安": {
       "equipSlots": {
@@ -592,7 +634,25 @@
         }
       ],
       "defaultSkill": "skchr_billro_3",
-      "defaultModule": "uniequip_002_billro"
+      "defaultModule": "uniequip_002_billro",
+      "skins": [
+        {
+          "id": "char_426_billro#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_426_billro#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_426_billro@summer#8",
+          "name": "灿阳朝露 SD08"
+        },
+        {
+          "id": "char_426_billro@snow#3",
+          "name": "霍恩洛厄的寒沙"
+        }
+      ]
     },
     "艾雅法拉": {
       "equipSlots": {
@@ -625,7 +685,25 @@
         }
       ],
       "defaultSkill": "skchr_amgoat_3",
-      "defaultModule": "uniequip_002_amgoat"
+      "defaultModule": "uniequip_002_amgoat",
+      "skins": [
+        {
+          "id": "char_180_amgoat#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_180_amgoat#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_180_amgoat@summer#5",
+          "name": "夏卉 FA018"
+        },
+        {
+          "id": "char_180_amgoat@sanrio#2",
+          "name": "绵绒小魔女"
+        }
+      ]
     },
     "纯烬艾雅法拉": {
       "equipSlots": {
@@ -658,7 +736,25 @@
         }
       ],
       "defaultSkill": "skchr_agoat2_3",
-      "defaultModule": "uniequip_002_agoat2"
+      "defaultModule": "uniequip_002_agoat2",
+      "skins": [
+        {
+          "id": "char_1016_agoat2#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_1016_agoat2#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_1016_agoat2@epoque#34",
+          "name": "远行前的野餐"
+        },
+        {
+          "id": "char_1016_agoat2@epoque#57",
+          "name": "后来的故事"
+        }
+      ]
     },
     "折桠": {
       "equipSlots": {
@@ -683,7 +779,21 @@
         }
       ],
       "defaultSkill": "skchr_branch_2",
-      "defaultModule": "uniequip_002_branch"
+      "defaultModule": "uniequip_002_branch",
+      "skins": [
+        {
+          "id": "char_4207_branch#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4207_branch#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_4207_branch@yun#10",
+          "name": "撷香霭"
+        }
+      ]
     },
     "乌啾": {
       "equipSlots": {
@@ -708,7 +818,17 @@
         }
       ],
       "defaultSkill": "skchr_turdus_2",
-      "defaultModule": "uniequip_002_turdus"
+      "defaultModule": "uniequip_002_turdus",
+      "skins": [
+        {
+          "id": "char_4224_turdus#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4224_turdus#2",
+          "name": "精英化二"
+        }
+      ]
     },
     "赫拉格": {
       "equipSlots": {
@@ -741,7 +861,21 @@
         }
       ],
       "defaultSkill": "skchr_helage_2",
-      "defaultModule": "uniequip_002_helage"
+      "defaultModule": "uniequip_002_helage",
+      "skins": [
+        {
+          "id": "char_188_helage#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_188_helage#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_188_helage@boc#2",
+          "name": "歧路幻影"
+        }
+      ]
     },
     "维伊": {
       "equipSlots": {
@@ -770,7 +904,17 @@
         }
       ],
       "defaultSkill": "skchr_veen_3",
-      "defaultModule": "uniequip_002_veen"
+      "defaultModule": "uniequip_002_veen",
+      "skins": [
+        {
+          "id": "char_4226_veen#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4226_veen#2",
+          "name": "精英化二"
+        }
+      ]
     },
     "怒潮凛冬": {
       "equipSlots": {
@@ -799,7 +943,17 @@
         }
       ],
       "defaultSkill": "skchr_headb2_2",
-      "defaultModule": "uniequip_002_headb2"
+      "defaultModule": "uniequip_002_headb2",
+      "skins": [
+        {
+          "id": "char_1051_headb2#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_1051_headb2#2",
+          "name": "精英化二"
+        }
+      ]
     },
     "蓝毒": {
       "equipSlots": {
@@ -824,7 +978,25 @@
         }
       ],
       "defaultSkill": "skchr_bluep_1",
-      "defaultModule": "uniequip_002_bluep"
+      "defaultModule": "uniequip_002_bluep",
+      "skins": [
+        {
+          "id": "char_129_bluep#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_129_bluep#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_129_bluep@marthe#3",
+          "name": "浅滩律动"
+        },
+        {
+          "id": "char_129_bluep@iteration#2",
+          "name": "哀律西昂夜曲"
+        }
+      ]
     },
     "海沫": {
       "equipSlots": {
@@ -849,7 +1021,25 @@
         }
       ],
       "defaultSkill": "skchr_highmo_1",
-      "defaultModule": "uniequip_002_highmo"
+      "defaultModule": "uniequip_002_highmo",
+      "skins": [
+        {
+          "id": "char_4066_highmo#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4066_highmo#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_4066_highmo@epoque#45",
+          "name": "搁浅"
+        },
+        {
+          "id": "char_4066_highmo@nian#10",
+          "name": "及山海"
+        }
+      ]
     },
     "旅骨": {
       "equipSlots": {
@@ -874,7 +1064,17 @@
         }
       ],
       "defaultSkill": "skchr_hbound_2",
-      "defaultModule": "uniequip_002_hbound"
+      "defaultModule": "uniequip_002_hbound",
+      "skins": [
+        {
+          "id": "char_4232_hbound#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4232_hbound#2",
+          "name": "精英化二"
+        }
+      ]
     },
     "艾丽妮": {
       "equipSlots": {
@@ -911,7 +1111,25 @@
         }
       ],
       "defaultSkill": "skchr_irene_3",
-      "defaultModule": "uniequip_002_irene"
+      "defaultModule": "uniequip_002_irene",
+      "skins": [
+        {
+          "id": "char_4009_irene#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4009_irene#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_4009_irene@ambienceSynesthesia#3",
+          "name": "飞羽"
+        },
+        {
+          "id": "char_4009_irene@game#3",
+          "name": "至高判决"
+        }
+      ]
     },
     "温蒂": {
       "equipSlots": {
@@ -944,7 +1162,25 @@
         }
       ],
       "defaultSkill": "skchr_weedy_3",
-      "defaultModule": "uniequip_002_weedy"
+      "defaultModule": "uniequip_002_weedy",
+      "skins": [
+        {
+          "id": "char_400_weedy#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_400_weedy#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_400_weedy@snow#2",
+          "name": "糖果仙子"
+        },
+        {
+          "id": "char_400_weedy@sightseer#1",
+          "name": "倾听"
+        }
+      ]
     },
     "流明": {
       "equipSlots": {
@@ -977,7 +1213,25 @@
         }
       ],
       "defaultSkill": "skchr_lumen_3",
-      "defaultModule": "uniequip_002_lumen"
+      "defaultModule": "uniequip_002_lumen",
+      "skins": [
+        {
+          "id": "char_4042_lumen#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4042_lumen#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_4042_lumen@ambienceSynesthesia#3",
+          "name": "灿海浮梦"
+        },
+        {
+          "id": "char_4042_lumen@sanrio#2",
+          "name": "雨霓行游客"
+        }
+      ]
     },
     "棘刺": {
       "equipSlots": {
@@ -1010,7 +1264,25 @@
         }
       ],
       "defaultSkill": "skchr_thorns_3",
-      "defaultModule": "uniequip_002_thorns"
+      "defaultModule": "uniequip_002_thorns",
+      "skins": [
+        {
+          "id": "char_293_thorns#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_293_thorns#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_293_thorns@boc#8",
+          "name": "锋潮"
+        },
+        {
+          "id": "char_293_thorns@it#1",
+          "name": "惬意"
+        }
+      ]
     },
     "引星棘刺": {
       "equipSlots": {
@@ -1039,7 +1311,21 @@
         }
       ],
       "defaultSkill": "skchr_thorn2_2",
-      "defaultModule": "uniequip_002_thorn2"
+      "defaultModule": "uniequip_002_thorn2",
+      "skins": [
+        {
+          "id": "char_1039_thorn2#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_1039_thorn2#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_1039_thorn2@marthe#9",
+          "name": "无际之帆"
+        }
+      ]
     },
     "风絮": {
       "equipSlots": {
@@ -1059,7 +1345,17 @@
       ],
       "modules": [],
       "defaultSkill": "skchr_taraxa_2",
-      "defaultModule": null
+      "defaultModule": null,
+      "skins": [
+        {
+          "id": "char_4222_taraxa#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4222_taraxa#2",
+          "name": "精英化二"
+        }
+      ]
     },
     "余": {
       "equipSlots": {
@@ -1088,7 +1384,21 @@
         }
       ],
       "defaultSkill": "skchr_yu_3",
-      "defaultModule": "uniequip_002_yu"
+      "defaultModule": "uniequip_002_yu",
+      "skins": [
+        {
+          "id": "char_2026_yu#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_2026_yu#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_2026_yu@nian#12",
+          "name": "愿清晓"
+        }
+      ]
     },
     "黍": {
       "equipSlots": {
@@ -1121,7 +1431,25 @@
         }
       ],
       "defaultSkill": "skchr_shu_3",
-      "defaultModule": "uniequip_002_shu"
+      "defaultModule": "uniequip_002_shu",
+      "skins": [
+        {
+          "id": "char_2025_shu#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_2025_shu#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_2025_shu@nian#11",
+          "name": "春日宴"
+        },
+        {
+          "id": "char_2025_shu@nlc#1",
+          "name": "源远流长"
+        }
+      ]
     },
     "烛煌": {
       "equipSlots": {
@@ -1154,7 +1482,25 @@
         }
       ],
       "defaultSkill": "skchr_blaze2_3",
-      "defaultModule": "uniequip_002_blaze2"
+      "defaultModule": "uniequip_002_blaze2",
+      "skins": [
+        {
+          "id": "char_1040_blaze2#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_1040_blaze2#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_1040_blaze2@winter#5",
+          "name": "夜归人"
+        },
+        {
+          "id": "char_1040_blaze2@nlc#1",
+          "name": "夜行烛火"
+        }
+      ]
     },
     "艾丝黛尔": {
       "equipSlots": {
@@ -1179,7 +1525,21 @@
         }
       ],
       "defaultSkill": "skcom_atk_up[2]",
-      "defaultModule": "uniequip_002_estell"
+      "defaultModule": "uniequip_002_estell",
+      "skins": [
+        {
+          "id": "char_127_estell#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_127_estell#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_127_estell@epoque#50",
+          "name": "花冕圆舞曲"
+        }
+      ]
     },
     "泡泡": {
       "equipSlots": {
@@ -1204,7 +1564,21 @@
         }
       ],
       "defaultSkill": "skchr_bubble_2",
-      "defaultModule": "uniequip_002_bubble"
+      "defaultModule": "uniequip_002_bubble",
+      "skins": [
+        {
+          "id": "char_381_bubble#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_381_bubble#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_381_bubble@marthe#11",
+          "name": "迎风之轮"
+        }
+      ]
     },
     "莎草": {
       "equipSlots": {
@@ -1229,7 +1603,21 @@
         }
       ],
       "defaultSkill": "skchr_papyrs_1",
-      "defaultModule": "uniequip_002_papyrs"
+      "defaultModule": "uniequip_002_papyrs",
+      "skins": [
+        {
+          "id": "char_4139_papyrs#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4139_papyrs#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_4139_papyrs@game#8",
+          "name": "下一个任务"
+        }
+      ]
     },
     "森蚺": {
       "equipSlots": {
@@ -1266,7 +1654,21 @@
         }
       ],
       "defaultSkill": "skchr_zumama_3",
-      "defaultModule": "uniequip_002_zumama"
+      "defaultModule": "uniequip_002_zumama",
+      "skins": [
+        {
+          "id": "char_416_zumama#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_416_zumama#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_416_zumama@boc#3",
+          "name": "熔锻铸匠"
+        }
+      ]
     },
     "佩佩": {
       "equipSlots": {
@@ -1299,7 +1701,21 @@
         }
       ],
       "defaultSkill": "skchr_pepe_3",
-      "defaultModule": "uniequip_002_pepe"
+      "defaultModule": "uniequip_002_pepe",
+      "skins": [
+        {
+          "id": "char_4058_pepe#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4058_pepe#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_4058_pepe@sightseer#2",
+          "name": "星移"
+        }
+      ]
     },
     "极光": {
       "equipSlots": {
@@ -1324,7 +1740,21 @@
         }
       ],
       "defaultSkill": "skchr_aurora_2",
-      "defaultModule": "uniequip_002_aurora"
+      "defaultModule": "uniequip_002_aurora",
+      "skins": [
+        {
+          "id": "char_422_aurora#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_422_aurora#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_422_aurora@boc#4",
+          "name": "极昼捕手"
+        }
+      ]
     },
     "雪猎": {
       "equipSlots": {
@@ -1349,7 +1779,17 @@
         }
       ],
       "defaultSkill": "skchr_snhunt_2",
-      "defaultModule": "uniequip_002_snhunt"
+      "defaultModule": "uniequip_002_snhunt",
+      "skins": [
+        {
+          "id": "char_4211_snhunt#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4211_snhunt#2",
+          "name": "精英化二"
+        }
+      ]
     },
     "耶拉": {
       "equipSlots": {
@@ -1377,7 +1817,21 @@
         }
       ],
       "defaultSkill": "skchr_kjera_2",
-      "defaultModule": "uniequip_002_kjera"
+      "defaultModule": "uniequip_002_kjera",
+      "skins": [
+        {
+          "id": "char_4013_kjera#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4013_kjera#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_4013_kjera@epoque#18",
+          "name": "灵巧侍者"
+        }
+      ]
     },
     "初雪": {
       "equipSlots": {
@@ -1402,7 +1856,21 @@
         }
       ],
       "defaultSkill": "skchr_slbell_2",
-      "defaultModule": "uniequip_002_slbell"
+      "defaultModule": "uniequip_002_slbell",
+      "skins": [
+        {
+          "id": "char_174_slbell#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_174_slbell#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_174_slbell@snow#1",
+          "name": "开斯特之霜"
+        }
+      ]
     },
     "灵知": {
       "equipSlots": {
@@ -1439,7 +1907,21 @@
         }
       ],
       "defaultSkill": "skchr_gnosis_2",
-      "defaultModule": "uniequip_002_gnosis"
+      "defaultModule": "uniequip_002_gnosis",
+      "skins": [
+        {
+          "id": "char_206_gnosis#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_206_gnosis#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_206_gnosis@boc#4",
+          "name": "先驱"
+        }
+      ]
     },
     "圣聆初雪": {
       "equipSlots": {
@@ -1468,7 +1950,21 @@
         }
       ],
       "defaultSkill": "skchr_sbell2_3",
-      "defaultModule": "uniequip_002_sbell2"
+      "defaultModule": "uniequip_002_sbell2",
+      "skins": [
+        {
+          "id": "char_1046_sbell2#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_1046_sbell2#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_1046_sbell2@ambienceSynesthesia#8",
+          "name": "曙光祝颂"
+        }
+      ]
     },
     "凛御银灰": {
       "equipSlots": {
@@ -1497,7 +1993,21 @@
         }
       ],
       "defaultSkill": "skchr_svash2_3",
-      "defaultModule": "uniequip_002_svash2"
+      "defaultModule": "uniequip_002_svash2",
+      "skins": [
+        {
+          "id": "char_1045_svash2#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_1045_svash2#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_1045_svash2@sale#20",
+          "name": "雪覆伦城"
+        }
+      ]
     },
     "幽灵鲨": {
       "equipSlots": {
@@ -1522,7 +2032,21 @@
         }
       ],
       "defaultSkill": "skcom_atk_up[3]",
-      "defaultModule": "uniequip_002_ghost"
+      "defaultModule": "uniequip_002_ghost",
+      "skins": [
+        {
+          "id": "char_143_ghost#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_143_ghost#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_143_ghost@winter#1",
+          "name": "暗流"
+        }
+      ]
     },
     "深巡": {
       "equipSlots": {
@@ -1547,7 +2071,21 @@
         }
       ],
       "defaultSkill": "skchr_udflow_2",
-      "defaultModule": "uniequip_002_udflow"
+      "defaultModule": "uniequip_002_udflow",
+      "skins": [
+        {
+          "id": "char_4137_udflow#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4137_udflow#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_4137_udflow@epoque#46",
+          "name": "层流"
+        }
+      ]
     },
     "斯卡蒂": {
       "equipSlots": {
@@ -1580,7 +2118,25 @@
         }
       ],
       "defaultSkill": "skchr_skadi_2",
-      "defaultModule": "uniequip_002_skadi"
+      "defaultModule": "uniequip_002_skadi",
+      "skins": [
+        {
+          "id": "char_263_skadi#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_263_skadi#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_263_skadi@summer#3",
+          "name": "驭浪 WR04"
+        },
+        {
+          "id": "char_263_skadi@marthe#5",
+          "name": "下一顿午茶"
+        }
+      ]
     },
     "歌蕾蒂娅": {
       "equipSlots": {
@@ -1613,7 +2169,25 @@
         }
       ],
       "defaultSkill": "skchr_glady_3",
-      "defaultModule": "uniequip_002_glady"
+      "defaultModule": "uniequip_002_glady",
+      "skins": [
+        {
+          "id": "char_474_glady#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_474_glady#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_474_glady@epoque#33",
+          "name": "我即潮汐"
+        },
+        {
+          "id": "char_474_glady@boc#5",
+          "name": "返航"
+        }
+      ]
     },
     "归溟幽灵鲨": {
       "equipSlots": {
@@ -1650,7 +2224,21 @@
         }
       ],
       "defaultSkill": "skchr_ghost2_2",
-      "defaultModule": "uniequip_002_ghost2"
+      "defaultModule": "uniequip_002_ghost2",
+      "skins": [
+        {
+          "id": "char_1023_ghost2#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_1023_ghost2#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_1023_ghost2@boc#6",
+          "name": "生而为一"
+        }
+      ]
     },
     "乌尔比安": {
       "equipSlots": {
@@ -1683,7 +2271,21 @@
         }
       ],
       "defaultSkill": "skchr_ulpia_3",
-      "defaultModule": "uniequip_002_ulpia"
+      "defaultModule": "uniequip_002_ulpia",
+      "skins": [
+        {
+          "id": "char_4145_ulpia#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4145_ulpia#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_4145_ulpia@epoque#48",
+          "name": "注目深渊"
+        }
+      ]
     },
     "浊心斯卡蒂": {
       "equipSlots": {
@@ -1716,7 +2318,25 @@
         }
       ],
       "defaultSkill": "skchr_skadi2_3",
-      "defaultModule": "uniequip_002_skadi2"
+      "defaultModule": "uniequip_002_skadi2",
+      "skins": [
+        {
+          "id": "char_1012_skadi2#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_1012_skadi2#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_1012_skadi2@boc#4",
+          "name": "升华"
+        },
+        {
+          "id": "char_1012_skadi2@iteration#2",
+          "name": "红女爵"
+        }
+      ]
     },
     "克莱门莎": {
       "equipSlots": {
@@ -1740,7 +2360,17 @@
       ],
       "modules": [],
       "defaultSkill": "skchr_clemnt_2",
-      "defaultModule": null
+      "defaultModule": null,
+      "skins": [
+        {
+          "id": "char_4231_clemnt#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4231_clemnt#2",
+          "name": "精英化二"
+        }
+      ]
     },
     "水月": {
       "equipSlots": {
@@ -1777,7 +2407,25 @@
         }
       ],
       "defaultSkill": "skchr_mizuki_2",
-      "defaultModule": "uniequip_002_mizuki"
+      "defaultModule": "uniequip_002_mizuki",
+      "skins": [
+        {
+          "id": "char_437_mizuki#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_437_mizuki#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_437_mizuki@sale#7",
+          "name": "夏日餮宴"
+        },
+        {
+          "id": "char_437_mizuki@game#6",
+          "name": "永恒玩家"
+        }
+      ]
     },
     "砾": {
       "equipSlots": {
@@ -1802,7 +2450,21 @@
         }
       ],
       "defaultSkill": "skchr_gravel_1",
-      "defaultModule": "uniequip_002_gravel"
+      "defaultModule": "uniequip_002_gravel",
+      "skins": [
+        {
+          "id": "char_237_gravel#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_237_gravel#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_237_gravel@winter#2",
+          "name": "模特之夜"
+        }
+      ]
     },
     "野鬃": {
       "equipSlots": {
@@ -1827,7 +2489,21 @@
         }
       ],
       "defaultSkill": "skchr_wildmn_2",
-      "defaultModule": "uniequip_002_wildmn"
+      "defaultModule": "uniequip_002_wildmn",
+      "skins": [
+        {
+          "id": "char_496_wildmn#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_496_wildmn#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_496_wildmn@epoque#16",
+          "name": "正义缔造者"
+        }
+      ]
     },
     "瑕光": {
       "equipSlots": {
@@ -1860,7 +2536,25 @@
         }
       ],
       "defaultSkill": "skchr_blemsh_3",
-      "defaultModule": "uniequip_002_blemsh"
+      "defaultModule": "uniequip_002_blemsh",
+      "skins": [
+        {
+          "id": "char_423_blemsh#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_423_blemsh#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_423_blemsh@witch#2",
+          "name": "异月灾裔"
+        },
+        {
+          "id": "char_423_blemsh@littlePony#1",
+          "name": "善良坚强之心"
+        }
+      ]
     },
     "远牙": {
       "equipSlots": {
@@ -1893,7 +2587,21 @@
         }
       ],
       "defaultSkill": "skchr_fartth_2",
-      "defaultModule": "uniequip_002_fartth"
+      "defaultModule": "uniequip_002_fartth",
+      "skins": [
+        {
+          "id": "char_430_fartth#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_430_fartth#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_430_fartth@whirlwind#5",
+          "name": "捉风"
+        }
+      ]
     },
     "玛恩纳": {
       "equipSlots": {
@@ -1922,7 +2630,25 @@
         }
       ],
       "defaultSkill": "skchr_mlynar_3",
-      "defaultModule": "uniequip_002_mlynar"
+      "defaultModule": "uniequip_002_mlynar",
+      "skins": [
+        {
+          "id": "char_4064_mlynar#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4064_mlynar#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_4064_mlynar@epoque#28",
+          "name": "远路"
+        },
+        {
+          "id": "char_4064_mlynar@iteration#3",
+          "name": "苍茫怒号"
+        }
+      ]
     },
     "耀骑士临光": {
       "equipSlots": {
@@ -1955,7 +2681,21 @@
         }
       ],
       "defaultSkill": "skchr_nearl2_3",
-      "defaultModule": "uniequip_002_nearl2"
+      "defaultModule": "uniequip_002_nearl2",
+      "skins": [
+        {
+          "id": "char_1014_nearl2#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_1014_nearl2#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_1014_nearl2@epoque#17",
+          "name": "复现荣光"
+        }
+      ]
     },
     "薇薇安娜": {
       "equipSlots": {
@@ -1988,7 +2728,25 @@
         }
       ],
       "defaultSkill": "skchr_vvana_3",
-      "defaultModule": "uniequip_002_vvana"
+      "defaultModule": "uniequip_002_vvana",
+      "skins": [
+        {
+          "id": "char_4098_vvana#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4098_vvana#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_4098_vvana@epoque#40",
+          "name": "寄自奥格尼斯科"
+        },
+        {
+          "id": "char_4098_vvana@epoque#59",
+          "name": "还愿礼"
+        }
+      ]
     },
     "复奏": {
       "equipSlots": {
@@ -2013,7 +2771,17 @@
         }
       ],
       "defaultSkill": "skchr_liesel_2",
-      "defaultModule": "uniequip_002_liesel"
+      "defaultModule": "uniequip_002_liesel",
+      "skins": [
+        {
+          "id": "char_4031_liesel#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4031_liesel#2",
+          "name": "精英化二"
+        }
+      ]
     },
     "奥斯塔": {
       "equipSlots": {
@@ -2038,7 +2806,21 @@
         }
       ],
       "defaultSkill": "skchr_aosta_2",
-      "defaultModule": "uniequip_002_aosta"
+      "defaultModule": "uniequip_002_aosta",
+      "skins": [
+        {
+          "id": "char_346_aosta#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_346_aosta#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_346_aosta@game#2",
+          "name": "光铳调试员"
+        }
+      ]
     },
     "忍冬": {
       "equipSlots": {
@@ -2071,7 +2853,21 @@
         }
       ],
       "defaultSkill": "skchr_vulpis_3",
-      "defaultModule": "uniequip_002_vulpis"
+      "defaultModule": "uniequip_002_vulpis",
+      "skins": [
+        {
+          "id": "char_4026_vulpis#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4026_vulpis#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_4026_vulpis@epoque#55",
+          "name": "失焦"
+        }
+      ]
     },
     "伺夜": {
       "equipSlots": {
@@ -2104,7 +2900,21 @@
         }
       ],
       "defaultSkill": "skchr_vigil_3",
-      "defaultModule": "uniequip_002_vigil"
+      "defaultModule": "uniequip_002_vigil",
+      "skins": [
+        {
+          "id": "char_427_vigil#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_427_vigil#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_427_vigil@epoque#27",
+          "name": "叙拉古的彼面"
+        }
+      ]
     },
     "铃兰": {
       "equipSlots": {
@@ -2137,7 +2947,29 @@
         }
       ],
       "defaultSkill": "skchr_lisa_3",
-      "defaultModule": "uniequip_002_lisa"
+      "defaultModule": "uniequip_002_lisa",
+      "skins": [
+        {
+          "id": "char_358_lisa#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_358_lisa#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_358_lisa@epoque#22",
+          "name": "雪霁"
+        },
+        {
+          "id": "char_358_lisa@wild#3",
+          "name": "弃土花开"
+        },
+        {
+          "id": "char_358_lisa@lxh#1",
+          "name": "春之颂"
+        }
+      ]
     },
     "贝洛内": {
       "equipSlots": {
@@ -2166,7 +2998,17 @@
         }
       ],
       "defaultSkill": "skchr_demetr_2",
-      "defaultModule": "uniequip_002_demetr"
+      "defaultModule": "uniequip_002_demetr",
+      "skins": [
+        {
+          "id": "char_4037_demetr#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4037_demetr#2",
+          "name": "精英化二"
+        }
+      ]
     },
     "荒芜拉普兰德": {
       "equipSlots": {
@@ -2195,7 +3037,21 @@
         }
       ],
       "defaultSkill": "skchr_whitw2_3",
-      "defaultModule": "uniequip_002_whitw2"
+      "defaultModule": "uniequip_002_whitw2",
+      "skins": [
+        {
+          "id": "char_1038_whitw2#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_1038_whitw2#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_1038_whitw2@sale#15",
+          "name": "无序的谦卑"
+        }
+      ]
     },
     "慕斯": {
       "equipSlots": {
@@ -2220,7 +3076,25 @@
         }
       ],
       "defaultSkill": "skchr_frncat_1",
-      "defaultModule": "uniequip_002_frncat"
+      "defaultModule": "uniequip_002_frncat",
+      "skins": [
+        {
+          "id": "char_185_frncat#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_185_frncat#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_185_frncat@marthe#12",
+          "name": "补水时间"
+        },
+        {
+          "id": "char_185_frncat@wild#7",
+          "name": "营地炊烟"
+        }
+      ]
     },
     "水灯心": {
       "equipSlots": {
@@ -2245,7 +3119,21 @@
         }
       ],
       "defaultSkill": "skchr_brigid_2",
-      "defaultModule": "uniequip_002_brigid"
+      "defaultModule": "uniequip_002_brigid",
+      "skins": [
+        {
+          "id": "char_4177_brigid#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4177_brigid#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_4177_brigid@epoque#53",
+          "name": "轻语入梦"
+        }
+      ]
     },
     "Miss.Christine": {
       "equipSlots": {
@@ -2270,7 +3158,21 @@
         }
       ],
       "defaultSkill": "skchr_christ_2",
-      "defaultModule": "uniequip_002_christ"
+      "defaultModule": "uniequip_002_christ",
+      "skins": [
+        {
+          "id": "char_4198_christ#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4198_christ#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_4198_christ@epoque#56",
+          "name": "底绒舞会"
+        }
+      ]
     },
     "涤火杰西卡": {
       "equipSlots": {
@@ -2303,7 +3205,21 @@
         }
       ],
       "defaultSkill": "skchr_jesca2_3",
-      "defaultModule": "uniequip_002_jesca2"
+      "defaultModule": "uniequip_002_jesca2",
+      "skins": [
+        {
+          "id": "char_1034_jesca2#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_1034_jesca2#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_1034_jesca2@cfa#1",
+          "name": "《上任达维镇》"
+        }
+      ]
     },
     "白铁": {
       "equipSlots": {
@@ -2336,7 +3252,25 @@
         }
       ],
       "defaultSkill": "skchr_ironmn_3",
-      "defaultModule": "uniequip_002_ironmn"
+      "defaultModule": "uniequip_002_ironmn",
+      "skins": [
+        {
+          "id": "char_4072_ironmn#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4072_ironmn#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_4072_ironmn@summer#11",
+          "name": "沙滩护卫 GT003"
+        },
+        {
+          "id": "char_4072_ironmn@ambienceSynesthesia#5",
+          "name": "空心王冠"
+        }
+      ]
     },
     "酒神": {
       "equipSlots": {
@@ -2365,7 +3299,21 @@
         }
       ],
       "defaultSkill": "skchr_phatm2_3",
-      "defaultModule": "uniequip_002_phatm2"
+      "defaultModule": "uniequip_002_phatm2",
+      "skins": [
+        {
+          "id": "char_1042_phatm2#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_1042_phatm2#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_1042_phatm2@sightseer#4",
+          "name": "真我自扼"
+        }
+      ]
     },
     "维娜·维多利亚": {
       "equipSlots": {
@@ -2398,7 +3346,21 @@
         }
       ],
       "defaultSkill": "skchr_siege2_3",
-      "defaultModule": "uniequip_002_siege2"
+      "defaultModule": "uniequip_002_siege2",
+      "skins": [
+        {
+          "id": "char_1019_siege2#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_1019_siege2#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_1019_siege2@epoque#50",
+          "name": "光耀之途"
+        }
+      ]
     },
     "角峰": {
       "equipSlots": {
@@ -2423,7 +3385,21 @@
         }
       ],
       "defaultSkill": "skchr_yak_2",
-      "defaultModule": "uniequip_002_yak"
+      "defaultModule": "uniequip_002_yak",
+      "skins": [
+        {
+          "id": "char_199_yak#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_199_yak#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_199_yak@summer#1",
+          "name": "沙滩护卫 GT.001"
+        }
+      ]
     },
     "哈洛德": {
       "equipSlots": {
@@ -2448,7 +3424,21 @@
         }
       ],
       "defaultSkill": "skchr_harold_2",
-      "defaultModule": "uniequip_002_harold"
+      "defaultModule": "uniequip_002_harold",
+      "skins": [
+        {
+          "id": "char_4114_harold#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4114_harold#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_4114_harold@snow#7",
+          "name": "邀雪"
+        }
+      ]
     },
     "斥罪": {
       "equipSlots": {
@@ -2481,7 +3471,25 @@
         }
       ],
       "defaultSkill": "skchr_judge_2",
-      "defaultModule": "uniequip_002_judge"
+      "defaultModule": "uniequip_002_judge",
+      "skins": [
+        {
+          "id": "char_4065_judge#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4065_judge#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_4065_judge@epoque#33",
+          "name": "记叙"
+        },
+        {
+          "id": "char_4065_judge@snow#6",
+          "name": "偶尔醉陶"
+        }
+      ]
     },
     "逻各斯": {
       "equipSlots": {
@@ -2514,7 +3522,21 @@
         }
       ],
       "defaultSkill": "skchr_logos_3",
-      "defaultModule": "uniequip_003_logos"
+      "defaultModule": "uniequip_003_logos",
+      "skins": [
+        {
+          "id": "char_4133_logos#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4133_logos#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_4133_logos@ambienceSynesthesia#6",
+          "name": "辉煌的静谧"
+        }
+      ]
     },
     "空弦": {
       "equipSlots": {
@@ -2551,7 +3573,25 @@
         }
       ],
       "defaultSkill": "skchr_archet_3",
-      "defaultModule": "uniequip_002_archet"
+      "defaultModule": "uniequip_002_archet",
+      "skins": [
+        {
+          "id": "char_332_archet#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_332_archet#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_332_archet@sale#14",
+          "name": "至虔者荣光"
+        },
+        {
+          "id": "char_332_archet@shining#1",
+          "name": "宣传策略"
+        }
+      ]
     },
     "迷迭香": {
       "equipSlots": {
@@ -2584,7 +3624,25 @@
         }
       ],
       "defaultSkill": "skchr_rosmon_2",
-      "defaultModule": "uniequip_002_rosmon"
+      "defaultModule": "uniequip_002_rosmon",
+      "skins": [
+        {
+          "id": "char_391_rosmon#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_391_rosmon#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_391_rosmon@sale#16",
+          "name": "轻盈一梦"
+        },
+        {
+          "id": "char_391_rosmon@epoque#17",
+          "name": "拥抱新生"
+        }
+      ]
     },
     "真言": {
       "equipSlots": {
@@ -2613,7 +3671,21 @@
         }
       ],
       "defaultSkill": "skchr_mantra_3",
-      "defaultModule": "uniequip_002_mantra"
+      "defaultModule": "uniequip_002_mantra",
+      "skins": [
+        {
+          "id": "char_4204_mantra#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4204_mantra#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_4204_mantra@sightseer#4",
+          "name": "万籁俱寂"
+        }
+      ]
     },
     "灰喉": {
       "equipSlots": {
@@ -2638,7 +3710,21 @@
         }
       ],
       "defaultSkill": "skchr_swllow_2",
-      "defaultModule": "uniequip_002_swllow"
+      "defaultModule": "uniequip_002_swllow",
+      "skins": [
+        {
+          "id": "char_367_swllow#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_367_swllow#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_367_swllow@boc#1",
+          "name": "归巢"
+        }
+      ]
     },
     "吉星": {
       "equipSlots": {
@@ -2663,7 +3749,17 @@
         }
       ],
       "defaultSkill": "skchr_kichi_2",
-      "defaultModule": "uniequip_002_kichi"
+      "defaultModule": "uniequip_002_kichi",
+      "skins": [
+        {
+          "id": "char_4203_kichi#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4203_kichi#2",
+          "name": "精英化二"
+        }
+      ]
     },
     "妮芙": {
       "equipSlots": {
@@ -2696,7 +3792,25 @@
         }
       ],
       "defaultSkill": "skchr_nymph_2",
-      "defaultModule": "uniequip_002_nymph"
+      "defaultModule": "uniequip_002_nymph",
+      "skins": [
+        {
+          "id": "char_4146_nymph#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4146_nymph#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_4146_nymph@epoque#42",
+          "name": "甜美配方"
+        },
+        {
+          "id": "char_4146_nymph@ambienceSynesthesia#6",
+          "name": "繁花梦幻谈"
+        }
+      ]
     },
     "W": {
       "equipSlots": {
@@ -2729,7 +3843,21 @@
         }
       ],
       "defaultSkill": "skchr_cqbw_2",
-      "defaultModule": "uniequip_002_cqbw"
+      "defaultModule": "uniequip_002_cqbw",
+      "skins": [
+        {
+          "id": "char_113_cqbw#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_113_cqbw#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_113_cqbw@epoque#7",
+          "name": "恍惚"
+        }
+      ]
     },
     "霍尔海雅": {
       "equipSlots": {
@@ -2766,7 +3894,25 @@
         }
       ],
       "defaultSkill": "skchr_heyak_2",
-      "defaultModule": "uniequip_002_heyak"
+      "defaultModule": "uniequip_002_heyak",
+      "skins": [
+        {
+          "id": "char_4027_heyak#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4027_heyak#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_4027_heyak@epoque#50",
+          "name": "恒久祭礼"
+        },
+        {
+          "id": "char_4027_heyak@ambienceSynesthesia#4",
+          "name": "历世流风"
+        }
+      ]
     },
     "云迹": {
       "equipSlots": {
@@ -2786,7 +3932,21 @@
       ],
       "modules": [],
       "defaultSkill": "skchr_ctrail_2",
-      "defaultModule": null
+      "defaultModule": null,
+      "skins": [
+        {
+          "id": "char_4165_ctrail#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4165_ctrail#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_4165_ctrail@yun#11",
+          "name": "渡澄空"
+        }
+      ]
     },
     "隐德来希": {
       "equipSlots": {
@@ -2819,7 +3979,21 @@
         }
       ],
       "defaultSkill": "skchr_etlchi_3",
-      "defaultModule": "uniequip_002_etlchi"
+      "defaultModule": "uniequip_002_etlchi",
+      "skins": [
+        {
+          "id": "char_4010_etlchi#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4010_etlchi#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_4010_etlchi@winter#5",
+          "name": "耀目之蓝"
+        }
+      ]
     },
     "伊桑": {
       "equipSlots": {
@@ -2844,7 +4018,21 @@
         }
       ],
       "defaultSkill": "skchr_ethan_2",
-      "defaultModule": "uniequip_002_ethan"
+      "defaultModule": "uniequip_002_ethan",
+      "skins": [
+        {
+          "id": "char_355_ethan#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_355_ethan#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_355_ethan@epoque#7",
+          "name": "渗透"
+        }
+      ]
     },
     "深靛": {
       "equipSlots": {
@@ -2869,7 +4057,21 @@
         }
       ],
       "defaultSkill": "skchr_indigo_2",
-      "defaultModule": "uniequip_002_indigo"
+      "defaultModule": "uniequip_002_indigo",
+      "skins": [
+        {
+          "id": "char_469_indigo#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_469_indigo#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_469_indigo@nian#7",
+          "name": "待晴日"
+        }
+      ]
     },
     "卡达": {
       "equipSlots": {
@@ -2894,7 +4096,25 @@
         }
       ],
       "defaultSkill": "skchr_cammou_2",
-      "defaultModule": "uniequip_002_cammou"
+      "defaultModule": "uniequip_002_cammou",
+      "skins": [
+        {
+          "id": "char_328_cammou#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_328_cammou#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_328_cammou@summer#22",
+          "name": "悠然假日 HD59"
+        },
+        {
+          "id": "char_328_cammou@witch#2",
+          "name": "安息处的怪盗"
+        }
+      ]
     },
     "蛇屠箱": {
       "equipSlots": {
@@ -2919,7 +4139,25 @@
         }
       ],
       "defaultSkill": "skchr_snakek_2",
-      "defaultModule": "uniequip_002_snakek"
+      "defaultModule": "uniequip_002_snakek",
+      "skins": [
+        {
+          "id": "char_150_snakek#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_150_snakek#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_150_snakek@wild#1",
+          "name": "四边形"
+        },
+        {
+          "id": "char_150_snakek@yun#7",
+          "name": "与荷"
+        }
+      ]
     },
     "罗比菈塔": {
       "equipSlots": {
@@ -2944,7 +4182,25 @@
         }
       ],
       "defaultSkill": "skchr_robrta_2",
-      "defaultModule": "uniequip_002_robrta"
+      "defaultModule": "uniequip_002_robrta",
+      "skins": [
+        {
+          "id": "char_484_robrta#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_484_robrta#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_484_robrta@summer#10",
+          "name": "夏卉 FA374"
+        },
+        {
+          "id": "char_484_robrta@ambienceSynesthesia#3",
+          "name": "待绘的作品"
+        }
+      ]
     },
     "摆渡人": {
       "equipSlots": {
@@ -2969,7 +4225,17 @@
         }
       ],
       "defaultSkill": "skchr_varkis_2",
-      "defaultModule": "uniequip_002_varkis"
+      "defaultModule": "uniequip_002_varkis",
+      "skins": [
+        {
+          "id": "char_4166_varkis#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4166_varkis#2",
+          "name": "精英化二"
+        }
+      ]
     },
     "塞雷娅": {
       "equipSlots": {
@@ -3002,7 +4268,29 @@
         }
       ],
       "defaultSkill": "skchr_demkni_1",
-      "defaultModule": "uniequip_002_demkni"
+      "defaultModule": "uniequip_002_demkni",
+      "skins": [
+        {
+          "id": "char_202_demkni#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_202_demkni#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_202_demkni@test#1",
+          "name": "铁律"
+        },
+        {
+          "id": "char_202_demkni@boc#1",
+          "name": "坚城"
+        },
+        {
+          "id": "char_202_demkni@ambienceSynesthesia#7",
+          "name": "黑白冷峻"
+        }
+      ]
     },
     "遥": {
       "equipSlots": {
@@ -3031,7 +4319,21 @@
         }
       ],
       "defaultSkill": "skchr_haruka_2",
-      "defaultModule": "uniequip_002_haruka"
+      "defaultModule": "uniequip_002_haruka",
+      "skins": [
+        {
+          "id": "char_4202_haruka#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4202_haruka#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_4202_haruka@iteration#6",
+          "name": "常世之幻"
+        }
+      ]
     },
     "魔王": {
       "equipSlots": {
@@ -3060,7 +4362,21 @@
         }
       ],
       "defaultSkill": "skchr_cetsyr_3",
-      "defaultModule": "uniequip_002_cetsyr"
+      "defaultModule": "uniequip_002_cetsyr",
+      "skins": [
+        {
+          "id": "char_4134_cetsyr#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4134_cetsyr#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_4134_cetsyr@epoque#50",
+          "name": "追悼"
+        }
+      ]
     },
     "波登可": {
       "equipSlots": {
@@ -3085,7 +4401,21 @@
         }
       ],
       "defaultSkill": "skchr_podego_2",
-      "defaultModule": "uniequip_002_podego"
+      "defaultModule": "uniequip_002_podego",
+      "skins": [
+        {
+          "id": "char_258_podego#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_258_podego#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_258_podego@epoque#9",
+          "name": "小憩初醒"
+        }
+      ]
     },
     "史尔特尔": {
       "equipSlots": {
@@ -3118,7 +4448,29 @@
         }
       ],
       "defaultSkill": "skchr_surtr_3",
-      "defaultModule": "uniequip_003_surtr"
+      "defaultModule": "uniequip_003_surtr",
+      "skins": [
+        {
+          "id": "char_350_surtr#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_350_surtr#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_350_surtr@summer#9",
+          "name": "缤纷奇境 CW03"
+        },
+        {
+          "id": "char_350_surtr@ambienceSynesthesia#6",
+          "name": "超然序曲"
+        },
+        {
+          "id": "char_350_surtr@it#1",
+          "name": "自由//失效"
+        }
+      ]
     },
     "承曦格雷伊": {
       "equipSlots": {
@@ -3146,7 +4498,29 @@
         }
       ],
       "defaultSkill": "skchr_greyy2_2",
-      "defaultModule": "uniequip_002_greyy2"
+      "defaultModule": "uniequip_002_greyy2",
+      "skins": [
+        {
+          "id": "char_1027_greyy2#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_1027_greyy2#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_1027_greyy2@snow#5",
+          "name": "演出后的王子"
+        },
+        {
+          "id": "char_1027_greyy2@wild#12",
+          "name": "千尺俯瞰"
+        },
+        {
+          "id": "char_1027_greyy2@breaker#1",
+          "name": "生化沉溺"
+        }
+      ]
     },
     "锡人": {
       "equipSlots": {
@@ -3171,7 +4545,21 @@
         }
       ],
       "defaultSkill": "skchr_tinman_2",
-      "defaultModule": "uniequip_002_tinman"
+      "defaultModule": "uniequip_002_tinman",
+      "skins": [
+        {
+          "id": "char_4151_tinman#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4151_tinman#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_4151_tinman@sale#11",
+          "name": "相位面容"
+        }
+      ]
     },
     "溯光星源": {
       "equipSlots": {
@@ -3204,7 +4592,17 @@
         }
       ],
       "defaultSkill": "skchr_halo2_3",
-      "defaultModule": "uniequip_002_halo2"
+      "defaultModule": "uniequip_002_halo2",
+      "skins": [
+        {
+          "id": "char_1047_halo2#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_1047_halo2#2",
+          "name": "精英化二"
+        }
+      ]
     },
     "宴": {
       "equipSlots": {
@@ -3229,7 +4627,25 @@
         }
       ],
       "defaultSkill": "skchr_utage_2",
-      "defaultModule": "uniequip_002_utage"
+      "defaultModule": "uniequip_002_utage",
+      "skins": [
+        {
+          "id": "char_337_utage#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_337_utage#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_337_utage@epoque#15",
+          "name": "伪装"
+        },
+        {
+          "id": "char_337_utage@summer#4",
+          "name": "夏卉 FA661"
+        }
+      ]
     },
     "山": {
       "equipSlots": {
@@ -3262,7 +4678,29 @@
         }
       ],
       "defaultSkill": "skchr_f12yin_3",
-      "defaultModule": "uniequip_002_f12yin"
+      "defaultModule": "uniequip_002_f12yin",
+      "skins": [
+        {
+          "id": "char_264_f12yin#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_264_f12yin#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_264_f12yin@epoque#15",
+          "name": "读者"
+        },
+        {
+          "id": "char_264_f12yin@marthe#13",
+          "name": "硬派速度"
+        },
+        {
+          "id": "char_264_f12yin@boc#3",
+          "name": "乌云"
+        }
+      ]
     },
     "锏": {
       "equipSlots": {
@@ -3295,7 +4733,21 @@
         }
       ],
       "defaultSkill": "skchr_blkkgt_3",
-      "defaultModule": "uniequip_002_blkkgt"
+      "defaultModule": "uniequip_002_blkkgt",
+      "skins": [
+        {
+          "id": "char_4116_blkkgt#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4116_blkkgt#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_4116_blkkgt@witch#5",
+          "name": "暗月的影子"
+        }
+      ]
     },
     "老鲤": {
       "equipSlots": {
@@ -3328,7 +4780,29 @@
         }
       ],
       "defaultSkill": "skchr_lmlee_2",
-      "defaultModule": "uniequip_002_lmlee"
+      "defaultModule": "uniequip_002_lmlee",
+      "skins": [
+        {
+          "id": "char_322_lmlee#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_322_lmlee#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_322_lmlee@whirlwind#10",
+          "name": "鉴浮生"
+        },
+        {
+          "id": "char_322_lmlee@witch#3",
+          "name": "手到牌来"
+        },
+        {
+          "id": "char_322_lmlee@sanrio#1",
+          "name": "坊间凉茶铺"
+        }
+      ]
     },
     "淬羽赫默": {
       "equipSlots": {
@@ -3361,7 +4835,21 @@
         }
       ],
       "defaultSkill": "skchr_slent2_3",
-      "defaultModule": "uniequip_002_slent2"
+      "defaultModule": "uniequip_002_slent2",
+      "skins": [
+        {
+          "id": "char_1031_slent2#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_1031_slent2#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_1031_slent2@epoque#32",
+          "name": "栖息"
+        }
+      ]
     },
     "夏栎": {
       "equipSlots": {
@@ -3386,7 +4874,25 @@
         }
       ],
       "defaultSkill": "skchr_quercu_2",
-      "defaultModule": "uniequip_002_quercu"
+      "defaultModule": "uniequip_002_quercu",
+      "skins": [
+        {
+          "id": "char_492_quercu#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_492_quercu#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_492_quercu@epoque#17",
+          "name": "遥乡之径"
+        },
+        {
+          "id": "char_492_quercu@witch#4",
+          "name": "树影吟游"
+        }
+      ]
     },
     "杰克": {
       "equipSlots": {
@@ -3411,7 +4917,21 @@
         }
       ],
       "defaultSkill": "skchr_jaksel_1",
-      "defaultModule": "uniequip_002_jaksel"
+      "defaultModule": "uniequip_002_jaksel",
+      "skins": [
+        {
+          "id": "char_347_jaksel#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_347_jaksel#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_347_jaksel@whirlwind#2",
+          "name": "纵身一跃"
+        }
+      ]
     },
     "赫德雷": {
       "equipSlots": {
@@ -3444,7 +4964,21 @@
         }
       ],
       "defaultSkill": "skchr_hodrer_3",
-      "defaultModule": "uniequip_002_hodrer"
+      "defaultModule": "uniequip_002_hodrer",
+      "skins": [
+        {
+          "id": "char_4088_hodrer#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4088_hodrer#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_4088_hodrer@sightseer#1",
+          "name": "沉思之庭"
+        }
+      ]
     },
     "夜莺": {
       "equipSlots": {
@@ -3477,7 +5011,25 @@
         }
       ],
       "defaultSkill": "skchr_cgbird_3",
-      "defaultModule": "uniequip_002_cgbird"
+      "defaultModule": "uniequip_002_cgbird",
+      "skins": [
+        {
+          "id": "char_179_cgbird#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_179_cgbird#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_179_cgbird@witch#1",
+          "name": "挽歌"
+        },
+        {
+          "id": "char_179_cgbird@sightseer#1",
+          "name": "流辉"
+        }
+      ]
     },
     "霜叶": {
       "equipSlots": {
@@ -3502,7 +5054,21 @@
         }
       ],
       "defaultSkill": "skchr_frostl_2",
-      "defaultModule": "uniequip_002_frostl"
+      "defaultModule": "uniequip_002_frostl",
+      "skins": [
+        {
+          "id": "char_193_frostl#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_193_frostl#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_193_frostl@boc#4",
+          "name": "破冰"
+        }
+      ]
     },
     "乌有": {
       "equipSlots": {
@@ -3530,7 +5096,21 @@
         }
       ],
       "defaultSkill": "skchr_nothin_2",
-      "defaultModule": "uniequip_002_nothin"
+      "defaultModule": "uniequip_002_nothin",
+      "skins": [
+        {
+          "id": "char_455_nothin#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_455_nothin#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_455_nothin@nian#7",
+          "name": "冷山月"
+        }
+      ]
     },
     "历阵锐枪芬": {
       "equipSlots": {
@@ -3555,7 +5135,21 @@
         }
       ],
       "defaultSkill": "skchr_fang2_2",
-      "defaultModule": "uniequip_002_fang2"
+      "defaultModule": "uniequip_002_fang2",
+      "skins": [
+        {
+          "id": "char_1036_fang2#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_1036_fang2#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_1036_fang2@snow#8",
+          "name": "纯净乐段"
+        }
+      ]
     },
     "渡桥": {
       "equipSlots": {
@@ -3580,7 +5174,21 @@
         }
       ],
       "defaultSkill": "skchr_mitm_2",
-      "defaultModule": "uniequip_002_mitm"
+      "defaultModule": "uniequip_002_mitm",
+      "skins": [
+        {
+          "id": "char_4147_mitm#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4147_mitm#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_4147_mitm@breaker#1",
+          "name": "无影灯下"
+        }
+      ]
     },
     "Mon3tr": {
       "equipSlots": {
@@ -3609,7 +5217,21 @@
         }
       ],
       "defaultSkill": "skchr_monstr_3",
-      "defaultModule": "uniequip_002_monstr"
+      "defaultModule": "uniequip_002_monstr",
+      "skins": [
+        {
+          "id": "char_4179_monstr#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4179_monstr#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_4179_monstr@boc#11",
+          "name": "锋锐"
+        }
+      ]
     },
     "凯瑟琳": {
       "equipSlots": {
@@ -3637,7 +5259,21 @@
         }
       ],
       "defaultSkill": "skchr_cathy_2",
-      "defaultModule": "uniequip_002_cathy"
+      "defaultModule": "uniequip_002_cathy",
+      "skins": [
+        {
+          "id": "char_4162_cathy#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4162_cathy#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_4162_cathy@kitchen#5",
+          "name": "暖冬教室"
+        }
+      ]
     },
     "可露希尔": {
       "equipSlots": {
@@ -3666,7 +5302,17 @@
         }
       ],
       "defaultSkill": "skchr_closur_3",
-      "defaultModule": "uniequip_002_closur"
+      "defaultModule": "uniequip_002_closur",
+      "skins": [
+        {
+          "id": "char_4228_closur#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4228_closur#2",
+          "name": "精英化二"
+        }
+      ]
     },
     "矩": {
       "equipSlots": {
@@ -3691,7 +5337,17 @@
         }
       ],
       "defaultSkill": "skchr_ju_2",
-      "defaultModule": "uniequip_002_ju"
+      "defaultModule": "uniequip_002_ju",
+      "skins": [
+        {
+          "id": "char_4221_ju#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4221_ju#2",
+          "name": "精英化二"
+        }
+      ]
     },
     "拜松": {
       "equipSlots": {
@@ -3716,7 +5372,21 @@
         }
       ],
       "defaultSkill": "skcom_def_up[3]",
-      "defaultModule": "uniequip_002_bison"
+      "defaultModule": "uniequip_002_bison",
+      "skins": [
+        {
+          "id": "char_325_bison#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_325_bison#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_325_bison@yun#7",
+          "name": "凌云意"
+        }
+      ]
     },
     "褐果": {
       "equipSlots": {
@@ -3741,7 +5411,21 @@
         }
       ],
       "defaultSkill": "skchr_chnut_1",
-      "defaultModule": "uniequip_002_chnut"
+      "defaultModule": "uniequip_002_chnut",
+      "skins": [
+        {
+          "id": "char_4041_chnut#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4041_chnut#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_4041_chnut@summer#12",
+          "name": "悠然假日 HDm57"
+        }
+      ]
     },
     "风丸": {
       "equipSlots": {
@@ -3766,7 +5450,21 @@
         }
       ],
       "defaultSkill": "skchr_kazema_2",
-      "defaultModule": "uniequip_002_kazema"
+      "defaultModule": "uniequip_002_kazema",
+      "skins": [
+        {
+          "id": "char_4016_kazema#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4016_kazema#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_4016_kazema@witch#3",
+          "name": "幻影轻悄"
+        }
+      ]
     },
     "鸿雪": {
       "equipSlots": {
@@ -3799,7 +5497,25 @@
         }
       ],
       "defaultSkill": "skchr_bgsnow_2",
-      "defaultModule": "uniequip_003_bgsnow"
+      "defaultModule": "uniequip_003_bgsnow",
+      "skins": [
+        {
+          "id": "char_4055_bgsnow#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4055_bgsnow#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_4055_bgsnow@wild#7",
+          "name": "字句中的雪原"
+        },
+        {
+          "id": "char_4055_bgsnow@yun#7",
+          "name": "行梦侧畔"
+        }
+      ]
     },
     "仇白": {
       "equipSlots": {
@@ -3832,7 +5548,25 @@
         }
       ],
       "defaultSkill": "skchr_qiubai_3",
-      "defaultModule": "uniequip_002_qiubai"
+      "defaultModule": "uniequip_002_qiubai",
+      "skins": [
+        {
+          "id": "char_4082_qiubai#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4082_qiubai#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_4082_qiubai@epoque#31",
+          "name": "礼遇"
+        },
+        {
+          "id": "char_4082_qiubai@ncg#1",
+          "name": "霜林醉"
+        }
+      ]
     },
     "星极": {
       "equipSlots": {
@@ -3857,7 +5591,29 @@
         }
       ],
       "defaultSkill": "skchr_astesi_2",
-      "defaultModule": "uniequip_002_astesi"
+      "defaultModule": "uniequip_002_astesi",
+      "skins": [
+        {
+          "id": "char_274_astesi#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_274_astesi#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_274_astesi@epoque#5",
+          "name": "寻耀"
+        },
+        {
+          "id": "char_274_astesi@epoque#23",
+          "name": "奇工妙想"
+        },
+        {
+          "id": "char_274_astesi@shining#1",
+          "name": "殿堂上的游禽"
+        }
+      ]
     },
     "焰尾": {
       "equipSlots": {
@@ -3890,7 +5646,21 @@
         }
       ],
       "defaultSkill": "skchr_flamtl_3",
-      "defaultModule": "uniequip_002_flamtl"
+      "defaultModule": "uniequip_002_flamtl",
+      "skins": [
+        {
+          "id": "char_420_flamtl#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_420_flamtl#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_420_flamtl@game#2",
+          "name": "小健将"
+        }
+      ]
     },
     "瑰盐": {
       "equipSlots": {
@@ -3915,7 +5685,21 @@
         }
       ],
       "defaultSkill": "skchr_rosesa_2",
-      "defaultModule": "uniequip_002_rosesa"
+      "defaultModule": "uniequip_002_rosesa",
+      "skins": [
+        {
+          "id": "char_4163_rosesa#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4163_rosesa#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_4163_rosesa@game#7",
+          "name": "冒险启程"
+        }
+      ]
     },
     "烈夏": {
       "equipSlots": {
@@ -3940,7 +5724,21 @@
         }
       ],
       "defaultSkill": "skchr_leto_2",
-      "defaultModule": "uniequip_002_leto"
+      "defaultModule": "uniequip_002_leto",
+      "skins": [
+        {
+          "id": "char_194_leto#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_194_leto#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_194_leto@sightseer#4",
+          "name": "来日欢歌"
+        }
+      ]
     },
     "至简": {
       "equipSlots": {
@@ -3965,7 +5763,21 @@
         }
       ],
       "defaultSkill": "skchr_malist_2",
-      "defaultModule": "uniequip_002_malist"
+      "defaultModule": "uniequip_002_malist",
+      "skins": [
+        {
+          "id": "char_4054_malist#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4054_malist#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_4054_malist@summer#14",
+          "name": "悠然假日 HDm74"
+        }
+      ]
     },
     "陨星": {
       "equipSlots": {
@@ -3990,7 +5802,25 @@
         }
       ],
       "defaultSkill": "skchr_meteo_1",
-      "defaultModule": "uniequip_002_meteo"
+      "defaultModule": "uniequip_002_meteo",
+      "skins": [
+        {
+          "id": "char_219_meteo#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_219_meteo#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_219_meteo@summer#22",
+          "name": "夏卉 FA240"
+        },
+        {
+          "id": "char_219_meteo@sweep#1",
+          "name": "石墨"
+        }
+      ]
     },
     "机械师": {
       "equipSlots": {
@@ -4019,7 +5849,17 @@
         }
       ],
       "defaultSkill": "skchr_mcnist_3",
-      "defaultModule": "uniequip_002_mcnist"
+      "defaultModule": "uniequip_002_mcnist",
+      "skins": [
+        {
+          "id": "char_4230_mcnist#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4230_mcnist#2",
+          "name": "精英化二"
+        }
+      ]
     },
     "异客": {
       "equipSlots": {
@@ -4061,7 +5901,21 @@
         }
       ],
       "defaultSkill": "skchr_pasngr_1",
-      "defaultModule": "uniequip_002_pasngr"
+      "defaultModule": "uniequip_002_pasngr",
+      "skins": [
+        {
+          "id": "char_472_pasngr#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_472_pasngr#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_472_pasngr@epoque#17",
+          "name": "今昔须臾之梦"
+        }
+      ]
     },
     "塔露拉": {
       "equipSlots": {
@@ -4085,7 +5939,17 @@
       ],
       "modules": [],
       "defaultSkill": "skchr_oxi_3",
-      "defaultModule": null
+      "defaultModule": null,
+      "skins": [
+        {
+          "id": "char_4247_oxi#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4247_oxi#2",
+          "name": "精英化二"
+        }
+      ]
     },
     "真理": {
       "equipSlots": {
@@ -4110,7 +5974,21 @@
         }
       ],
       "defaultSkill": "skchr_glassb_2",
-      "defaultModule": "uniequip_002_glassb"
+      "defaultModule": "uniequip_002_glassb",
+      "skins": [
+        {
+          "id": "char_195_glassb#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_195_glassb#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_195_glassb@kitchen#1",
+          "name": "书味"
+        }
+      ]
     },
     "奥尔佳": {
       "equipSlots": {
@@ -4138,7 +6016,17 @@
         }
       ],
       "defaultSkill": "skchr_alga_2",
-      "defaultModule": "uniequip_002_alga"
+      "defaultModule": "uniequip_002_alga",
+      "skins": [
+        {
+          "id": "char_4245_alga#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4245_alga#2",
+          "name": "精英化二"
+        }
+      ]
     },
     "安洁莉娜": {
       "equipSlots": {
@@ -4175,7 +6063,25 @@
         }
       ],
       "defaultSkill": "skchr_aglina_3",
-      "defaultModule": "uniequip_002_aglina"
+      "defaultModule": "uniequip_002_aglina",
+      "skins": [
+        {
+          "id": "char_291_aglina#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_291_aglina#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_291_aglina@summer#5",
+          "name": "夏卉 FA017"
+        },
+        {
+          "id": "char_291_aglina@boc#1",
+          "name": "质素访客"
+        }
+      ]
     },
     "夕": {
       "equipSlots": {
@@ -4212,7 +6118,25 @@
         }
       ],
       "defaultSkill": "skchr_dusk_2",
-      "defaultModule": "uniequip_002_dusk"
+      "defaultModule": "uniequip_002_dusk",
+      "skins": [
+        {
+          "id": "char_2015_dusk#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_2015_dusk#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_2015_dusk@nian#7",
+          "name": "染尘烟"
+        },
+        {
+          "id": "char_2015_dusk@nian#12",
+          "name": "青玉砚"
+        }
+      ]
     },
     "冻河": {
       "equipSlots": {
@@ -4236,7 +6160,17 @@
       ],
       "modules": [],
       "defaultSkill": "skchr_tocka_3",
-      "defaultModule": null
+      "defaultModule": null,
+      "skins": [
+        {
+          "id": "char_4244_tocka#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4244_tocka#2",
+          "name": "精英化二"
+        }
+      ]
     },
     "青枳": {
       "equipSlots": {
@@ -4261,7 +6195,21 @@
         }
       ],
       "defaultSkill": "skcom_charge_cost[3]",
-      "defaultModule": "uniequip_002_buildr"
+      "defaultModule": "uniequip_002_buildr",
+      "skins": [
+        {
+          "id": "char_488_buildr#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_488_buildr#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_488_buildr@epoque#34",
+          "name": "晚风休憩"
+        }
+      ]
     },
     "铸铁": {
       "equipSlots": {
@@ -4286,7 +6234,21 @@
         }
       ],
       "defaultSkill": "skcom_heal_self[3]",
-      "defaultModule": "uniequip_002_sidero"
+      "defaultModule": "uniequip_002_sidero",
+      "skins": [
+        {
+          "id": "char_333_sidero#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_333_sidero#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_333_sidero@summer#6",
+          "name": "轻风 LB03"
+        }
+      ]
     },
     "华法琳": {
       "equipSlots": {
@@ -4311,7 +6273,25 @@
         }
       ],
       "defaultSkill": "skchr_bldsk_1",
-      "defaultModule": "uniequip_002_bldsk"
+      "defaultModule": "uniequip_002_bldsk",
+      "skins": [
+        {
+          "id": "char_171_bldsk#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_171_bldsk#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_171_bldsk@summer#7",
+          "name": "悠然假日 HD31"
+        },
+        {
+          "id": "char_171_bldsk@witch#1",
+          "name": "盛宴"
+        }
+      ]
     },
     "拉普兰德": {
       "equipSlots": {
@@ -4336,7 +6316,21 @@
         }
       ],
       "defaultSkill": "skchr_whitew_2",
-      "defaultModule": "uniequip_002_whitew"
+      "defaultModule": "uniequip_002_whitew",
+      "skins": [
+        {
+          "id": "char_140_whitew#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_140_whitew#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_140_whitew@boc#1",
+          "name": "典雅噩兆"
+        }
+      ]
     },
     "蕾缪安": {
       "equipSlots": {
@@ -4365,7 +6359,21 @@
         }
       ],
       "defaultSkill": "skchr_lemuen_3",
-      "defaultModule": "uniequip_002_lemuen"
+      "defaultModule": "uniequip_002_lemuen",
+      "skins": [
+        {
+          "id": "char_4193_lemuen#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4193_lemuen#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_4193_lemuen@ambienceSynesthesia#7",
+          "name": "暮星安魂曲"
+        }
+      ]
     },
     "星源": {
       "equipSlots": {
@@ -4390,7 +6398,21 @@
         }
       ],
       "defaultSkill": "skchr_halo_1",
-      "defaultModule": "uniequip_002_halo"
+      "defaultModule": "uniequip_002_halo",
+      "skins": [
+        {
+          "id": "char_135_halo#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_135_halo#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_135_halo@epoque#25",
+          "name": "所愿"
+        }
+      ]
     },
     "寒檀": {
       "equipSlots": {
@@ -4415,7 +6437,21 @@
         }
       ],
       "defaultSkill": "skchr_sntlla_2",
-      "defaultModule": "uniequip_002_sntlla"
+      "defaultModule": "uniequip_002_sntlla",
+      "skins": [
+        {
+          "id": "char_341_sntlla#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_341_sntlla#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_341_sntlla@summer#15",
+          "name": "悠然假日 HD71"
+        }
+      ]
     },
     "地灵": {
       "equipSlots": {
@@ -4440,7 +6476,21 @@
         }
       ],
       "defaultSkill": "skcom_atk_up[2]",
-      "defaultModule": "uniequip_002_skgoat"
+      "defaultModule": "uniequip_002_skgoat",
+      "skins": [
+        {
+          "id": "char_183_skgoat#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_183_skgoat#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_183_skgoat@epoque#30",
+          "name": "主修领域"
+        }
+      ]
     },
     "缪尔赛思": {
       "equipSlots": {
@@ -4480,7 +6530,25 @@
         }
       ],
       "defaultSkill": "skchr_mlyss_3",
-      "defaultModule": "uniequip_002_mlyss"
+      "defaultModule": "uniequip_002_mlyss",
+      "skins": [
+        {
+          "id": "char_249_mlyss#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_249_mlyss#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_249_mlyss@boc#8",
+          "name": "新枝"
+        },
+        {
+          "id": "char_249_mlyss@ambienceSynesthesia#6",
+          "name": "漫步于黄金之梦"
+        }
+      ]
     },
     "阿米娅": {
       "equipSlots": {
@@ -4505,7 +6573,53 @@
         }
       ],
       "defaultSkill": "skchr_amiya3_2",
-      "defaultModule": "uniequip_002_amiya3"
+      "defaultModule": "uniequip_002_amiya3",
+      "skins": [
+        {
+          "id": "char_002_amiya#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_002_amiya#1+",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_002_amiya#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_002_amiya@winter#1",
+          "name": "报童"
+        },
+        {
+          "id": "char_002_amiya@epoque#4",
+          "name": "见习联结者"
+        },
+        {
+          "id": "char_002_amiya@test#1",
+          "name": "播种者"
+        },
+        {
+          "id": "char_1037_amiya3@sale#13",
+          "name": "寰宇独奏"
+        },
+        {
+          "id": "char_1001_amiya2@sale#16",
+          "name": "于万千宇宙之中"
+        },
+        {
+          "id": "char_1001_amiya2@casc#1",
+          "name": "触及星辰"
+        },
+        {
+          "id": "char_1001_amiya2#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_1037_amiya3#2",
+          "name": "精英化二"
+        }
+      ]
     },
     "安哲拉": {
       "equipSlots": {
@@ -4530,7 +6644,21 @@
         }
       ],
       "defaultSkill": "skcom_atk_up[3]",
-      "defaultModule": "uniequip_002_cuttle"
+      "defaultModule": "uniequip_002_cuttle",
+      "skins": [
+        {
+          "id": "char_218_cuttle#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_218_cuttle#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_218_cuttle@epoque#12",
+          "name": "暗矢"
+        }
+      ]
     },
     "帕拉斯": {
       "equipSlots": {
@@ -4563,7 +6691,25 @@
         }
       ],
       "defaultSkill": "skchr_pallas_3",
-      "defaultModule": "uniequip_002_pallas"
+      "defaultModule": "uniequip_002_pallas",
+      "skins": [
+        {
+          "id": "char_485_pallas#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_485_pallas#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_485_pallas@epoque#12",
+          "name": "传承"
+        },
+        {
+          "id": "char_485_pallas@epoque#19",
+          "name": "山川的酿造"
+        }
+      ]
     },
     "暴躁铁皮": {
       "equipSlots": {
@@ -4584,7 +6730,17 @@
         }
       ],
       "defaultSkill": "skchr_acrbot_1",
-      "defaultModule": "uniequip_002_acrbot"
+      "defaultModule": "uniequip_002_acrbot",
+      "skins": [
+        {
+          "id": "char_618_acrbot#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_618_acrbot#2",
+          "name": "精英化二"
+        }
+      ]
     },
     "凯尔希": {
       "equipSlots": {
@@ -4621,7 +6777,25 @@
         }
       ],
       "defaultSkill": "skchr_kalts_3",
-      "defaultModule": "uniequip_004_kalts"
+      "defaultModule": "uniequip_004_kalts",
+      "skins": [
+        {
+          "id": "char_003_kalts#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_003_kalts#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_003_kalts@sale#14",
+          "name": "时遗"
+        },
+        {
+          "id": "char_003_kalts@boc#6",
+          "name": "残余"
+        }
+      ]
     },
     "陈": {
       "equipSlots": {
@@ -4654,7 +6828,25 @@
         }
       ],
       "defaultSkill": "skchr_chen_3",
-      "defaultModule": "uniequip_002_chen"
+      "defaultModule": "uniequip_002_chen",
+      "skins": [
+        {
+          "id": "char_010_chen#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_010_chen#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_010_chen@sale#10",
+          "name": "初晴"
+        },
+        {
+          "id": "char_010_chen@nian#2",
+          "name": "岁红霞"
+        }
+      ]
     },
     "煌": {
       "equipSlots": {
@@ -4687,7 +6879,25 @@
         }
       ],
       "defaultSkill": "skchr_huang_3",
-      "defaultModule": "uniequip_002_huang"
+      "defaultModule": "uniequip_002_huang",
+      "skins": [
+        {
+          "id": "char_017_huang#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_017_huang#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_017_huang@witch#5",
+          "name": "易爆蓝焰"
+        },
+        {
+          "id": "char_017_huang@as#1",
+          "name": "爆裂菲林"
+        }
+      ]
     },
     "假日威龙陈": {
       "equipSlots": {
@@ -4720,7 +6930,25 @@
         }
       ],
       "defaultSkill": "skchr_chen2_3",
-      "defaultModule": "uniequip_002_chen2"
+      "defaultModule": "uniequip_002_chen2",
+      "skins": [
+        {
+          "id": "char_1013_chen2#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_1013_chen2#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_1013_chen2@summer#20",
+          "name": "悠然假日 HD79"
+        },
+        {
+          "id": "char_1013_chen2@boc#6",
+          "name": "万重山"
+        }
+      ]
     },
     "予愿安洁莉娜": {
       "equipSlots": {
@@ -4744,7 +6972,17 @@
       ],
       "modules": [],
       "defaultSkill": "skchr_aglna2_3",
-      "defaultModule": null
+      "defaultModule": null,
+      "skins": [
+        {
+          "id": "char_1015_aglna2#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_1015_aglna2#2",
+          "name": "精英化二"
+        }
+      ]
     },
     "焰影苇草": {
       "equipSlots": {
@@ -4777,7 +7015,29 @@
         }
       ],
       "defaultSkill": "skchr_reed2_3",
-      "defaultModule": "uniequip_002_reed2"
+      "defaultModule": "uniequip_002_reed2",
+      "skins": [
+        {
+          "id": "char_1020_reed2#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_1020_reed2#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_1020_reed2@epoque#30",
+          "name": "博物"
+        },
+        {
+          "id": "char_1020_reed2@summer#17",
+          "name": "夏卉 FA075"
+        },
+        {
+          "id": "char_1020_reed2@snow#8",
+          "name": "闪焰之夜"
+        }
+      ]
     },
     "百炼嘉维尔": {
       "equipSlots": {
@@ -4814,7 +7074,21 @@
         }
       ],
       "defaultSkill": "skchr_gvial2_3",
-      "defaultModule": "uniequip_004_gvial2"
+      "defaultModule": "uniequip_004_gvial2",
+      "skins": [
+        {
+          "id": "char_1026_gvial2#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_1026_gvial2#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_1026_gvial2@summer#12",
+          "name": "悠然假日 HD26"
+        }
+      ]
     },
     "缄默德克萨斯": {
       "equipSlots": {
@@ -4847,7 +7121,25 @@
         }
       ],
       "defaultSkill": "skchr_texas2_3",
-      "defaultModule": "uniequip_003_texas2"
+      "defaultModule": "uniequip_003_texas2",
+      "skins": [
+        {
+          "id": "char_1028_texas2#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_1028_texas2#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_1028_texas2@epoque#36",
+          "name": "幽兰秘辛"
+        },
+        {
+          "id": "char_1028_texas2@iteration#1",
+          "name": "破翼者"
+        }
+      ]
     },
     "麒麟R夜刀": {
       "equipSlots": {
@@ -4880,7 +7172,17 @@
         }
       ],
       "defaultSkill": "skchr_yato2_3",
-      "defaultModule": "uniequip_002_yato2"
+      "defaultModule": "uniequip_002_yato2",
+      "skins": [
+        {
+          "id": "char_1029_yato2#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_1029_yato2#2",
+          "name": "精英化二"
+        }
+      ]
     },
     "圣约送葬人": {
       "equipSlots": {
@@ -4913,7 +7215,25 @@
         }
       ],
       "defaultSkill": "skchr_excu2_3",
-      "defaultModule": "uniequip_002_excu2"
+      "defaultModule": "uniequip_002_excu2",
+      "skins": [
+        {
+          "id": "char_1032_excu2#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_1032_excu2#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_1032_excu2@sale#12",
+          "name": "众志归一"
+        },
+        {
+          "id": "char_1032_excu2@sanrio#2",
+          "name": "蒸汽寻踪者"
+        }
+      ]
     },
     "琳琅诗怀雅": {
       "equipSlots": {
@@ -4950,7 +7270,25 @@
         }
       ],
       "defaultSkill": "skchr_swire2_3",
-      "defaultModule": "uniequip_004_swire2"
+      "defaultModule": "uniequip_004_swire2",
+      "skins": [
+        {
+          "id": "char_1033_swire2#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_1033_swire2#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_1033_swire2@ambienceSynesthesia#4",
+          "name": "律动方格"
+        },
+        {
+          "id": "char_1033_swire2@nlc#1",
+          "name": "盛世之象"
+        }
+      ]
     },
     "维什戴尔": {
       "equipSlots": {
@@ -4979,7 +7317,25 @@
         }
       ],
       "defaultSkill": "skchr_wisdel_3",
-      "defaultModule": "uniequip_002_wisdel"
+      "defaultModule": "uniequip_002_wisdel",
+      "skins": [
+        {
+          "id": "char_1035_wisdel#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_1035_wisdel#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_1035_wisdel@sale#14",
+          "name": "超新星"
+        },
+        {
+          "id": "char_1035_wisdel@game#9",
+          "name": "绝对主角"
+        }
+      ]
     },
     "能天使": {
       "equipSlots": {
@@ -5012,7 +7368,29 @@
         }
       ],
       "defaultSkill": "skchr_angel_3",
-      "defaultModule": "uniequip_002_angel"
+      "defaultModule": "uniequip_002_angel",
+      "skins": [
+        {
+          "id": "char_103_angel#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_103_angel#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_103_angel@sale#8",
+          "name": "午夜邮差"
+        },
+        {
+          "id": "char_103_angel@wild#1",
+          "name": "野地秘行"
+        },
+        {
+          "id": "char_103_angel@kfc#1",
+          "name": "城市骑手"
+        }
+      ]
     },
     "新约能天使": {
       "equipSlots": {
@@ -5041,7 +7419,21 @@
         }
       ],
       "defaultSkill": "skchr_angel2_3",
-      "defaultModule": "uniequip_002_angel2"
+      "defaultModule": "uniequip_002_angel2",
+      "skins": [
+        {
+          "id": "char_1041_angel2#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_1041_angel2#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_1041_angel2@iteration#6",
+          "name": "寻翼之歌"
+        }
+      ]
     },
     "司霆惊蛰": {
       "equipSlots": {
@@ -5070,7 +7462,21 @@
         }
       ],
       "defaultSkill": "skchr_leizi2_3",
-      "defaultModule": "uniequip_002_leizi2"
+      "defaultModule": "uniequip_002_leizi2",
+      "skins": [
+        {
+          "id": "char_1043_leizi2#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_1043_leizi2#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_1043_leizi2@game#8",
+          "name": "血翼蔷薇"
+        }
+      ]
     },
     "斩业星熊": {
       "equipSlots": {
@@ -5099,7 +7505,21 @@
         }
       ],
       "defaultSkill": "skchr_hsgma2_3",
-      "defaultModule": "uniequip_002_hsgma2"
+      "defaultModule": "uniequip_002_hsgma2",
+      "skins": [
+        {
+          "id": "char_1044_hsgma2#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_1044_hsgma2#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_1044_hsgma2@whirlwind#11",
+          "name": "一闪极意"
+        }
+      ]
     },
     "焰狐龙梓兰": {
       "equipSlots": {
@@ -5128,7 +7548,17 @@
         }
       ],
       "defaultSkill": "skchr_orchd2_3",
-      "defaultModule": "uniequip_002_orchd2"
+      "defaultModule": "uniequip_002_orchd2",
+      "skins": [
+        {
+          "id": "char_1048_orchd2#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_1048_orchd2#2",
+          "name": "精英化二"
+        }
+      ]
     },
     "赤刃明霄陈": {
       "equipSlots": {
@@ -5157,7 +7587,17 @@
         }
       ],
       "defaultSkill": "skchr_chen3_3",
-      "defaultModule": "uniequip_002_chen3"
+      "defaultModule": "uniequip_002_chen3",
+      "skins": [
+        {
+          "id": "char_1050_chen3#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_1050_chen3#2",
+          "name": "精英化二"
+        }
+      ]
     },
     "凯尔希·思衡托": {
       "equipSlots": {
@@ -5181,7 +7621,17 @@
       ],
       "modules": [],
       "defaultSkill": "skchr_kalts2_3",
-      "defaultModule": null
+      "defaultModule": null,
+      "skins": [
+        {
+          "id": "char_1052_kalts2#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_1052_kalts2#2",
+          "name": "精英化二"
+        }
+      ]
     },
     "推进之王": {
       "equipSlots": {
@@ -5214,7 +7664,25 @@
         }
       ],
       "defaultSkill": "skchr_siege_3",
-      "defaultModule": "uniequip_002_siege"
+      "defaultModule": "uniequip_002_siege",
+      "skins": [
+        {
+          "id": "char_112_siege#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_112_siege#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_112_siege@wild#2",
+          "name": "遗石"
+        },
+        {
+          "id": "char_112_siege@striker#2",
+          "name": "摧城"
+        }
+      ]
     },
     "伊芙利特": {
       "equipSlots": {
@@ -5247,7 +7715,29 @@
         }
       ],
       "defaultSkill": "skchr_ifrit_3",
-      "defaultModule": "uniequip_003_ifrit"
+      "defaultModule": "uniequip_003_ifrit",
+      "skins": [
+        {
+          "id": "char_134_ifrit#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_134_ifrit#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_134_ifrit@summer#1",
+          "name": "日晒 SS.SP"
+        },
+        {
+          "id": "char_134_ifrit@kfc#1",
+          "name": "儿童派对"
+        },
+        {
+          "id": "char_134_ifrit@rilakkuma#1",
+          "name": "轻松旅途"
+        }
+      ]
     },
     "星熊": {
       "equipSlots": {
@@ -5280,7 +7770,25 @@
         }
       ],
       "defaultSkill": "skchr_hsguma_3",
-      "defaultModule": "uniequip_003_hsguma"
+      "defaultModule": "uniequip_003_hsguma",
+      "skins": [
+        {
+          "id": "char_136_hsguma#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_136_hsguma#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_136_hsguma@nian#3",
+          "name": "狩标浪人"
+        },
+        {
+          "id": "char_136_hsguma@summer#16",
+          "name": "探寻者 SK97"
+        }
+      ]
     },
     "闪灵": {
       "equipSlots": {
@@ -5313,7 +7821,21 @@
         }
       ],
       "defaultSkill": "skchr_shining_3",
-      "defaultModule": "uniequip_003_shining"
+      "defaultModule": "uniequip_003_shining",
+      "skins": [
+        {
+          "id": "char_147_shining#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_147_shining#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_147_shining@summer#1",
+          "name": "静谧午夜 DN02"
+        }
+      ]
     },
     "弑君者": {
       "equipSlots": {
@@ -5346,7 +7868,21 @@
         }
       ],
       "defaultSkill": "skchr_crosly_3",
-      "defaultModule": "uniequip_002_crosly"
+      "defaultModule": "uniequip_002_crosly",
+      "skins": [
+        {
+          "id": "char_1502_crosly#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_1502_crosly#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_1502_crosly@iteration#5",
+          "name": "夜之终局"
+        }
+      ]
     },
     "银灰": {
       "equipSlots": {
@@ -5375,7 +7911,29 @@
         }
       ],
       "defaultSkill": "skchr_svrash_3",
-      "defaultModule": "uniequip_002_svrash"
+      "defaultModule": "uniequip_002_svrash",
+      "skins": [
+        {
+          "id": "char_172_svrash#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_172_svrash#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_172_svrash@summer#4",
+          "name": "探寻者 SKm01"
+        },
+        {
+          "id": "char_172_svrash@snow#1",
+          "name": "约克的寒风"
+        },
+        {
+          "id": "char_172_svrash@ambienceSynesthesia#4",
+          "name": "不融冰"
+        }
+      ]
     },
     "早露": {
       "equipSlots": {
@@ -5408,7 +7966,25 @@
         }
       ],
       "defaultSkill": "skchr_poca_3",
-      "defaultModule": "uniequip_002_poca"
+      "defaultModule": "uniequip_002_poca",
+      "skins": [
+        {
+          "id": "char_197_poca#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_197_poca#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_197_poca@epoque#12",
+          "name": "杰作"
+        },
+        {
+          "id": "char_197_poca@rilakkuma#1",
+          "name": "常伴我身"
+        }
+      ]
     },
     "提丰": {
       "equipSlots": {
@@ -5445,7 +8021,25 @@
         }
       ],
       "defaultSkill": "skchr_typhon_3",
-      "defaultModule": "uniequip_004_typhon"
+      "defaultModule": "uniequip_004_typhon",
+      "skins": [
+        {
+          "id": "char_2012_typhon#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_2012_typhon#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_2012_typhon@summer#17",
+          "name": "温差 RT.RX07"
+        },
+        {
+          "id": "char_2012_typhon@wild#9",
+          "name": "北地引路人"
+        }
+      ]
     },
     "刻俄柏": {
       "equipSlots": {
@@ -5478,7 +8072,25 @@
         }
       ],
       "defaultSkill": "skchr_cerber_3",
-      "defaultModule": "uniequip_002_cerber"
+      "defaultModule": "uniequip_002_cerber",
+      "skins": [
+        {
+          "id": "char_2013_cerber#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_2013_cerber#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_2013_cerber@whirlwind#2",
+          "name": "无拘无束"
+        },
+        {
+          "id": "char_2013_cerber@summer#4",
+          "name": "夏卉 FA333"
+        }
+      ]
     },
     "年": {
       "equipSlots": {
@@ -5511,7 +8123,25 @@
         }
       ],
       "defaultSkill": "skchr_nian_3",
-      "defaultModule": "uniequip_002_nian"
+      "defaultModule": "uniequip_002_nian",
+      "skins": [
+        {
+          "id": "char_2014_nian#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_2014_nian#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_2014_nian@nian#4",
+          "name": "乐逍遥"
+        },
+        {
+          "id": "char_2014_nian@cfa#1",
+          "name": "霹雳导演"
+        }
+      ]
     },
     "令": {
       "equipSlots": {
@@ -5540,7 +8170,29 @@
         }
       ],
       "defaultSkill": "skchr_ling_3",
-      "defaultModule": "uniequip_002_ling"
+      "defaultModule": "uniequip_002_ling",
+      "skins": [
+        {
+          "id": "char_2023_ling#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_2023_ling#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_2023_ling@nian#9",
+          "name": "濯缨"
+        },
+        {
+          "id": "char_2023_ling@nian#12",
+          "name": "方遒卷"
+        },
+        {
+          "id": "char_2023_ling@ncg#1",
+          "name": "崖高梦远"
+        }
+      ]
     },
     "重岳": {
       "equipSlots": {
@@ -5573,7 +8225,25 @@
         }
       ],
       "defaultSkill": "skchr_chyue_3",
-      "defaultModule": "uniequip_002_chyue"
+      "defaultModule": "uniequip_002_chyue",
+      "skins": [
+        {
+          "id": "char_2024_chyue#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_2024_chyue#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_2024_chyue@nian#10",
+          "name": "何处栖"
+        },
+        {
+          "id": "char_2024_chyue@cfa#1",
+          "name": "全能演员"
+        }
+      ]
     },
     "望": {
       "equipSlots": {
@@ -5602,7 +8272,17 @@
         }
       ],
       "defaultSkill": "skchr_wang_3",
-      "defaultModule": "uniequip_002_wang"
+      "defaultModule": "uniequip_002_wang",
+      "skins": [
+        {
+          "id": "char_2027_wang#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_2027_wang#2",
+          "name": "精英化二"
+        }
+      ]
     },
     "莫斯提马": {
       "equipSlots": {
@@ -5635,7 +8315,25 @@
         }
       ],
       "defaultSkill": "skchr_mostma_3",
-      "defaultModule": "uniequip_003_mostma"
+      "defaultModule": "uniequip_003_mostma",
+      "skins": [
+        {
+          "id": "char_213_mostma#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_213_mostma#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_213_mostma@epoque#5",
+          "name": "除魅"
+        },
+        {
+          "id": "char_213_mostma@ambienceSynesthesia#6",
+          "name": "幻语乐痕"
+        }
+      ]
     },
     "风笛": {
       "equipSlots": {
@@ -5668,7 +8366,29 @@
         }
       ],
       "defaultSkill": "skchr_bpipe_3",
-      "defaultModule": "uniequip_002_bpipe"
+      "defaultModule": "uniequip_002_bpipe",
+      "skins": [
+        {
+          "id": "char_222_bpipe#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_222_bpipe#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_222_bpipe@epoque#28",
+          "name": "皇家近卫"
+        },
+        {
+          "id": "char_222_bpipe@epoque#40",
+          "name": "风笛声声"
+        },
+        {
+          "id": "char_222_bpipe@race#1",
+          "name": "皇后一号"
+        }
+      ]
     },
     "阿": {
       "equipSlots": {
@@ -5701,7 +8421,25 @@
         }
       ],
       "defaultSkill": "skchr_haak_3",
-      "defaultModule": "uniequip_002_haak"
+      "defaultModule": "uniequip_002_haak",
+      "skins": [
+        {
+          "id": "char_225_haak#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_225_haak#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_225_haak@nian#4",
+          "name": "百面郎中"
+        },
+        {
+          "id": "char_225_haak@nian#5",
+          "name": "妙手玄心"
+        }
+      ]
     },
     "塑心": {
       "equipSlots": {
@@ -5734,7 +8472,21 @@
         }
       ],
       "defaultSkill": "skchr_cello_3",
-      "defaultModule": "uniequip_002_cello"
+      "defaultModule": "uniequip_002_cello",
+      "skins": [
+        {
+          "id": "char_245_cello#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_245_cello#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_245_cello@sale#12",
+          "name": "无我唯识"
+        }
+      ]
     },
     "麦哲伦": {
       "equipSlots": {
@@ -5767,7 +8519,21 @@
         }
       ],
       "defaultSkill": "skchr_mgllan_3",
-      "defaultModule": "uniequip_002_mgllan"
+      "defaultModule": "uniequip_002_mgllan",
+      "skins": [
+        {
+          "id": "char_248_mgllan#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_248_mgllan#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_248_mgllan@kitchen#1",
+          "name": "回味冰霜雪"
+        }
+      ]
     },
     "傀影": {
       "equipSlots": {
@@ -5804,7 +8570,25 @@
         }
       ],
       "defaultSkill": "skchr_phatom_3",
-      "defaultModule": "uniequip_004_phatom"
+      "defaultModule": "uniequip_004_phatom",
+      "skins": [
+        {
+          "id": "char_250_phatom#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_250_phatom#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_250_phatom@sale#4",
+          "name": "焦点"
+        },
+        {
+          "id": "char_250_phatom@ghost#1",
+          "name": "梦魇之梦"
+        }
+      ]
     },
     "菲亚梅塔": {
       "equipSlots": {
@@ -5841,7 +8625,25 @@
         }
       ],
       "defaultSkill": "skchr_phenxi_3",
-      "defaultModule": "uniequip_004_phenxi"
+      "defaultModule": "uniequip_004_phenxi",
+      "skins": [
+        {
+          "id": "char_300_phenxi#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_300_phenxi#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_300_phenxi@witch#4",
+          "name": "至圣誓言"
+        },
+        {
+          "id": "char_300_phenxi@boc#9",
+          "name": "审判日"
+        }
+      ]
     },
     "泥岩": {
       "equipSlots": {
@@ -5874,7 +8676,29 @@
         }
       ],
       "defaultSkill": "skchr_mudrok_3",
-      "defaultModule": "uniequip_002_mudrok"
+      "defaultModule": "uniequip_002_mudrok",
+      "skins": [
+        {
+          "id": "char_311_mudrok#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_311_mudrok#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_311_mudrok@summer#6",
+          "name": "静谧午夜 DN06"
+        },
+        {
+          "id": "char_311_mudrok@wild#10",
+          "name": "砾瓦"
+        },
+        {
+          "id": "char_311_mudrok@ambienceSynesthesia#2",
+          "name": "黑曜石"
+        }
+      ]
     },
     "黑": {
       "equipSlots": {
@@ -5907,7 +8731,25 @@
         }
       ],
       "defaultSkill": "skchr_shwaz_3",
-      "defaultModule": "uniequip_002_shwaz"
+      "defaultModule": "uniequip_002_shwaz",
+      "skins": [
+        {
+          "id": "char_340_shwaz#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_340_shwaz#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_340_shwaz@snow#1",
+          "name": "厚礼"
+        },
+        {
+          "id": "char_340_shwaz@striker#1",
+          "name": "天际线"
+        }
+      ]
     },
     "嵯峨": {
       "equipSlots": {
@@ -5940,7 +8782,21 @@
         }
       ],
       "defaultSkill": "skchr_saga_3",
-      "defaultModule": "uniequip_003_saga"
+      "defaultModule": "uniequip_003_saga",
+      "skins": [
+        {
+          "id": "char_362_saga#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_362_saga#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_362_saga@sale#9",
+          "name": "彼有"
+        }
+      ]
     },
     "澄闪": {
       "equipSlots": {
@@ -5973,7 +8829,29 @@
         }
       ],
       "defaultSkill": "skchr_gdglow_3",
-      "defaultModule": "uniequip_002_gdglow"
+      "defaultModule": "uniequip_002_gdglow",
+      "skins": [
+        {
+          "id": "char_377_gdglow#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_377_gdglow#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_377_gdglow@summer#12",
+          "name": "夏卉 FA394"
+        },
+        {
+          "id": "char_377_gdglow@snow#5",
+          "name": "喜夜侍者"
+        },
+        {
+          "id": "char_377_gdglow@sanrio#1",
+          "name": "花房茶话会"
+        }
+      ]
     },
     "止颂": {
       "equipSlots": {
@@ -6006,7 +8884,21 @@
         }
       ],
       "defaultSkill": "skchr_lessng_3",
-      "defaultModule": "uniequip_002_lessng"
+      "defaultModule": "uniequip_002_lessng",
+      "skins": [
+        {
+          "id": "char_4011_lessng#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4011_lessng#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_4011_lessng@whirlwind#7",
+          "name": "幻火"
+        }
+      ]
     },
     "号角": {
       "equipSlots": {
@@ -6043,7 +8935,25 @@
         }
       ],
       "defaultSkill": "skchr_horn_3",
-      "defaultModule": "uniequip_004_horn"
+      "defaultModule": "uniequip_004_horn",
+      "skins": [
+        {
+          "id": "char_4039_horn#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4039_horn#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_4039_horn@epoque#24",
+          "name": "化花"
+        },
+        {
+          "id": "char_4039_horn@epoque#59",
+          "name": "锋光初现"
+        }
+      ]
     },
     "多萝西": {
       "equipSlots": {
@@ -6076,7 +8986,21 @@
         }
       ],
       "defaultSkill": "skchr_doroth_3",
-      "defaultModule": "uniequip_003_doroth"
+      "defaultModule": "uniequip_003_doroth",
+      "skins": [
+        {
+          "id": "char_4048_doroth#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4048_doroth#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_4048_doroth@witch#4",
+          "name": "命运主宰"
+        }
+      ]
     },
     "缇缇": {
       "equipSlots": {
@@ -6105,7 +9029,17 @@
         }
       ],
       "defaultSkill": "skchr_titi_3",
-      "defaultModule": "uniequip_002_titi"
+      "defaultModule": "uniequip_002_titi",
+      "skins": [
+        {
+          "id": "char_4056_titi#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4056_titi#2",
+          "name": "精英化二"
+        }
+      ]
     },
     "林": {
       "equipSlots": {
@@ -6138,7 +9072,29 @@
         }
       ],
       "defaultSkill": "skchr_lin_3",
-      "defaultModule": "uniequip_002_lin"
+      "defaultModule": "uniequip_002_lin",
+      "skins": [
+        {
+          "id": "char_4080_lin#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4080_lin#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_4080_lin@nian#10",
+          "name": "列瑶台"
+        },
+        {
+          "id": "char_4080_lin@summer#19",
+          "name": "夏卉 FA137"
+        },
+        {
+          "id": "char_4080_lin@littlePony#1",
+          "name": "求知的魔法"
+        }
+      ]
     },
     "伊内丝": {
       "equipSlots": {
@@ -6167,7 +9123,25 @@
         }
       ],
       "defaultSkill": "skchr_ines_3",
-      "defaultModule": "uniequip_002_ines"
+      "defaultModule": "uniequip_002_ines",
+      "skins": [
+        {
+          "id": "char_4087_ines#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4087_ines#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_4087_ines@boc#8",
+          "name": "燃烧天穹下"
+        },
+        {
+          "id": "char_4087_ines@ambienceSynesthesia#5",
+          "name": "蝶舞华章"
+        }
+      ]
     },
     "莱伊": {
       "equipSlots": {
@@ -6200,7 +9174,25 @@
         }
       ],
       "defaultSkill": "skchr_ray_3",
-      "defaultModule": "uniequip_002_ray"
+      "defaultModule": "uniequip_002_ray",
+      "skins": [
+        {
+          "id": "char_4117_ray#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4117_ray#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_4117_ray@summer#22",
+          "name": "夏卉 FA098"
+        },
+        {
+          "id": "char_4117_ray@shining#2",
+          "name": "梦幻高空"
+        }
+      ]
     },
     "左乐": {
       "equipSlots": {
@@ -6233,7 +9225,25 @@
         }
       ],
       "defaultSkill": "skchr_zuole_3",
-      "defaultModule": "uniequip_002_zuole"
+      "defaultModule": "uniequip_002_zuole",
+      "skins": [
+        {
+          "id": "char_4121_zuole#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4121_zuole#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_4121_zuole@sale#16",
+          "name": "无息破局"
+        },
+        {
+          "id": "char_4121_zuole@nian#11",
+          "name": "少年游"
+        }
+      ]
     },
     "艾拉": {
       "equipSlots": {
@@ -6262,7 +9272,21 @@
         }
       ],
       "defaultSkill": "skchr_ela_3",
-      "defaultModule": "uniequip_002_ela"
+      "defaultModule": "uniequip_002_ela",
+      "skins": [
+        {
+          "id": "char_4123_ela#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4123_ela#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_4123_ela@rainbow6#2",
+          "name": "密室"
+        }
+      ]
     },
     "阿斯卡纶": {
       "equipSlots": {
@@ -6295,7 +9319,21 @@
         }
       ],
       "defaultSkill": "skchr_ascln_3",
-      "defaultModule": "uniequip_002_ascln"
+      "defaultModule": "uniequip_002_ascln",
+      "skins": [
+        {
+          "id": "char_4132_ascln#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4132_ascln#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_4132_ascln@iteration#4",
+          "name": "趋光之暗"
+        }
+      ]
     },
     "娜仁图亚": {
       "equipSlots": {
@@ -6328,7 +9366,25 @@
         }
       ],
       "defaultSkill": "skchr_narant_3",
-      "defaultModule": "uniequip_002_narant"
+      "defaultModule": "uniequip_002_narant",
+      "skins": [
+        {
+          "id": "char_4138_narant#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4138_narant#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_4138_narant@breaker#1",
+          "name": "链锯陪护者"
+        },
+        {
+          "id": "char_4138_narant@littlePony#1",
+          "name": "率直诚实之人"
+        }
+      ]
     },
     "玛露西尔": {
       "equipSlots": {
@@ -6357,7 +9413,21 @@
         }
       ],
       "defaultSkill": "skchr_marcil_3",
-      "defaultModule": "uniequip_002_marcil"
+      "defaultModule": "uniequip_002_marcil",
+      "skins": [
+        {
+          "id": "char_4141_marcil#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4141_marcil#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_4141_marcil@dungeon#1",
+          "name": "泰拉冒险"
+        }
+      ]
     },
     "丰川祥子": {
       "equipSlots": {
@@ -6386,7 +9456,21 @@
         }
       ],
       "defaultSkill": "skchr_oblvns_3",
-      "defaultModule": "uniequip_002_oblvns"
+      "defaultModule": "uniequip_002_oblvns",
+      "skins": [
+        {
+          "id": "char_4182_oblvns#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4182_oblvns#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_4182_oblvns@avemujica#1",
+          "name": "旋律的主人"
+        }
+      ]
     },
     "信仰搅拌机": {
       "equipSlots": {
@@ -6419,7 +9503,21 @@
         }
       ],
       "defaultSkill": "skchr_rmixer_3",
-      "defaultModule": "uniequip_002_rmixer"
+      "defaultModule": "uniequip_002_rmixer",
+      "skins": [
+        {
+          "id": "char_4194_rmixer#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4194_rmixer#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_4194_rmixer@boc#12",
+          "name": "天穹肇始"
+        }
+      ]
     },
     "电弧": {
       "equipSlots": {
@@ -6452,7 +9550,21 @@
         }
       ],
       "defaultSkill": "skchr_radian_3",
-      "defaultModule": "uniequip_002_radian"
+      "defaultModule": "uniequip_002_radian",
+      "skins": [
+        {
+          "id": "char_4195_radian#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4195_radian#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_4195_radian@game#8",
+          "name": "乱数法则"
+        }
+      ]
     },
     "娜斯提": {
       "equipSlots": {
@@ -6481,7 +9593,17 @@
         }
       ],
       "defaultSkill": "skchr_nasti_3",
-      "defaultModule": "uniequip_002_nasti"
+      "defaultModule": "uniequip_002_nasti",
+      "skins": [
+        {
+          "id": "char_4212_nasti#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4212_nasti#2",
+          "name": "精英化二"
+        }
+      ]
     },
     "结城理": {
       "equipSlots": {
@@ -6510,7 +9632,21 @@
         }
       ],
       "defaultSkill": "skchr_makoto_3",
-      "defaultModule": "uniequip_002_makoto"
+      "defaultModule": "uniequip_002_makoto",
+      "skins": [
+        {
+          "id": "char_4217_makoto#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4217_makoto#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_4217_makoto@p3r#1",
+          "name": "见证荣光"
+        }
+      ]
     },
     "谬因": {
       "equipSlots": {
@@ -6539,7 +9675,17 @@
         }
       ],
       "defaultSkill": "skchr_aphris_3",
-      "defaultModule": "uniequip_002_aphris"
+      "defaultModule": "uniequip_002_aphris",
+      "skins": [
+        {
+          "id": "char_4229_aphris#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4229_aphris#2",
+          "name": "精英化二"
+        }
+      ]
     },
     "珊比": {
       "equipSlots": {
@@ -6568,7 +9714,17 @@
         }
       ],
       "defaultSkill": "skchr_thumpy_3",
-      "defaultModule": "uniequip_002_thumpy"
+      "defaultModule": "uniequip_002_thumpy",
+      "skins": [
+        {
+          "id": "char_4235_thumpy#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4235_thumpy#2",
+          "name": "精英化二"
+        }
+      ]
     },
     "国度": {
       "equipSlots": {
@@ -6597,7 +9753,17 @@
         }
       ],
       "defaultSkill": "skchr_dminon_3",
-      "defaultModule": "uniequip_002_dminon"
+      "defaultModule": "uniequip_002_dminon",
+      "skins": [
+        {
+          "id": "char_4246_dminon#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_4246_dminon#2",
+          "name": "精英化二"
+        }
+      ]
     },
     "死芒": {
       "equipSlots": {
@@ -6626,7 +9792,25 @@
         }
       ],
       "defaultSkill": "skchr_necras_3",
-      "defaultModule": "uniequip_002_necras"
+      "defaultModule": "uniequip_002_necras",
+      "skins": [
+        {
+          "id": "char_450_necras#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_450_necras#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_450_necras@summer#20",
+          "name": "夏卉 FA161"
+        },
+        {
+          "id": "char_450_necras@ambienceSynesthesia#7",
+          "name": "晶化信念"
+        }
+      ]
     },
     "灰烬": {
       "equipSlots": {
@@ -6659,7 +9843,21 @@
         }
       ],
       "defaultSkill": "skchr_ash_3",
-      "defaultModule": "uniequip_003_ash"
+      "defaultModule": "uniequip_003_ash",
+      "skins": [
+        {
+          "id": "char_456_ash#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_456_ash#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_456_ash@rainbow6#1",
+          "name": "游侠"
+        }
+      ]
     },
     "琴柳": {
       "equipSlots": {
@@ -6692,7 +9890,25 @@
         }
       ],
       "defaultSkill": "skchr_sleach_3",
-      "defaultModule": "uniequip_002_sleach"
+      "defaultModule": "uniequip_002_sleach",
+      "skins": [
+        {
+          "id": "char_479_sleach#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_479_sleach#2",
+          "name": "精英化二"
+        },
+        {
+          "id": "char_479_sleach@epoque#14",
+          "name": "识芳"
+        },
+        {
+          "id": "char_479_sleach@summer#11",
+          "name": "夏卉 FA317"
+        }
+      ]
     },
     "郁金香": {
       "equipSlots": {
@@ -6721,7 +9937,13 @@
         }
       ],
       "defaultSkill": "skchr_acpion_3",
-      "defaultModule": "uniequip_002_acpion"
+      "defaultModule": "uniequip_002_acpion",
+      "skins": [
+        {
+          "id": "char_608_acpion#1",
+          "name": "默认服装"
+        }
+      ]
     },
     "Sharp": {
       "equipSlots": {
@@ -6750,7 +9972,13 @@
         }
       ],
       "defaultSkill": "skchr_acguad_3",
-      "defaultModule": "uniequip_002_acguad"
+      "defaultModule": "uniequip_002_acguad",
+      "skins": [
+        {
+          "id": "char_609_acguad#1",
+          "name": "默认服装"
+        }
+      ]
     },
     "Mechanist": {
       "equipSlots": {
@@ -6779,7 +10007,13 @@
         }
       ],
       "defaultSkill": "skchr_acfend_3",
-      "defaultModule": "uniequip_002_acfend"
+      "defaultModule": "uniequip_002_acfend",
+      "skins": [
+        {
+          "id": "char_610_acfend#1",
+          "name": "默认服装"
+        }
+      ]
     },
     "Stormeye": {
       "equipSlots": {
@@ -6808,7 +10042,13 @@
         }
       ],
       "defaultSkill": "skchr_acnipe_3",
-      "defaultModule": "uniequip_002_acnipe"
+      "defaultModule": "uniequip_002_acnipe",
+      "skins": [
+        {
+          "id": "char_611_acnipe#1",
+          "name": "默认服装"
+        }
+      ]
     },
     "Pith": {
       "equipSlots": {
@@ -6837,7 +10077,13 @@
         }
       ],
       "defaultSkill": "skchr_accast_3",
-      "defaultModule": "uniequip_002_accast"
+      "defaultModule": "uniequip_002_accast",
+      "skins": [
+        {
+          "id": "char_612_accast#1",
+          "name": "默认服装"
+        }
+      ]
     },
     "Touch": {
       "equipSlots": {
@@ -6866,7 +10112,13 @@
         }
       ],
       "defaultSkill": "skchr_acmedc_3",
-      "defaultModule": "uniequip_002_acmedc"
+      "defaultModule": "uniequip_002_acmedc",
+      "skins": [
+        {
+          "id": "char_613_acmedc#1",
+          "name": "默认服装"
+        }
+      ]
     },
     "Raidian": {
       "equipSlots": {
@@ -6895,7 +10147,13 @@
         }
       ],
       "defaultSkill": "skchr_acsupo_3",
-      "defaultModule": "uniequip_002_acsupo"
+      "defaultModule": "uniequip_002_acsupo",
+      "skins": [
+        {
+          "id": "char_614_acsupo#1",
+          "name": "默认服装"
+        }
+      ]
     },
     "Misery": {
       "equipSlots": {
@@ -6924,7 +10182,13 @@
         }
       ],
       "defaultSkill": "skchr_acspec_3",
-      "defaultModule": "uniequip_002_acspec"
+      "defaultModule": "uniequip_002_acspec",
+      "skins": [
+        {
+          "id": "char_615_acspec#1",
+          "name": "默认服装"
+        }
+      ]
     },
     "领主·Sharp": {
       "equipSlots": {
@@ -6945,7 +10209,17 @@
         }
       ],
       "defaultSkill": "skchr_sharp2_1",
-      "defaultModule": "uniequip_002_sharp2"
+      "defaultModule": "uniequip_002_sharp2",
+      "skins": [
+        {
+          "id": "char_617_sharp2#1",
+          "name": "默认服装"
+        },
+        {
+          "id": "char_617_sharp2#2",
+          "name": "精英化二"
+        }
+      ]
     }
   },
   "bosses": {

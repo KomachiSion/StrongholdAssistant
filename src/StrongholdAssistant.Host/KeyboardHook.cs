@@ -11,7 +11,7 @@ internal sealed class KeyboardHook : IDisposable
 {
     private readonly Dispatcher _dispatcher;
     private readonly Thread _thread;
-    public KeyboardHook(Action<uint, bool, uint, nint> observe)
+    public KeyboardHook(Action<uint, bool, uint, nint> observe, Action? physicalInput = null)
     {
         var ready = new TaskCompletionSource<Dispatcher>(TaskCreationOptions.RunContinuationsAsynchronously);
         _thread = new Thread(() =>
@@ -33,6 +33,8 @@ internal sealed class KeyboardHook : IDisposable
                 uint size = (uint)Marshal.SizeOf<RawInput>();
                 uint read = GetRawInputData(lparam, 0x10000003, out var input, ref size, (uint)Marshal.SizeOf<RawHeader>());
                 if (read == uint.MaxValue || read < Marshal.SizeOf<RawHeader>()) return 0;
+                // Raw Input 记录硬件输入；控制器的窗口消息和 SetCursorPos 不作为用户操作。
+                if (input.Header.Device != 0) physicalInput?.Invoke();
                 if (input.Header.Type == 0)
                 {
                     if (read < Marshal.SizeOf<RawHeader>() + 24) return 0;

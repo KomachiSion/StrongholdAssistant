@@ -11,13 +11,14 @@
     { name: 'SPDatabase', what: '游戏数据', href: '' },
     { name: 'ArknightsAssets', what: '界面素材', href: 'https://github.com/ArknightsAssets/ArknightsAssets2' },
     { name: 'ArknightsGameData', what: '关卡与活动数据', href: 'https://github.com/Kengxxiao/ArknightsGameData' },
+    { name: '路标档案馆', what: '站位推荐的出怪数据', href: 'https://www.lubiao.wiki' },
     { name: 'PaddleOCR', what: '文字识别模型', href: 'https://github.com/PaddlePaddle/PaddleOCR' },
     { name: 'Remix Icon', what: '通用图标', href: 'https://remixicon.com' },
     { name: 'MiSans', what: '字体', href: 'https://hyperos.mi.com/font' },
   ]
 </script>
 
-<PageHead en="About" title="开源与素材">卫戍协议助手是免费的玩家自制工具，代码开源。这里写清楚它从哪来、用了谁的东西、会碰你的哪些数据。</PageHead>
+<PageHead en="About" title="开源与素材">高效雅雅·卫戍协议助手（原名卫戍协议助手）是免费的玩家自制工具，代码开源。这里写清楚它从哪来、用了谁的东西、会碰你的哪些数据。</PageHead>
 
 <div class="wrap body">
   <section id="license" use:reveal>
@@ -27,7 +28,7 @@
       <p>
         本项目基于 <a href="https://github.com/bingyunhe/asp-assistant-arknights" target="_blank" rel="noopener">bingyunhe/asp-assistant-arknights</a> 改造，它又基于
         <a href="https://github.com/Moonfair/ASP_Assistant" target="_blank" rel="noopener">Moonfair/ASP_Assistant</a>。识别、数据和阵容规划沿用上游，本项目重做了界面与交互。阵容规划由
-        <a href="https://github.com/CarlosDJY" target="_blank" rel="noopener">CarlosDJY</a> 贡献给上游；MuMu 模拟器支持参考了
+        <a href="https://github.com/CarlosDJY" target="_blank" rel="noopener">CarlosDJY</a> 贡献给上游，v1.0 的站位推荐（规划器和战斗模拟）移植自他的 fork 分支 <code>feature/port-upstream-v1.8.0</code>；MuMu 模拟器支持参考了
         <a href="https://github.com/hesperine" target="_blank" rel="noopener">hesperine</a> 给上游的 PR。上游的许可与声明原样保留在 <a href={LINKS.notice} target="_blank" rel="noopener">NOTICE</a>。
       </p>
     </div>
@@ -61,7 +62,7 @@
   <section id="privacy" use:reveal>
     <h2><span class="lbl"><b class="mint">04</b> · Privacy</span>数据与隐私</h2>
     <div class="prose">
-      <p>助手只通过截屏识别游戏画面：<b>不读游戏内存，不注入游戏，不向游戏发送点击或按键</b>。</p>
+      <p>助手只通过截屏识别游戏画面：<b>不读游戏内存，不注入游戏</b>。平时只看不动，只有你点了「读取我的干员」时才会操作游戏：在物资调配页横向滑动列表，开始时如果是「按盟约」排序就点一下切到「按等阶」，别的卡片和按钮都不点；你动鼠标、离开这一页或点停止就停。读到的干员配置只存在本机，不进云同步。</p>
       <p>阵容、设置、追踪状态和历史记录默认只存在本机 <code>%AppData%\StrongholdAssistant</code>。默认联网的只有两件事：启动时检查一次新版本（问 GitHub；更新源选了 Mirror酱 就问 Mirror酱，填了 CDK 会一起发过去；设置里可以关），以及下载一次公开的资金表。</p>
     </div>
     <ul class="opt">

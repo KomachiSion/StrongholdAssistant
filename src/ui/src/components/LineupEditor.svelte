@@ -341,7 +341,7 @@
             {/if}
             {#if selOp.modules.length}
               <span class="cl">模组</span>
-              <button class="opt txt" class:on={ef.module === ''} onclick={() => setMember(setChoice(selM, selOp, my, 'module', ''))}>不带{#if d.module === ''}<em>默认</em>{/if}</button>
+              <button class="opt" class:on={ef.module === ''} title="不带模组" onclick={() => setMember(setChoice(selM, selOp, my, 'module', ''))}><img src={asset.moduleNone} alt="不带模组" />{#if d.module === ''}<em>默认</em>{/if}</button>
               {#each selOp.modules as k (k.id)}
                 <button class="opt" class:on={ef.module === k.id} title={k.name} onclick={() => setMember(setChoice(selM, selOp, my, 'module', k.id))}>
                   <img src={asset.module(k.id)} alt={k.name} />{#if k.id === d.module}<em>默认</em>{/if}
@@ -1142,12 +1142,6 @@
   .opt img {
     width: 24px;
     height: 24px;
-  }
-  .opt.txt {
-    width: auto;
-    padding: 0 8px;
-    font-size: var(--fs-sm);
-    color: var(--fg-2);
   }
   .opt.on {
     box-shadow: inset 0 0 0 1.5px var(--mint);

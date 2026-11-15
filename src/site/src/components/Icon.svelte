@@ -35,8 +35,11 @@
   import discuss from 'remixicon/icons/Communication/discuss-line.svg?raw'
   import compass from 'remixicon/icons/Map/compass-3-line.svg?raw'
   import lock from 'remixicon/icons/System/lock-line.svg?raw'
+  import scan from 'remixicon/icons/User & Faces/user-search-line.svg?raw'
+  import target from 'remixicon/icons/Design/focus-3-line.svg?raw'
+  import board from 'remixicon/icons/Design/layout-grid-line.svg?raw'
 
-  const icons = { download, external, github, qq, arrow, arrowUp, menu, close, play, windows, flash, group, shield, history, masonry, share, route, keyboard, cloud, book, question, plus, minus, check, copy, chat, scales, image, chevron, community, chart, alert, discuss, compass, lock }
+  const icons = { download, external, github, qq, arrow, arrowUp, menu, close, play, windows, flash, group, shield, history, masonry, share, route, keyboard, cloud, book, question, plus, minus, check, copy, chat, scales, image, chevron, community, chart, alert, discuss, compass, lock, scan, target, board }
   export type IconName = keyof typeof icons
 </script>
 

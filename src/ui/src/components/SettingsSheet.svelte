@@ -58,6 +58,8 @@
   }
   // 敌人路线（v0.9.0）：一组设置整体存
   const rt = $derived(app.settings.routes)
+  // 覆盖层新加的两项（任务 169）；宿主还没补这一项时按默认（都开）显示
+  const ol = $derived(app.settings.overlayLayers ?? { placement: true, pending: true })
   const setRoutes = (patch: Partial<typeof app.settings.routes>) => set('routes', { ...app.settings.routes, ...patch })
   const u = $derived(app.update)
 
@@ -534,6 +536,19 @@
       </div>
       <p class="note">联机的首领回合，会移动的首领左右各一只、路线不一样，只画你这一侧；自动认不出时两边都画。</p>
     </section>
+
+    <!-- 覆盖层新加的两项（v1.0.0，任务 169）：和商店标记、敌人路线一样各自开关；都只在休整期棋盘主画面画 -->
+    <section>
+      <label class="row">
+        <span class="lbl"><b>推荐站位</b><small>在游戏棋盘的格子上标出推荐放谁；有站位推荐时才画</small></span>
+        <input type="checkbox" class="sw" checked={ol.placement} onchange={(e) => set('overlayLayers', { ...ol, placement: e.currentTarget.checked })} />
+      </label>
+      <label class="row">
+        <span class="lbl"><b>待确认提示</b><small>认不准是谁的小人，头上标一个问号；到本局页「场上」小棋盘里点选</small></span>
+        <input type="checkbox" class="sw" checked={ol.pending} onchange={(e) => set('overlayLayers', { ...ol, pending: e.currentTarget.checked })} />
+      </label>
+      <p class="note">这两项和上面的商店标记、敌人路线都画在游戏画面上，各自开关；只在休整期、没有面板盖住棋盘时画。</p>
+    </section>
     {/if}
     {#if tab === 'window'}
     <section>
@@ -808,6 +823,15 @@
     </section>
     {/if}
     {#if tab === 'about'}
+    <!-- 产品名（v1.0 改名）：名字是群友「明」提议的；老名字留作副标题，方便老用户认出来 -->
+    <div class="brand">
+      <img src="./brand/icon-128.png" alt="" width="56" height="56" draggable="false" />
+      <div>
+        <b>高效雅雅·卫戍协议助手</b>
+        <span class="term">GXYY · Stronghold Assistant</span>
+        <small>原名「卫戍协议助手」，感谢群友「明」提议的新名字</small>
+      </div>
+    </div>
     <section>
       <h4>版本 <small class="term">v{app.appInfo.version}</small></h4>
       <div class="upd">
@@ -1047,6 +1071,34 @@
   section {
     padding: 10px 0;
     border-top: 1px solid var(--line-soft);
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 0 12px;
+  }
+  .brand img {
+    flex: none;
+  }
+  .brand div {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+  .brand b {
+    font-size: var(--fs-xl);
+    letter-spacing: 0.04em;
+  }
+  .brand .term {
+    font-size: var(--fs-xs);
+    color: var(--mint);
+    letter-spacing: 0.12em;
+  }
+  .brand small {
+    font-size: var(--fs-sm);
+    color: var(--fg-3);
   }
   .scroll > section:first-child {
     border-top: none;

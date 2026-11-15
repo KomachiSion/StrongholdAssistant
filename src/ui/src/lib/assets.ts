@@ -21,6 +21,10 @@ export const asset = {
   strategy: (id: string) => `${base}/data/strategies/${id}.webp`,
   skill: (id: string) => `${base}/data/skills/${encodeURIComponent(id)}.webp`,
   module: (id: string) => `${base}/data/modules/${id}.webp`,
+  /** 「不带模组」：游戏里物资调配页空模组格的官方图 */
+  moduleNone: `${base}/game/module-none.png`,
+  /** 皮肤头像（任务 163），id 是 skinId（带 # @） */
+  avatar: (id: string) => `${base}/data/skins/${encodeURIComponent(id)}.webp`,
 }
 
 export const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI']

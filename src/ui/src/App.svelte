@@ -159,8 +159,9 @@
     {@render body()}
   {/if}
 </div>
-{#if app.workbench && !app.maximized}
-  <!-- 工作台拖边改大小（v0.9.8）：网页盖满了窗口，系统的缩放边摸不到，所以在四边四角放透明的拖动区，按下交给宿主 -->
+{#if !app.maximized}
+  <!-- 拖边改大小（工作台 v0.9.8，侧栏 v1.0.0；收起时不显示）：网页盖满了窗口，系统的缩放边摸不到，
+       所以在四边四角放透明的拖动区，按下交给宿主 -->
   {#each EDGES as e (e)}
     <i class="grip-{e} resize" role="presentation" onpointerdown={(ev) => ev.button === 0 && (ev.preventDefault(), api.resizeWindow(e))}></i>
   {/each}
@@ -448,5 +449,19 @@
   }
   .content.docked main {
     margin-right: min(440px, 46%);
+  }
+  /* 阵容页放不下三栏时（「我的阵容」300 + 中间至少 360 + 面板 440），广场帖子、详情不再挤中间那栏，
+     改成和编辑器一样盖住中间、露出左边「我的阵容」；关掉面板回到广场（用户 2026-11-15：中间被压成一条） */
+  .content.wb {
+    container-type: inline-size;
+  }
+  @container (max-width: 1099px) {
+    .content.wb.lineup.docked main {
+      margin-right: 0;
+    }
+    .content.wb.lineup > :global(aside:not(.ed)) {
+      left: var(--wb-list-w);
+      width: auto;
+    }
   }
 </style>

@@ -68,13 +68,14 @@ public static class WindowGeometry
     public static bool NeedsOverlay(RECT game, RECT workArea, double dpiScale, double expandedWidthDip, bool fullscreen)
         => fullscreen || workArea.Right - game.Right < (int)Math.Round(expandedWidthDip * dpiScale);
 
-    public static RECT OverlayBounds(RECT client, double dpiScale, double widthDip, SidePanelOffset? offset, string side = "left")
+    public static RECT OverlayBounds(RECT client, double dpiScale, double widthDip, SidePanelOffset? offset, string side = "left", double? manualHeightDip = null)
     {
         var origin = side == "right" ? client.Right - (int)Math.Round(widthDip * dpiScale) : client.Left;
         var left = origin + (int)Math.Round((offset?.X ?? 0) * dpiScale);
         var top = offset is null ? (int)Math.Round(client.Top + client.Height * .15)
             : (int)Math.Round(client.Top + offset.Y * dpiScale);
-        var height = (int)Math.Round(client.Height * .97) - (int)Math.Round(client.Height * .15);
+        var height = manualHeightDip is { } h ? (int)Math.Round(h * dpiScale)
+            : (int)Math.Round(client.Height * .97) - (int)Math.Round(client.Height * .15);
         return ClampBounds(new RECT { Left = left, Top = top,
             Right = left + (int)Math.Round(widthDip * dpiScale), Bottom = top + height }, client);
     }
@@ -104,6 +105,9 @@ public static class WindowGeometry
     public static SidePanelOffset CaptureFollowOffset(RECT game, SidePanelPlacement placement, double dpiScale, string side = "right")
         => new((placement.Left - (side == "left" ? game.Left - placement.WidthDip * dpiScale : game.Right)) / dpiScale,
             (placement.Top - game.Top) / dpiScale);
+
+    public static double? SnapHeight(double heightDip, double defaultHeightDip)
+        => Math.Abs(heightDip - defaultHeightDip) <= 40 ? null : heightDip;
 
     // 横纵分别按 DIP 吸附；两轴都回到默认位置时不保留手动偏移。
     public static SidePanelOffset? SnapOffset(SidePanelOffset offset, SidePanelOffset? defaultOffset = null)

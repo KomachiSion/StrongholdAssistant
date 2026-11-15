@@ -1,7 +1,8 @@
 // 原型用的假后端：数据取自参考项目的当期数据表，本局信息仿照 TestData/info-ingame-1920x1080.png。
 // 禁用推算是粗略的假实现，只为让界面能走通；真实逻辑在参考项目的 BanScreenAnalyzer。
-import type { Api, BanGroup, Catalog, CovenantGoal, Economy, EmulatorInstance, FieldState, Income, Lineup, MatchInfo, MatchRecord, ScanStatus, Session, Settings, UpdateStatus } from './types'
+import type { Api, BanGroup, BoardView, Catalog, CovenantGoal, Economy, EmulatorInstance, FieldState, PlacementPlan, Income, Lineup, MatchInfo, MatchRecord, Roster, RosterOperator, RosterScanStatus, ScanStatus, Session, Settings, UpdateStatus } from './types'
 import raw from '../mock/catalog.json'
+import boardData from '../mock/board.json'
 
 // 目录数据重新生成前先用这份收入来源（生成后以数据为准）
 const catalog = {
@@ -12,6 +13,11 @@ const catalog = {
   ],
   ...raw,
 } as unknown as Catalog
+// 敌人回合加成：数据生成前的假表（每回合生命 ×1.2、攻击 ×1.1 累计），只为界面能走通
+if (!catalog.enemyBuffs) {
+  const t = Array.from({ length: 15 }, (_, i) => ({ hp: +(1.2 ** (i + 1)).toFixed(3), atk: +(1.1 ** (i + 1)).toFixed(3), attackSpeed: i >= 9 ? 10 : 0, speed: 1 }))
+  catalog.enemyBuffs = { mode_single_16: t, mode_multi_normal: t }
+}
 for (const o of catalog.operators as Partial<Catalog['operators'][number]>[])
   if (!o.skills) {
     o.skills = [{ id: `${o.charId}_s1`, name: '攻击力强化·β型' }, { id: `${o.charId}_s2`, name: `${o.name}的技能` }]
@@ -206,6 +212,8 @@ let settings: Settings = {
   shopMarkers: true,
   shopScanSpeed: 'normal',
   routes: { enabled: false, display: 'always', peekSeconds: 6, hotkey: 'Alt+R', overlap: 'cycle', cycleSeconds: 2.2, fly: 'main', side: 'auto' },
+  overlayLayers: { placement: true, pending: true },
+  placementGoal: 'balanced',
   // 官网上的侧栏演示（/demo/?demo）不弹「发现新版本」
   autoCheckUpdate: !location.search.includes('demo'),
   updateSource: 'github',
@@ -289,24 +297,158 @@ function stopContinuous(message: string) {
 
 const wait = <T>(v: T, ms = 120) => new Promise<T>((r) => setTimeout(() => r(structuredClone(v)), ms))
 
-// 假数据：仿录屏第一局第 1 回合摆好后，再加一个策略给的、还不知道是谁的 II 阶
+// 假数据：仿录屏第 6 回合休整期。待确认（云迹 / 承曦格雷伊 / 真理）、自动填（风絮）、认不出（一个 I 阶）各一格，其余是确定的
 const fieldListeners = new Set<(f: FieldState) => void>()
+const sure = (zone: 'bench' | 'board', col: number, row: number, tier: number, operator: string, source: FieldState['units'][number]['source'] = 'drag') =>
+  ({ zone, col, row, tier, operator, source, status: 'sure' as const, candidates: [] })
 let field: FieldState = {
   mapId: 'm01',
-  round: 1,
-  updatedAt: '2026-11-14T10:00:57Z',
+  round: 6,
+  updatedAt: '2026-11-14T10:06:57Z',
   units: [
-    { zone: 'bench', col: 9, row: 0, tier: 2, operator: null, source: null },
-    { zone: 'board', col: 4, row: 2, tier: 1, operator: '灰喉', source: 'drag' },
-    { zone: 'board', col: 5, row: 3, tier: 1, operator: '慕斯', source: 'drag' },
+    { zone: 'bench', col: 3, row: 0, tier: 1, operator: null, source: null, status: 'unknown', candidates: [] },
+    { zone: 'bench', col: 6, row: 0, tier: 3, operator: '风絮', source: 'sprite', status: 'auto', candidates: [{ operator: '风絮', score: 0.81 }, { operator: '极光', score: 0.52 }, { operator: '耶拉', score: 0.4 }] },
+    { zone: 'bench', col: 9, row: 0, tier: 2, operator: '云迹', source: 'sprite', status: 'pending', candidates: [{ operator: '云迹', score: 0.62 }, { operator: '承曦格雷伊', score: 0.6 }, { operator: '真理', score: 0.51 }] },
+    sure('board', 1, 0, 2, '莎草', 'purchase'),
+    sure('board', 2, 3, 2, '承曦格雷伊'),
+    sure('board', 4, 2, 1, '灰喉'),
+    sure('board', 5, 3, 1, '慕斯'),
+    sure('board', 5, 1, 1, '拜松', 'merge'),
+    sure('board', 3, 0, 3, '极光', 'carry'),
+  ],
+  roster: [
+    { operator: '灰喉', source: 'purchase', at: '2026-11-14T10:00:45Z', sold: false },
+    { operator: '慕斯', source: 'purchase', at: '2026-11-14T10:00:47Z', sold: false },
+    { operator: '云迹', source: 'purchase', at: '2026-11-14T10:00:50Z', sold: false },
+    { operator: '承曦格雷伊', source: 'strategy', at: '2026-11-14T10:00:51Z', sold: false },
+    { operator: '真理', source: 'equipment', at: '2026-11-14T10:00:52Z', sold: false },
+    { operator: '莎草', source: 'purchase', at: '2026-11-14T10:02:10Z', sold: false },
+    { operator: '拜松', source: 'purchase', at: '2026-11-14T10:03:02Z', sold: false },
+    { operator: '夏栎', source: 'purchase', at: '2026-11-14T10:03:30Z', sold: true },
+    { operator: '极光', source: 'purchase', at: '2026-11-14T10:04:40Z', sold: false },
+    { operator: '风絮', source: 'custom', at: '2026-11-14T10:05:12Z', sold: false },
+    { operator: '耶拉', source: 'purchase', at: '2026-11-14T10:05:50Z', sold: false },
   ],
   log: [
-    { at: '2026-11-14T10:00:57Z', kind: 'gain', operator: null, from: null, to: { zone: 'bench', col: 9, row: 0 } },
-    { at: '2026-11-14T10:00:56Z', kind: 'move', operator: '慕斯', from: { zone: 'bench', col: 9, row: 0 }, to: { zone: 'board', col: 5, row: 3 } },
+    { at: '2026-11-14T10:06:57Z', kind: 'gain', operator: null, from: null, to: { zone: 'bench', col: 9, row: 0 } },
+    { at: '2026-11-14T10:06:40Z', kind: 'move', operator: '慕斯', from: { zone: 'bench', col: 9, row: 0 }, to: { zone: 'board', col: 5, row: 3 } },
     { at: '2026-11-14T10:00:49Z', kind: 'move', operator: '灰喉', from: { zone: 'bench', col: 10, row: 0 }, to: { zone: 'board', col: 4, row: 2 } },
     { at: '2026-11-14T10:00:47Z', kind: 'buy', operator: '慕斯', from: null, to: { zone: 'bench', col: 9, row: 0 } },
     { at: '2026-11-14T10:00:45Z', kind: 'buy', operator: '灰喉', from: null, to: { zone: 'bench', col: 10, row: 0 } },
   ],
+}
+
+// ?bonds：仿险境录屏第 10 回合（out/159/stills/1222.png 顶栏）的中期场面，看本局页「盟约状态」。
+// 顶栏数值照录屏；奥术是上回合读到、这回合被截断没看见的
+if (location.search.includes('bonds')) {
+  const at = '2026-11-15T10:20:22Z'
+  const u = (zone: 'bench' | 'board', col: number, row: number, operator: string | null, status: FieldState['units'][number]['status'] = 'sure'): FieldState['units'][number] => ({
+    zone, col, row, tier: operator ? catalog.operators.find((o) => o.name === operator)!.tier : 3, operator, source: operator ? (status === 'sure' ? 'drag' : 'sprite') : null, status,
+    candidates: status === 'pending' ? [{ operator: operator!, score: 0.7 }, { operator: '妮芙', score: 0.64 }, { operator: '逻各斯', score: 0.6 }] : status === 'auto' ? [{ operator: operator!, score: 0.9 }] : [],
+  })
+  field = {
+    ...field,
+    round: 10,
+    updatedAt: at,
+    units: [
+      u('bench', 6, 0, '霜叶'), u('bench', 8, 0, '寒檀'), u('bench', 9, 0, null),
+      u('board', 3, 2, '星极'), u('board', 4, 2, '云迹', 'auto'), u('board', 5, 2, '承曦格雷伊'), u('board', 6, 2, '空弦'),
+      u('board', 3, 3, '霍尔海雅'), u('board', 4, 3, '遥', 'pending'), u('board', 5, 3, '褐果'), u('board', 6, 3, '初雪'), u('board', 7, 3, '塞雷娅'),
+    ],
+  }
+  match.economy = match.economy && { ...match.economy, round: 10 }
+  const b = (id: string, level: number | null, layers: number | null, round = 10) => ({ id, level, layers, round, at })
+  match.covenantBar = [b('mira', 1, 48), b('skillful', 2, 45), b('preci', 2, 41), b('doc', 1, 18), b('visi', 1, 12), b('empty', 1, null), b('sunt', 1, null), b('arcane', 1, 6, 9)]
+}
+
+// 小棋盘（任务 169）：从真数据裁了 m01、m05 两张图的第 6 回合和铳的首领回合（board.json）。
+// ?boss 看联机首领回合（两边棋盘），?solo 单人；?placement 给一份假的站位推荐（推荐还没接，平时为 null）
+const boardListeners = new Set<(b: BoardView | null) => void>()
+function board(): BoardView | null {
+  const m = (boardData as Record<string, any>)[field.mapId ?? '']
+  if (!m) return null
+  const boss = location.search.includes('boss')
+  const lv = m.levels[boss ? 'h07_02' : '06']
+  const side = settings.routes.side === 'auto' ? (boss ? 'right' : null) : settings.routes.side
+  return { mapId: field.mapId!, round: boss ? 14 : 6, bossRound: boss, solo: location.search.includes('solo'), walkable: m.walkable, cells: m.cells ?? null, bossWalkable: m.bossWalkable, routes: lv.routes, bossSpots: lv.bossSpots, side: boss ? side : null }
+}
+const placementListeners = new Set<(p: PlacementPlan | null) => void>()
+const placement = (): PlacementPlan | null => {
+  if (!location.search.includes('placement')) return null
+  const at = (zone: 'bench' | 'board', col: number, row: number) => ({ zone, col, row })
+  const go = (operator: string, from: [string, number, number], to: [string, number, number], facing: PlacementPlan['moves'][number]['facing'] = 'left') =>
+    ({ operator, from: at(from[0] as 'board', from[1], from[2]), to: at(to[0] as 'board', to[1], to[2]), facing: to[0] === 'bench' ? null : facing })
+  return {
+    basedOn: field.updatedAt,
+    computedAt: new Date().toISOString(),
+    moves: [
+      go('承曦格雷伊', ['board', 2, 3], ['board', 1, 3]),
+      go('灰喉', ['board', 4, 2], ['board', 4, 2], 'up'),
+      go('极光', ['board', 3, 0], ['board', 3, 1], 'down'),
+      go('慕斯', ['board', 5, 3], ['board', 5, 3]),
+      go('拜松', ['board', 5, 1], ['board', 5, 0]),
+      go('云迹', ['bench', 9, 0], ['board', 6, 3]),
+      go('莎草', ['board', 1, 0], ['bench', 2, 0]),
+      go('风絮', ['bench', 6, 0], ['bench', 6, 0]),
+    ],
+    guessed: 1,
+    skipped: [at('bench', 3, 0)],
+    goal: settings.placementGoal,
+    recommended: {
+      enemies: 41.5,
+      leaked: settings.placementGoal === 'layers' ? 1.6 : 0.6,
+      streams: [
+        { label: '萨卡兹大剑组长 + 源石虫', chance: 0.6, enemies: 40, leaked: 0.3 },
+        { label: '宿主士兵 + 源石虫', chance: 0.4, enemies: 44, leaked: 1.1 },
+      ],
+      layers: [{ covenant: 'siracusa', layers: settings.placementGoal === 'layers' ? 9 : 6 }, { covenant: 'stead', layers: 3 }],
+    },
+    current: {
+      enemies: 41.5,
+      leaked: 2.4,
+      streams: [
+        { label: '萨卡兹大剑组长 + 源石虫', chance: 0.6, enemies: 40, leaked: 1.8 },
+        { label: '宿主士兵 + 源石虫', chance: 0.4, enemies: 44, leaked: 3.3 },
+      ],
+      layers: [{ covenant: 'siracusa', layers: 4 }, { covenant: 'stead', layers: 2 }],
+    },
+    assumptions: ['潜能都按 1 算', '盟约层数按 0 算', '出怪按本回合可能的怪组平均'],
+  }
+}
+
+// 我的干员（任务 163）的假数据：开始是没读过；「读取」每 0.4 秒读到 9 名，读到头结束。
+// 皮肤：每人默认、精二，霜叶、幽灵鲨多一套时装（假 id，没有图时界面退回干员头像）；少数几名故意认不出皮肤或技能
+for (const o of catalog.operators)
+  o.skins = [
+    { id: `${o.charId}#1`, name: '默认服装' },
+    ...(o.tier >= 4 ? [{ id: `${o.charId}#2`, name: '精英化二' }] : []),
+    ...(o.name === '霜叶' || o.name === '幽灵鲨' ? [{ id: `${o.charId}@mock#1`, name: '假时装' }] : []),
+  ]
+let roster: Roster = { readAt: null, operators: [], customSquad: [] }
+let rosterTimer = 0
+let rosterRead = 0
+const rosterListeners = new Set<(r: Roster) => void>()
+const rosterScanListeners = new Set<(s: RosterScanStatus) => void>()
+const pushRoster = () => rosterListeners.forEach((cb) => cb(structuredClone(roster)))
+const pushRosterScan = (s: RosterScanStatus) => rosterScanListeners.forEach((cb) => cb(s))
+function readOne(o: Catalog['operators'][number], i: number): RosterOperator {
+  const skins = o.skins!
+  return {
+    name: o.name,
+    skin: i % 23 === 7 ? null : (skins[skins.length > 2 ? 2 : i % skins.length].id),
+    skill: i % 31 === 5 ? null : o.skills[i % o.skills.length].id,
+    module: o.modules.length ? o.modules[0].id : '',
+    potential: (i % 6) + 1,
+    readAt: new Date().toISOString(),
+  }
+}
+function stopRoster(reason: RosterScanStatus['reason'], read: number) {
+  clearInterval(rosterTimer)
+  rosterTimer = 0
+  roster.readAt = new Date().toISOString()
+  pushRoster()
+  const message = { end: `读完了，一共 ${read} 名`, user: `已停止，这次读到 ${read} 名`, left: '画面离开了物资调配页，已停止', input: '你动了鼠标，已停止', lost: '游戏窗口不见了，已停止', failed: '读取出错了' }[reason!]
+  pushRosterScan({ running: false, read, reason, message })
 }
 
 export const mockApi: Api = {
@@ -326,10 +468,20 @@ export const mockApi: Api = {
     field = {
       ...field,
       updatedAt: new Date().toISOString(),
-      units: field.units.map((u) => (u.zone === cell.zone && u.col === cell.col && u.row === cell.row ? { ...u, operator, source: operator ? 'manual' : null } : u)),
+      units: field.units.map((u) => (u.zone === cell.zone && u.col === cell.col && u.row === cell.row ? { ...u, operator, source: operator ? 'manual' : null, status: operator ? 'sure' : 'unknown', candidates: [] } : u)),
     }
     fieldListeners.forEach((cb) => cb(structuredClone(field)))
     return wait(field, 0)
+  },
+  board: () => wait(board(), 0),
+  placement: () => wait(placement(), 0),
+  onBoard: (cb) => {
+    boardListeners.add(cb)
+    return () => boardListeners.delete(cb)
+  },
+  onPlacement: (cb) => {
+    placementListeners.add(cb)
+    return () => placementListeners.delete(cb)
   },
   rescan: () => {
     incomplete.clear()
@@ -422,7 +574,7 @@ export const mockApi: Api = {
     return () => maxListeners.delete(cb)
   },
   // 原型里 F2 当作全局快捷键；?hotkeyBusy：改快捷键总是被占用
-  exportDiagnostics: () => wait(String.raw`C:\Users\你\Desktop\卫戍协议助手-诊断-2026-11-12.zip`, 600),
+  exportDiagnostics: () => wait(String.raw`C:\Users\你\Desktop\高效雅雅-诊断-2026-11-12.zip`, 600),
   setHotkey: async (combo) => {
     if (location.search.includes('hotkeyBusy')) throw new Error('这个组合被别的软件占用了，换一个试试。')
     settings = { ...settings, toggleHotkey: combo }
@@ -473,7 +625,13 @@ export const mockApi: Api = {
   },
   settings: () => wait(settings, 0),
   saveSettings: async (s) => {
+    const side = settings.routes.side
+    const goal = settings.placementGoal
     settings = structuredClone(s)
+    // 联机首领回合「我在哪一侧」改了，小棋盘跟着换边（宿主同样会推 board）
+    if (settings.routes.side !== side) boardListeners.forEach((cb) => cb(board()))
+    // 推荐目标改了，宿主重算后推新的推荐
+    if (settings.placementGoal !== goal) setTimeout(() => placementListeners.forEach((cb) => cb(placement())), 400)
   },
   appInfo: () => wait({ version: '0.4.2', dataDir: String.raw`C:\Users\你\AppData\Roaming\StrongholdAssistant`, hotkeyFailed: false, workbench: location.search.includes('wb'), elevated: location.search.includes('admin') && !location.search.includes('adminDeny') }, 0),
   openDataFolder: async () => {},
@@ -487,7 +645,7 @@ export const mockApi: Api = {
         ? [{ kind: 'ldplayer' as const, serial: 'emulator-5554', name: '雷电模拟器' }, { kind: 'ldplayer' as const, serial: 'emulator-5556', name: '雷电模拟器-1' }]
         : []),
     ]),
-  exportData: () => wait(String.raw`C:\Users\你\Desktop\卫戍协议助手-备份-2026-11-11.json`, 300),
+  exportData: () => wait(String.raw`C:\Users\你\Desktop\高效雅雅-备份-2026-11-11.json`, 300),
   pickBackup: () =>
     wait({ token: 'mock', summary: { appVersion: '0.2.0', exportedAt: new Date(Date.now() - 3 * 86400_000).toISOString(), lineups: 6, focusCovenants: 2, focusOperators: 4 } }, 300),
   importData: () => wait(undefined, 400),
@@ -666,5 +824,48 @@ export const mockApi: Api = {
   onField: (cb) => {
     fieldListeners.add(cb)
     return () => fieldListeners.delete(cb)
+  },
+  roster: () => wait(roster, 0),
+  // ?notRoster：模拟画面不是物资调配页
+  startRosterScan: async () => {
+    if (rosterTimer) return
+    await new Promise((r) => setTimeout(r, 300))
+    if (location.search.includes('notRoster')) throw new Error('先在游戏里打开卫戍协议的「物资调配」页，再点读取。')
+    const list = catalog.operators.filter((o) => !o.obtain)
+    let n = (rosterRead = 0)
+    const squad = new Set<string>()
+    pushRosterScan({ running: true, read: 0 })
+    rosterTimer = setInterval(() => {
+      for (const o of list.slice(n, n + 9)) {
+        const i = list.indexOf(o)
+        roster.operators = [...roster.operators.filter((x) => x.name !== o.name), readOne(o, i)]
+        if (o.diy && squad.size < 6) squad.add(o.name)
+      }
+      n = rosterRead = Math.min(n + 9, list.length)
+      roster.customSquad = n === list.length ? [...squad] : [...new Set([...roster.customSquad, ...squad])]
+      pushRoster()
+      if (n === list.length) stopRoster('end', n)
+      else pushRosterScan({ running: true, read: n })
+    }, 400)
+  },
+  stopRosterScan: async () => {
+    if (!rosterTimer) return
+    stopRoster('user', rosterRead)
+  },
+  setRosterOperator: (name, patch) => {
+    const old = roster.operators.find((o) => o.name === name) ?? { name, skin: null, skill: null, module: null, potential: null, readAt: '' }
+    const edited = [...new Set([...(old.edited ?? []), ...(Object.keys(patch) as NonNullable<RosterOperator['edited']>)])]
+    const next = { ...old, ...patch, edited, readAt: new Date().toISOString() }
+    roster.operators = roster.operators.some((o) => o.name === name) ? roster.operators.map((o) => (o.name === name ? next : o)) : [...roster.operators, next]
+    pushRoster()
+    return wait(roster, 0)
+  },
+  onRoster: (cb) => {
+    rosterListeners.add(cb)
+    return () => rosterListeners.delete(cb)
+  },
+  onRosterScan: (cb) => {
+    rosterScanListeners.add(cb)
+    return () => rosterScanListeners.delete(cb)
   },
 }

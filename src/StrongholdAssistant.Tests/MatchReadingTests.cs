@@ -16,6 +16,23 @@ public sealed class MatchReadingTests(EnemyRecognitionFixture fixture, ITestOutp
     private static Task<HostApi> Api() => HostApi.CreateAsync(Data, Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N")));
 
     [Fact]
+    public async Task CovenantBarMergesReadCellsAndResetsForNewMatch()
+    {
+        var api = await Api();
+        api.ApplyCovenantBar([new("yan", null, 8), new("preci", 1, 2)], 4);
+        api.ApplyCovenantBar([new("preci", 2, 12)], 5);
+        Assert.Equal(2, api.Match.CovenantBar.Length);
+        Assert.Contains(api.Match.CovenantBar, c => c.Id == "yan" && c.Layers == 8 && c.Round == 4);
+        Assert.Contains(api.Match.CovenantBar, c => c.Id == "preci" && c.Level == 2 && c.Layers == 12 && c.Round == 5);
+        Assert.All(api.Match.CovenantBar, c => Assert.True(DateTimeOffset.TryParse(c.At, out _)));
+        api.ApplyRecognizedMatch(api.Match, [], opening: true);
+        Assert.Empty(api.Match.CovenantBar);
+        api.ApplyCovenantBar([new("yan", null, 2)], 1);
+        await api.ResetMatchAsync();
+        Assert.Empty(api.Match.CovenantBar);
+    }
+
+    [Fact]
     public async Task BothStrategySourcesReadMech()
     {
         var api = await Api();

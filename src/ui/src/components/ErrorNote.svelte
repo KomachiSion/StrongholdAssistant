@@ -24,7 +24,7 @@
   let open = $state(false)
 
   const report = $derived(
-    [`卫戍协议助手 v${app.appInfo.version}`, title, ...lines, ...Object.entries(context).map(([k, v]) => `${k}：${v}`)].join('\n'),
+    [`高效雅雅·卫戍协议助手 v${app.appInfo.version}`, title, ...lines, ...Object.entries(context).map(([k, v]) => `${k}：${v}`)].join('\n'),
   )
   async function copy() {
     try {

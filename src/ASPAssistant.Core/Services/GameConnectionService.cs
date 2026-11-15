@@ -248,6 +248,35 @@ public sealed class GameConnectionService : IDisposable
         Changed?.Invoke(state);
     }
 
+    // 仅在已确认按盟约排序时调用一次，坐标按当前游戏 display 缩放。
+    internal void SelectRosterTierAdb(int x, int y)
+    {
+        lock (_gate)
+        {
+            var device = _device ?? throw new IOException("模拟器连接已断开。");
+            var state = State;
+            var result = EmulatorDisplay.RunAdb(device, ["-s", device.Serial, "shell", "input", "-d",
+                (device.DisplayId ?? 0).ToString(), "tap", (x * state.Width / 1920).ToString(), (y * state.Height / 1080).ToString()]);
+            if (result.ExitCode != 0) throw new IOException("模拟器排序切换失败：" + result.Error);
+        }
+    }
+
+    // 物资页按样图比例横向滑动，显式指定当前游戏 display。
+    internal void DragRosterAdb(bool left, int distance)
+    {
+        lock (_gate)
+        {
+            var device = _device ?? throw new IOException("模拟器连接已断开。");
+            var state = State;
+            int x1 = (left ? 210 + distance : 210) * state.Width / 1920;
+            int x2 = (left ? 210 : 210 + distance) * state.Width / 1920;
+            int y = 450 * state.Height / 1080;
+            var result = EmulatorDisplay.RunAdb(device, ["-s", device.Serial, "shell", "input", "-d",
+                (device.DisplayId ?? 0).ToString(), "swipe", x1.ToString(), y.ToString(), x2.ToString(), y.ToString(), "1100"]);
+            if (result.ExitCode != 0) throw new IOException("模拟器滑动失败：" + result.Error);
+        }
+    }
+
     public void Dispose()
     {
         lock (_gate)

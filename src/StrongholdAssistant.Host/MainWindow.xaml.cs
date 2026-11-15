@@ -134,7 +134,7 @@ public partial class MainWindow : Window
             var request = JsonSerializer.Deserialize<BridgeRequest>(e.WebMessageAsJson, HostApi.JsonOptions)!;
             id = request.Id;
             // 重扫由识别锁判忙；登录复用窗口结果，不占用存储请求锁。
-            if (request.Method is not ("rescan" or "scanContinuous" or "plazaLogin" or "sklandGuide" or "sklandHistory" or "sklandLogin"))
+            if (request.Method is not ("rescan" or "scanContinuous" or "startRosterScan" or "stopRosterScan" or "plazaLogin" or "sklandGuide" or "sklandHistory" or "sklandLogin"))
             {
                 await _requests.WaitAsync();
                 locked = true;
@@ -181,7 +181,7 @@ public partial class MainWindow : Window
             else
             {
                 // 界面先于 OCR 加载；预热完成前点"重新识别"会等初始化结束
-                if (request.Method is "rescan" or "scanContinuous") await _initialization;
+                if (request.Method is "rescan" or "scanContinuous" or "startRosterScan") await _initialization;
                 result = await _api.InvokeAsync(request.Method, request.Params);
             }
             if (request.Method is "saveSettings" or "importData") await RefreshSettingsAsync(followedBefore);

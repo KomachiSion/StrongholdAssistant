@@ -226,14 +226,16 @@ public sealed class BanScreenPixels : IDisposable
     private readonly BitmapData _data;
     private readonly byte[] _buffer;
 
-    public int Width => _bitmap.Width;
-    public int Height => _bitmap.Height;
+    public int Width { get; }
+    public int Height { get; }
 
     private BanScreenPixels(Bitmap bitmap, BitmapData data, byte[] buffer)
     {
         _bitmap = bitmap;
         _data = data;
         _buffer = buffer;
+        Width = data.Width;
+        Height = data.Height;
     }
 
     /// <summary>Decodes the PNG; returns <c>null</c> when the bytes are not a readable image.</summary>
@@ -258,7 +260,7 @@ public sealed class BanScreenPixels : IDisposable
 
     public int Luma(int x, int y)
     {
-        if (x < 0 || y < 0 || x >= _bitmap.Width || y >= _bitmap.Height)
+        if (x < 0 || y < 0 || x >= Width || y >= Height)
             return 0;
 
         int offset = y * _data.Stride + x * 4;
@@ -279,8 +281,8 @@ public sealed class BanScreenPixels : IDisposable
     {
         x0 = Math.Max(0, x0);
         y0 = Math.Max(0, y0);
-        x1 = Math.Min(_bitmap.Width, x1);
-        y1 = Math.Min(_bitmap.Height, y1);
+        x1 = Math.Min(Width, x1);
+        y1 = Math.Min(Height, y1);
         if (x1 <= x0 || y1 <= y0)
             return 0;
 

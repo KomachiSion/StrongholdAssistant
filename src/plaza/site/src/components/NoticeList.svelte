@@ -56,7 +56,7 @@
 {:else if !list}
   <p class="muted">加载中…</p>
 {:else if !list.length}
-  <p class="muted">还没有消息。别人评论、回复、收藏、点赞你的阵容时会出现在这里；在卫戍协议助手里也能看。</p>
+  <p class="muted">还没有消息。别人评论、回复、收藏、点赞你的阵容时会出现在这里；在高效雅雅里也能看。</p>
 {:else}
   <p class="muted small">只保留最近 90 天。</p>
   <ul class="nl">

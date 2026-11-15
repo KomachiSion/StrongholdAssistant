@@ -29,7 +29,7 @@
   // 标签页标题跟着页面走
   $effect(() => {
     const t = { home: '阵容广场', post: '阵容', login: '登录', me: '我的', new: '新建阵容', privacy: '隐私说明', admin: '后台', rate: r.page === 'rate' && r.name ? `${r.name} · 评分` : '评分', notfound: '找不到页面' }[r.page]
-    document.title = `${t} · 卫戍协议助手`
+    document.title = `${t} · 高效雅雅·卫戍协议助手`
   })
 </script>
 
@@ -40,7 +40,7 @@
       <img class="logo" src={logo} alt="" />
       <span class="bt">
         <b>阵容广场</b>
-        <span class="term">Stronghold Assistant · Plaza</span>
+        <span class="term">GXYY · Stronghold Assistant · Plaza</span>
       </span>
     </a>
     <nav>
@@ -95,7 +95,7 @@
 {#if !inApp}
 <footer>
   <div class="in">
-    <span>卫戍协议助手 · 阵容广场。非官方粉丝项目，与上海鹰角网络无关；游戏美术与数据归其所有。</span>
+    <span>高效雅雅·卫戍协议助手 · 阵容广场。非官方粉丝项目，与上海鹰角网络无关；游戏美术与数据归其所有。</span>
     <span class="links">
       <a href="/privacy" use:link>隐私说明</a>
       <a href={REPO} target="_blank" rel="noopener"><Icon name="github" size={13} />源码</a>

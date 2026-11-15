@@ -77,7 +77,7 @@
   function fromCode() {
     // 网页读不了森空岛的页面，只有助手能读
     if (/game\.skland\.com\/arknights\/stronghold-guide/.test(paste))
-      return (pasteErr = '森空岛的攻略链接要在卫戍协议助手里导入：「阵容 → 我的阵容 → 导入」里粘贴这个链接，导入后再发布到广场。')
+      return (pasteErr = '森空岛的攻略链接要在高效雅雅里导入：「阵容 → 我的阵容 → 导入」里粘贴这个链接，导入后再发布到广场。')
     const r = decode(paste)
     if (!r.ok) return (pasteErr = r.error)
     const l = r.lineup

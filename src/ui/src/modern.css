@@ -284,7 +284,7 @@ html:root[data-modern][data-scheme='light'] {
 }
 
 /* ───────── 去掉终端装饰 ───────── */
-/* 只为好看的英文小字：标题栏「Stronghold Assistant」、分组标题右边、标签下面 */
+/* 只为好看的英文小字：标题栏「GXYY · Stronghold Assistant」、分组标题右边、标签下面 */
 html:root[data-modern] :is(.bar .sub, .sh .en, nav.tabs .en, .sheet > header > .term) {
   display: none;
 }

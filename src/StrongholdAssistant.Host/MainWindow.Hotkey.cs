@@ -40,7 +40,7 @@ public partial class MainWindow
                 var routeDown = _keysBlocked ? null : _routeHotkeyRouter.Observe(key, down, foreground,
                     game, hwnd, HotkeyParser.Parse(_api.Settings.Routes.Hotkey)!.Value, modifiers);
                 if (routeDown is { } pressed) _api.PublishRouteHotkey(pressed);
-                if (actions.Refresh)
+                if (actions.Refresh && !_api.IsRosterScanning)
                 {
                     _scanner?.RefreshShop();
                     _shopItems = [];
@@ -49,7 +49,7 @@ public partial class MainWindow
                 }
                 if (actions.Toggle) ToggleFromHotkey();
             });
-        });
+        }, _api.NotifyRosterInput);
         var combo = _api.Settings.ToggleHotkey;
         if (combo.Length == 0) return;
         var hotkey = HotkeyParser.Parse(combo);

@@ -30,8 +30,8 @@
     letter-spacing: 0.04em;
     text-transform: uppercase;
     white-space: nowrap;
-    color: transparent;
-    -webkit-text-stroke: 1px rgb(var(--hl-rgb) / 0.07);
+    /* 不用描边：字形内部有重叠轮廓，描边会画出多余的方框 */
+    color: rgb(var(--hl-rgb) / 0.035);
     pointer-events: none;
     user-select: none;
   }

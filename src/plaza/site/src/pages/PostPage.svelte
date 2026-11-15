@@ -40,7 +40,7 @@
 
   async function copyCode() {
     // 带上帖子链接（v0.9.2）：助手导入时按链接读帖子，简介一起带进去；旧版助手只认分享码，照样能导
-    const text = `【卫戍协议助手阵容】${l!.name} ${p!.code} ${location.origin}/p/${p!.id}`
+    const text = `【高效雅雅阵容】${l!.name} ${p!.code} ${location.origin}/p/${p!.id}`
     try {
       await navigator.clipboard.writeText(text)
     } catch {
@@ -131,7 +131,7 @@
         <div class="by">{p.author.nickname} · 发布于 {ago(p.createdAt)}{#if p.updatedAt !== p.createdAt} · 更新于 {ago(p.updatedAt)}{/if}</div>
       </div>
       <div class="acts">
-        <a class="btn ghost" class:off={!p.current} href={p.current ? `stronghold://import?post=${encodeURIComponent(p.id)}` : undefined} title="装了卫戍协议助手的话，直接在助手里打开这个阵容">在助手里打开</a>
+        <a class="btn ghost" class:off={!p.current} href={p.current ? `stronghold://import?post=${encodeURIComponent(p.id)}` : undefined} title="装了高效雅雅的话，直接在助手里打开这个阵容">在助手里打开</a>
         <button class="btn primary" disabled={!p.current} onclick={copyCode}><Icon name="copy" size={16} />复制分享码</button>
         <button class="btn ghost like" class:on={p.liked} disabled={liking} onclick={like} title={session.me ? '' : '登录后点赞'}>
           <Icon name={p.liked ? 'heartFill' : 'heart'} size={16} />{p.likes}
@@ -144,7 +144,7 @@
         {#if !mine}<button class="btn ghost rep" title="举报这个阵容" onclick={() => (reporting = { target: { kind: 'post', id: p!.id }, what: `${l!.name} · ${p!.author.nickname}` })}><Icon name="flag" size={15} /></button>{/if}
       </div>
     </div>
-    <p class="how">装了卫戍协议助手的话，点「在助手里打开」直接导入；没反应就复制分享码，到助手「阵容 → 我的阵容 → 导入」里粘贴。</p>
+    <p class="how">装了高效雅雅的话，点「在助手里打开」直接导入；没反应就复制分享码，到助手「阵容 → 我的阵容 → 导入」里粘贴。</p>
 
     <div class="cols">
       <div class="main">

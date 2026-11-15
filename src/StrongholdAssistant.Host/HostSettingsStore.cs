@@ -8,7 +8,18 @@ public sealed record FreeWindowBounds(double Left, double Top, double Width, dou
 public sealed record DockSettings(double Width = 380, SidePanelOffset? FollowOffsetDip = null,
     SidePanelOffset? OverlayOffsetDip = null, FreeWindowBounds? FreeBounds = null,
     FreeWindowBounds? WorkbenchBounds = null, bool LastWorkbench = false,
-    SidePanelOffset? FollowLeftOffsetDip = null, SidePanelOffset? OverlayRightOffsetDip = null);
+    SidePanelOffset? FollowLeftOffsetDip = null, SidePanelOffset? OverlayRightOffsetDip = null,
+    double? FollowHeightDip = null, double? OverlayHeightDip = null)
+{
+    public DockSettings WithWidth(double width) => this with { Width = Math.Clamp(width, 320, 720) };
+
+    public DockSettings Redock() => this with
+    {
+        FollowOffsetDip = null, FollowLeftOffsetDip = null,
+        OverlayOffsetDip = null, OverlayRightOffsetDip = null,
+        FollowHeightDip = null, OverlayHeightDip = null
+    };
+}
 
 // 同步合并写入，让窗口位置与界面设置共用文件而不相互覆盖。
 public sealed class HostSettingsStore(string path)
@@ -33,6 +44,7 @@ public sealed class HostSettingsStore(string path)
             json["shopMarkers"]?.GetValue<bool>() ?? true,
             json["autoCheckUpdate"]?.GetValue<bool>() ?? true)
         {
+            PlacementGoal = json["placementGoal"]?.GetValue<string>() is "leak" or "layers" ? json["placementGoal"]!.GetValue<string>() : "balanced",
             GameThemeAuto = json["gameThemeAuto"]?.GetValue<bool>() ?? true,
             RunAsAdmin = json["runAsAdmin"]?.GetValue<bool>() ?? false,
             UiSkin = uiSkin,
@@ -45,6 +57,7 @@ public sealed class HostSettingsStore(string path)
                 && weightValue.TryGetValue<string>(out var weight) && weight is ("normal" or "medium" or "bold") ? weight : "normal",
             PlazaNotices = json["plazaNotices"]?.GetValue<bool>() ?? true,
             Routes = RouteOverlaySettings.Load(json["routes"]),
+            OverlayLayers = json["overlayLayers"]?.Deserialize<OverlayLayerSettings>(HostApi.JsonOptions) ?? new(),
             MarkerStyles = MarkerStyles.Load(json["markerStyles"]),
             ShopScanSpeed = json["shopScanSpeed"] is JsonValue speedValue
                 && speedValue.TryGetValue<string>(out var speed) && speed is ("normal" or "fast") ? speed : "normal",
@@ -89,9 +102,12 @@ public sealed class HostSettingsStore(string path)
 
     public void SaveSettings(SettingsDto settings)
     {
+        if (settings.PlacementGoal is not ("leak" or "balanced" or "layers"))
+            throw new ArgumentException("站位目标无效。");
         ValidateSides(settings);
         if (settings.Routes is null) throw new ArgumentException("敌人路线设置无效。");
         settings.Routes.Validate();
+        if (settings.OverlayLayers is null) throw new ArgumentException("覆盖层设置无效。");
         if (settings.ShopScanSpeed is not ("normal" or "fast"))
             throw new ArgumentException("商店识别速度无效。");
         if (settings.UiSkin is not ("follow" or "terminal" or "ursus" or "closure" or "classic" or "glass" or "round"))

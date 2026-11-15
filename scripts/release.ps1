@@ -118,7 +118,7 @@ try {
     if ($first -le 5) {
         Measure-Step Release {
             if (!(Test-Path -LiteralPath $body)) { throw "缺少 $body。" }
-            Run { gh release create "v$Version" --repo $repo --verify-tag --title "卫戍协议助手 v$Version" --notes-file $body $setup $zip (Join-Path $release 'SHA256SUMS.txt') (Join-Path $release 'release-notes.json') }
+            Run { gh release create "v$Version" --repo $repo --verify-tag --title "高效雅雅·卫戍协议助手 v$Version" --notes-file $body $setup $zip (Join-Path $release 'SHA256SUMS.txt') (Join-Path $release 'release-notes.json') }
         }
     }
     Measure-Step Verify {

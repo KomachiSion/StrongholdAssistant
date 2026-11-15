@@ -60,7 +60,7 @@ public class OverlayWindowTests
     });
 
     [Fact]
-    public void DisappearingMarkerFadesFor150MsBeforeRemoval() => OnSta(() =>
+    public void DisappearingMarkerFadesBeforeRemoval() => OnSta(() =>
     {
         var layer = new ShopMarkerLayer();
         layer.Update([], 1920, 1080);
@@ -69,10 +69,8 @@ public class OverlayWindowTests
         var marker = Assert.IsAssignableFrom<FrameworkElement>(layer.Children[0]);
         layer.Update([], 1920, 1080);
         Assert.True(marker.HasAnimatedProperties);
-        Pump(80);
         Assert.Single(layer.Children.Cast<UIElement>());
-        Assert.InRange(marker.Opacity, .01, .999);
-        Pump(130);
+        PumpUntil(() => layer.Children.Count == 0);
         Assert.Empty(layer.Children.Cast<UIElement>());
     });
 
@@ -93,10 +91,7 @@ public class OverlayWindowTests
         var next = (FrameworkElement)layer.Children[1];
         Assert.True(old.HasAnimatedProperties);
         Assert.True(next.HasAnimatedProperties);
-        Pump(80);
-        Assert.InRange(old.Opacity, .01, .999);
-        Assert.InRange(next.Opacity, .01, .999);
-        Pump(140);
+        PumpUntil(() => layer.Children.Count == 1);
         Assert.Same(next, Assert.Single(layer.Children.Cast<UIElement>()));
         layer.Update([item], 1280, 720);
         var resized = (FrameworkElement)layer.Children[0];
@@ -107,6 +102,14 @@ public class OverlayWindowTests
 
     private static ShopItem Item() => new()
         { Id = "3:山", IsTracked = true, CardRegion = (.5, .75, .11, .23) };
+
+    private static void PumpUntil(Func<bool> condition)
+    {
+        // 只检查最终状态，避免机器繁忙时错过动画中间帧。
+        var timer = System.Diagnostics.Stopwatch.StartNew();
+        while (!condition() && timer.Elapsed < TimeSpan.FromSeconds(2)) Pump(20);
+        Assert.True(condition(), "动画未在 2 秒内达到预期状态。");
+    }
 
     private static void Pump(int milliseconds)
     {

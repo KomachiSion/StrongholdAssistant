@@ -135,7 +135,7 @@
     </header>
     <div class="scroll">
     <p class="hint">粘贴别人发来的分享码，整句消息也可以；也可以粘贴阵容广场或森空岛攻略的链接。</p>
-    <textarea bind:this={box} bind:value={text} rows="3" placeholder="【卫戍协议助手阵容】叙拉古 · 家族 SA2-…" spellcheck="false" oninput={() => (picked = null)}></textarea>
+    <textarea bind:this={box} bind:value={text} rows="3" placeholder="【高效雅雅阵容】叙拉古 · 家族 SA2-…" spellcheck="false" oninput={() => (picked = null)}></textarea>
     <div class="hist">
       <button class="lnk" disabled={histBusy} onclick={history}><Icon name="download" size={12} />{histBusy ? '等待森空岛窗口…' : '从森空岛历史战绩导入'}</button>
       {#if account}

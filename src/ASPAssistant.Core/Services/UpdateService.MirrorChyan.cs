@@ -46,7 +46,7 @@ public partial class UpdateService
                     7001 => "Mirror酱 CDK 已过期。",
                     7002 => "Mirror酱 CDK 不对，请检查有没有填错。",
                     7003 => "这个 CDK 今天的下载次数用完了，明天再试或先改用 GitHub。",
-                    7004 => "这个 CDK 不能用来下载卫戍协议助手。",
+                    7004 => "这个 CDK 不能用来下载高效雅雅·卫戍协议助手。",
                     7005 => "这个 CDK 已被封禁。",
                     8001 => "Mirror酱 上还没有这个版本的包。",
                     _ => "Mirror酱 返回错误：" + result.Msg

@@ -7,7 +7,7 @@ public sealed class BoardRouteStore
 {
     private sealed record Battle(string? BossId, string Level);
     private sealed record Level(EnemyRoute[] Routes, RoutePoint[] BossSpots);
-    private sealed record Map(Dictionary<string, Level> Levels);
+    private sealed record Map(Dictionary<string, Level> Levels, bool[][] Walkable, bool[][] BossWalkable);
     private sealed record Data(Dictionary<string, Dictionary<string, Battle[]>> Battles,
         Dictionary<string, string> BossIds, Dictionary<string, Map> Maps);
     private readonly Data _data;
@@ -15,6 +15,16 @@ public sealed class BoardRouteStore
     public BoardRouteStore(string directory) => _data = JsonSerializer.Deserialize<Data>(
         File.ReadAllText(Path.Combine(directory, "garrison_routes.json")),
         new JsonSerializerOptions { PropertyNameCaseInsensitive = true })!;
+
+    public BoardView? View(string? mapId, int? round, bool solo, string? bossId, string? mode, string? side)
+    {
+        if (mapId is null || !_data.Maps.TryGetValue(mapId, out var map)) return null;
+        bool boss = round is { } r && IsBossRound(r, solo, mode);
+        // 小棋盘只取格坐标；复用覆盖层的关卡选择，不使用屏幕投影。
+        var routes = round is { } n ? Find(new(mapId, BoardCamera.Collapsed, null!, 1), n, solo, bossId, mode) : null;
+        return new(mapId, round, boss, solo, map.Walkable, map.BossWalkable,
+            routes?.Routes ?? [], routes?.BossSpots ?? [], boss && !solo ? side : null);
+    }
 
     public BoardRoutes? Find(BoardMatch board, int round, bool solo, string? bossId, string? mode)
         => Find(board, round, solo, bossId, mode, out _);

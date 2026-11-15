@@ -23,6 +23,7 @@ public partial class MainWindow
     private IReadOnlyList<ShopItem> _shopItems = [];
     private bool _capturingInformation;
     private bool _moving;
+    private bool _resizingHeight;
     private bool _overlayMode;
     private string _side = "right";
     private bool _collapsed;
@@ -45,7 +46,10 @@ public partial class MainWindow
                 _dock.OverlayOffsetDip, _dock.OverlayRightOffsetDip }
             .Any(offset => offset is not null && (!double.IsFinite(offset.X) || !double.IsFinite(offset.Y))))
             throw new JsonException("侧栏设置无效。");
-        _dock = _dock with { Width = Math.Clamp(_dock.Width, 320, 460) };
+        if (new[] { _dock.FollowHeightDip, _dock.OverlayHeightDip }
+            .Any(height => height is { } h && (!double.IsFinite(h) || h <= 0)))
+            throw new JsonException("侧栏高度无效。");
+        _dock = _dock.WithWidth(_dock.Width);
         if (_dock.WorkbenchBounds is { } workbench
             && (!double.IsFinite(workbench.Left) || !double.IsFinite(workbench.Top)
                 || !double.IsFinite(workbench.Width) || !double.IsFinite(workbench.Height)
@@ -134,6 +138,7 @@ public partial class MainWindow
             });
         };
         _scanner.SetShopScanSpeed(_api.Settings.ShopScanSpeed);
+        _overlay.PlacementChanged += () => RefreshShopOverlay();
         _api.ShopChanged += () =>
         {
             _scanner.SetShopScanSpeed(_api.Settings.ShopScanSpeed);
@@ -154,7 +159,22 @@ public partial class MainWindow
         };
         _scanner.ObserveFieldAsync = _api.ObserveFieldAsync;
         _scanner.BoardRoutesRequested = () => _api.BoardRoutesEnabled;
-        _scanner.BoardFrameReady += (frame, reading) => _api.ObserveBoardFrame(frame, reading, _scanner.BoardShopVisible, _scanner.BoardMainScreenVisible);
+        _scanner.BoardFrameReady += (frame, reading) =>
+        {
+            if (frame is null || !_scanner.BoardMainScreenVisible || reading is { IsRest: false }) _api.HideFieldOverlay();
+            _api.ObserveBoardFrame(frame, reading, _scanner.BoardShopVisible, _scanner.BoardMainScreenVisible);
+        };
+        _api.FieldOverlayChanged += (field, geometry) => Dispatcher.BeginInvoke(() =>
+        {
+            _overlay.UpdateField(field, geometry);
+            RefreshShopOverlay();
+        });
+        _api.PlacementOverlayChanged += plan => Dispatcher.BeginInvoke(() =>
+        {
+            _overlay.UpdatePlacement(plan);
+            RefreshShopOverlay();
+        });
+        _overlay.UpdatePlacement(HostApi.ToOverlayPlacement(_api.Placement));
         // 敌人路线：识别结果在扫描线程上来，交给界面线程画
         _api.BoardRoutesChanged += routes => Dispatcher.BeginInvoke(() =>
         {
@@ -170,6 +190,16 @@ public partial class MainWindow
         {
             await _scanner.WaitForIdleAsync();
             return await CaptureInformationScreenAsync();
+        });
+        _api.InitializeRoster(data, _ocr, _capture.Connection, async paused =>
+        {
+            _scanner.SetBanScreenDetectionPaused(paused || _api.IsContinuous || _closing);
+            if (paused) await _scanner.WaitForIdleAsync();
+            await Dispatcher.InvokeAsync(() =>
+            {
+                _capturingInformation = paused;
+                if (paused) _overlay.Hide(); else RefreshShopOverlay();
+            });
         });
         _scanner.AwaitingDetail = () => _api.Match.AwaitingDetail;
         _scanner.BanScreenDetected += solo => _automaticScan = Dispatcher.InvokeAsync(() => RecordAutomaticallyAsync(solo)).Task.Unwrap();
@@ -311,10 +341,10 @@ public partial class MainWindow
         var expandedWidth = _dock.Width * _uiScale;
         var target = _overlayMode
             ? WindowGeometry.OverlayBounds(client.Value, scale, expandedWidth,
-                _side == "right" ? _dock.OverlayRightOffsetDip : _dock.OverlayOffsetDip, _side)
+                _side == "right" ? _dock.OverlayRightOffsetDip : _dock.OverlayOffsetDip, _side, _dock.OverlayHeightDip)
             : offset is null
-            ? WindowGeometry.SidePanelBounds(game, gameMonitor.WorkArea, scale, expandedWidth, null, false, _side)
-            : WindowGeometry.FollowBounds(game, monitor.WorkArea, scale, expandedWidth, null, false, offset, _side);
+            ? WindowGeometry.SidePanelBounds(game, gameMonitor.WorkArea, scale, expandedWidth, _dock.FollowHeightDip, false, _side)
+            : WindowGeometry.FollowBounds(game, monitor.WorkArea, scale, expandedWidth, _dock.FollowHeightDip, false, offset, _side);
         if (_collapsed)
             target = WindowGeometry.CollapseBounds(target, (int)Math.Round(48 * _uiScale * scale),
                 _collapseUpHeight is { } height ? (int)Math.Round(height * _uiScale * scale) : null,
@@ -337,7 +367,8 @@ public partial class MainWindow
             ToggleFromHotkey();
             return IntPtr.Zero;
         }
-        if (message == User32.WM_ENTERSIZEMOVE) _moving = true;
+        if (message == User32.WM_ENTERSIZEMOVE) { _moving = true; _resizingHeight = false; }
+        if (message == 0x0214 && wParam.ToInt32() is >= 3 and <= 8) _resizingHeight = true; // WM_SIZING
         if (message == User32.WM_EXITSIZEMOVE)
         {
             _moving = false;
@@ -345,10 +376,13 @@ public partial class MainWindow
             var rect = User32.ReadWindowRect(hwnd);
             var scale = User32.GetWindowDpiScale(hwnd);
             var placement = new SidePanelPlacement(rect.Left, rect.Top, rect.Width / scale, rect.Height / scale);
-            _dock = _dock with { Width = _collapsed ? _dock.Width : Math.Clamp(placement.WidthDip / _uiScale, 320, 460) };
+            if (!_collapsed) _dock = _dock.WithWidth(placement.WidthDip / _uiScale);
             if (!_api.Settings.FollowGame) RememberFreeBounds();
             else if (_overlayMode && _lastClientRect is { } client)
             {
+                if (!_collapsed && _resizingHeight)
+                    _dock = _dock with { OverlayHeightDip = WindowGeometry.SnapHeight(placement.HeightDip,
+                        WindowGeometry.OverlayBounds(client, scale, _dock.Width * _uiScale, null, _side).Height / scale) };
                 var offset = WindowGeometry.SnapOverlayOffset(new SidePanelOffset(
                     (_side == "right" ? rect.Right - client.Right : rect.Left - client.Left) / scale,
                     (rect.Top - client.Top) / scale), client, scale, _dock.Width * _uiScale, _side);
@@ -356,6 +390,8 @@ public partial class MainWindow
             }
             else if (_lastGameRect is { } game)
             {
+                if (!_collapsed && _resizingHeight)
+                    _dock = _dock with { FollowHeightDip = WindowGeometry.SnapHeight(placement.HeightDip, game.Height / scale) };
                 var offset = WindowGeometry.SnapOffset(WindowGeometry.CaptureFollowOffset(game, placement, scale, _side));
                 _dock = _side == "left" ? _dock with { FollowLeftOffsetDip = offset } : _dock with { FollowOffsetDip = offset };
             }
@@ -393,15 +429,16 @@ public partial class MainWindow
             return;
         }
         MinHeight = 0;
-        MaxWidth = 460 * _uiScale;
-        MinWidth = (_collapsed && _collapseUpHeight is null ? 48 : 320) * _uiScale;
+        var work = CurrentWorkArea();
+        MaxWidth = Math.Min(720 * _uiScale, work.Width);
+        MinWidth = Math.Min((_collapsed && _collapseUpHeight is null ? 48 : 320) * _uiScale, work.Width);
         if (_api.Settings.FollowGame)
         {
             Width = _collapsed && _collapseUpHeight != null ? _expandedWidth
                 : WindowGeometry.PanelWidth(_dock.Width, _uiScale, _collapsed);
             if (_collapsed && _collapseUpHeight is { } height) Height = height * _uiScale;
         }
-        ResizeMode = ResizeMode.CanMinimize;
+        ResizeMode = _collapsed ? ResizeMode.CanMinimize : ResizeMode.CanResize;
         if (Browser.CoreWebView2 is not null) Browser.ZoomFactor = _uiScale;
         Splash.LayoutTransform = new System.Windows.Media.ScaleTransform(_uiScale, _uiScale);
         // 覆盖模式（全屏或旁边放不下）盖在游戏上，不置顶会被游戏挡住，所以总是置顶；其余按用户的置顶设置
@@ -416,11 +453,7 @@ public partial class MainWindow
 
     private void Redock()
     {
-        _dock = _dock with
-        {
-            FollowOffsetDip = null, FollowLeftOffsetDip = null,
-            OverlayOffsetDip = null, OverlayRightOffsetDip = null
-        };
+        _dock = _dock.Redock();
         _api.SettingsStore.SaveDock(_dock);
         if (!_workbench && _api.Settings.FollowGame && _lastGameRect is { } game) UpdateGame(game);
     }
@@ -503,6 +536,7 @@ public partial class MainWindow
             _dock = _dock with { LastWorkbench = _workbench };
             _api.SettingsStore.SaveDock(_dock);
         }
+        if (_api is not null) await _api.StopRosterScanAsync();
         if (_api is not null) await _api.StopContinuousAsync();
         // 网页先播退场（内容淡出到底色），再藏起窗口等后台收尾，收尾和释放 WebView2 时不会露出白底
         if (Browser.Visibility == Visibility.Visible)
@@ -531,8 +565,9 @@ public partial class MainWindow
         _api.UpdateShopTracking(_shopItems);
         var items = _api.Settings.ShopMarkers ? _shopItems : [];
         _overlay.UpdateShopItems(items, animate, _api.Settings.MarkerStyles);
+        _overlay.UpdateLayerSettings(_api.Settings.OverlayLayers);
         if (!_connectGame || _closing || _capturingInformation || _lastGameRect is null
-            || (!items.Any(i => i.IsTracked || i.IsSecondary) && !_overlay.HasMarkers && !_overlay.HasRoutes))
+            || (!items.Any(i => i.IsTracked || i.IsSecondary) && !_overlay.HasOverlayContent))
         {
             _overlay.Hide();
             return;

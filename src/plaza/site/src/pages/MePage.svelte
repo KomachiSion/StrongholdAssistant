@@ -46,7 +46,7 @@
   // 我的阵容：复制分享码、删除（点两次）
   async function copyMine(c: CloudLineup) {
     try {
-      await navigator.clipboard.writeText(`【卫戍协议助手阵容】${c.data!.name} ${encode(c.data!)}`)
+      await navigator.clipboard.writeText(`【高效雅雅阵容】${c.data!.name} ${encode(c.data!)}`)
       toast.show('已复制分享码。')
     } catch {
       toast.show('复制失败，这套阵容可能用到了当前数据里没有的干员或装备。', true)
@@ -199,7 +199,7 @@
       {#if !mine}
         <p class="muted">加载中…</p>
       {:else if !mine.length}
-        <p class="muted">还没有。在卫戍协议助手的设置里打开「同步我的阵容和偏好」，助手里的阵容就会出现在这里；也可以在网页上<a href="/new" use:link class="hl">新建</a>后「保存到我的阵容」。只有你自己看得到。</p>
+        <p class="muted">还没有。在高效雅雅的设置里打开「同步我的阵容和偏好」，助手里的阵容就会出现在这里；也可以在网页上<a href="/new" use:link class="hl">新建</a>后「保存到我的阵容」。只有你自己看得到。</p>
       {:else}
         <p class="muted small">只有你自己看得到。在助手里打开「同步我的阵容和偏好」后，两边自动同步。</p>
         <div class="grid">
@@ -234,7 +234,7 @@
       {#if !posts}
         <p class="muted">加载中…</p>
       {:else if !posts.length}
-        <p class="muted">还没有发布过。<a href="/new" use:link class="hl">新建一个阵容</a>，或者在卫戍协议助手里右键阵容卡「发布到广场」。</p>
+        <p class="muted">还没有发布过。<a href="/new" use:link class="hl">新建一个阵容</a>，或者在高效雅雅里右键阵容卡「发布到广场」。</p>
       {:else}
         <div class="grid">{#each posts as p (p.id)}<PostCard post={p} />{/each}</div>
       {/if}

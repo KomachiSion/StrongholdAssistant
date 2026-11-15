@@ -10,7 +10,7 @@ public sealed partial class HostApi
     public Task ScanContinuousAsync(bool on)
     {
         if (!on) return StopContinuousAsync();
-        if (IsContinuous) return Task.CompletedTask;
+        if (IsContinuous || IsRosterScanning) return Task.CompletedTask;
         _continuousReason = null;
         _continuousStop = new CancellationTokenSource(TimeSpan.FromSeconds(90));
         _continuousTask = RunContinuousAsync(_continuousStop);

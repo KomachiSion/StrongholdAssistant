@@ -13,11 +13,15 @@
   import match from '../assets/shots/match.webp'
   import target from '../assets/shots/target.webp'
   import plan from '../assets/shots/plan.webp'
-  import codex from '../assets/shots/codex.webp'
+  import roster from '../assets/shots/roster.webp'
+  import field from '../assets/shots/field.webp'
+  import bondShot from '../assets/shots/bonds.webp'
   import operator from '../assets/shots/operator.webp'
   import plaza from '../assets/shots/plaza.webp'
   import ursus from '../assets/shots/skin-ursus.webp'
   import closure from '../assets/shots/skin-closure.webp'
+  import glass from '../assets/shots/skin-glass.webp'
+  import round from '../assets/shots/skin-round.webp'
 
   let demo = $state(false)
 
@@ -34,6 +38,14 @@
     return () => clearInterval(t)
   })
 
+  // ---- v1.0 主推：场上 ----
+  const FIELD: { icon: IconName; title: string; text: string }[] = [
+    { icon: 'scan', title: '场上认人', text: '休整期认出棋盘和整备区上每一格是谁。买进、挪格、三合一跟着走，其余在本局出现过的人里比小人；拿不准的标问号，点一下从 3 个候选里选。' },
+    { icon: 'target', title: '站位推荐', text: '按场上的人、本回合可能的怪组和你的技能、模组、潜能、装备模拟这一回合，写出「现在这样摆漏几只 → 照推荐漏几只」。漏怪最少、平衡、叠层最多三选一。' },
+    { icon: 'board', title: '小棋盘', text: '本局页按游戏排布画出棋盘、整备区和本回合敌人路线；直接拖人摆着看，不影响游戏，战斗中也能先排一下。' },
+    { icon: 'route', title: '画在游戏上', text: '推荐站位、待确认的问号、敌人路线、商店标记都能直接画在游戏画面上，每一项单独开关。盟约状态列出激活的盟约、里面的人和顶栏层数。' },
+  ]
+
   // ---- 功能频道：左边节目单，右边画面；在视口里时每 8 秒换台，点过就停 ----
   type Feature = { id: string; en: string; title: string; tag: string; desc: string; points: string[] }
   const FEATURES: Feature[] = [
@@ -43,7 +55,7 @@
       tag: '本局',
       title: '开局信息，一进来就录好',
       desc: '停在「确认本局信息」页，侧栏自动截图识别：哪些盟约阵容不完整、禁用了谁、敌方领袖和特训敌人。没认出的格子按游戏顺序推测，录错了右键直接改。',
-      points: ['直接认头像，换了皮肤、精二的也认得', '商店里顺带读回合和资金，算出下回合大约多少钱', '关注的盟约和干员被禁时，本局页顶部醒目提示'],
+      points: ['直接认头像，换了皮肤、精二的也认得', '自选编队、本局策略、每回合敌人都自动读下来', '商店里顺带读回合和资金，算出下回合大约多少钱'],
     },
     {
       id: 'lineup',
@@ -65,9 +77,9 @@
       id: 'codex',
       en: 'Archive',
       tag: '图鉴',
-      title: '干员、装备、策略、首领一处查',
-      desc: '仿商店卡的网格，按等阶、盟约、追踪中筛选。点开干员，普通和精锐特性同屏对照、变化的数字高亮；装备写明能合成什么、哪些干员会带来它；首领各难度血量都有。',
-      points: ['可以隐藏本局被禁的干员', '给干员设「我的默认」技能和模组', '本局用到的策略和首领排在最前'],
+      title: '图鉴，和你自己的干员',
+      desc: '在游戏的「物资调配」页点「读取我的干员」，助手自己滑动列表，读出每个人的皮肤、技能、模组、潜能和自选编队，站位推荐就按你的配置算。干员、装备、策略、首领一处查，普通和精锐特性同屏对照。',
+      points: ['读的时候动鼠标、离开这一页就停', '认不出的项留空，在图鉴里点着改', '装备写明合成关系，首领列出各难度血量'],
     },
     {
       id: 'plaza',
@@ -108,10 +120,10 @@
   const MORE: { icon: IconName; title: string; en: string; text: string }[] = [
     { icon: 'history', title: '历史战绩', en: 'Record', text: '每局自动记下开局信息、目标和每回合资金；按联机 / 单人看通关率、平均到达回合和常用干员。' },
     { icon: 'masonry', title: '工作台', en: 'Workbench', text: '一键展开成宽窗口，左边导航右边详情，编阵容、逛广场、翻战绩更顺手；收回就贴回游戏旁边。' },
-    { icon: 'route', title: '敌人路线', en: 'Routes', text: '在棋盘上画出敌人会怎么走，按组合键显示，特训敌人可能出现的也一起标出。' },
-    { icon: 'keyboard', title: '一键收起', en: 'Hotkey', text: '默认 Alt+S 收起和展开侧栏，游戏在前台也能按；也能设成单个键。' },
+    { icon: 'compass', title: '敌方情报', en: 'Enemies', text: '本回合有哪些敌人、走哪条路；敌人详情按本局模式和回合显示实际的生命和攻击（联机四个模式）。' },
+    { icon: 'keyboard', title: '一键收起', en: 'Hotkey', text: '默认 Alt+S 收起和展开侧栏，游戏在前台也能按；以管理员身份运行时也能设成单个键。' },
     { icon: 'cloud', title: '云同步', en: 'Sync', text: '登录广场后同步我的阵容和偏好，换电脑、在网站上都能接着用。默认关闭。' },
-    { icon: 'shield', title: '只看画面', en: 'Screen only', text: '只通过截屏识别：不读游戏内存，不注入游戏，不向游戏发送点击或按键。' },
+    { icon: 'shield', title: '平时只看不动', en: 'Screen only', text: '只通过截屏识别，不读游戏内存、不注入游戏。只有你点「读取我的干员」时，才在物资调配页滑动列表，动鼠标就停。' },
   ]
 
   const homeFaq = FAQ.flatMap((g) => g.items).filter((q) => q.home)
@@ -124,14 +136,14 @@
   <div class="wrap hero-in">
     <div class="copy">
       <span class="lbl eyebrow"><i class="sq"></i>Rhodes Island <span class="mint">//</span> Stronghold Protocol</span>
-      <h1>卫戍协议助手</h1>
-      <span class="en" aria-hidden="true">Stronghold Assistant</span>
+      <h1 aria-label="高效雅雅·卫戍协议助手">高效雅雅<span class="alt">卫戍协议助手</span></h1>
+      <span class="en" aria-hidden="true">GXYY · Stronghold Assistant</span>
       <div class="bars" aria-hidden="true"><i></i><i></i><i></i></div>
       <p class="lead">贴在游戏窗口旁边的《明日方舟》卫戍协议侧栏，陪你打完一整局。</p>
       <ol class="flow">
         <li><span class="num">01</span>开局自动录入盟约和禁用</li>
-        <li><span class="num">02</span>定好目标阵容</li>
-        <li><span class="num">03</span>商店里给要买的卡描框</li>
+        <li><span class="num">02</span>定好目标，商店里描框</li>
+        <li><span class="num">03</span>休整期认人、推荐站位</li>
         <li><span class="num">04</span>打完自动记进历史</li>
       </ol>
       <div class="cta">
@@ -176,10 +188,32 @@
   <p class="wrap st-note lbl">卫戍协议 · 规程 · 序列 I 当期数据 · 自 {dot(FIRST.date)} 起共 {totalChanges} 项改动</p>
 </section>
 
+<!-- ============ v1.0 主推：场上 ============ -->
+<section class="section" id="field">
+  <div class="wrap fd-in">
+    <div class="fd-copy">
+      <SectionHead no="01" title="看懂场上，推荐站位" en="Field">v1.0 新增。侧栏不只管开局和商店，休整期也看得懂棋盘了。</SectionHead>
+      <ul class="fd-list">
+        {#each FIELD as f, i (f.title)}
+          <li use:reveal={i * 70}>
+            <span class="ic"><Icon name={f.icon} size={20} /></span>
+            <div><h3>{f.title}</h3><p>{f.text}</p></div>
+          </li>
+        {/each}
+      </ul>
+      <p class="fd-note">站位推荐是近似推荐：漏怪数是模拟出来的平均值，没有和实战逐局对照过，漏 0 只也不等于一定守住。场上认人是第一版，一局里要你点的次数还偏多，后面会继续减少。</p>
+    </div>
+    <div class="fd-pics">
+      <figure use:reveal={0}><img class="shot" src={field} alt="本局页「场上」：小棋盘与站位推荐" width="380" height="860" loading="lazy" /><figcaption class="lbl">Field · 小棋盘与站位推荐</figcaption></figure>
+      <figure use:reveal={90}><img class="shot" src={bondShot} alt="本局页「盟约状态」" width="380" height="860" loading="lazy" /><figcaption class="lbl">Covenants · 盟约状态</figcaption></figure>
+    </div>
+  </div>
+</section>
+
 <!-- ============ 功能 ============ -->
-<section class="section" id="features">
+<section class="section alt" id="features">
   <div class="wrap">
-    <SectionHead no="01" title="一局里用得到的，都在侧栏里" en="Functions">从开局到商店再到结算，侧栏跟着一局的进程走。下面是真实界面，数据是示例。</SectionHead>
+    <SectionHead no="02" title="一局里用得到的，都在侧栏里" en="Functions">从开局到商店再到结算，侧栏跟着一局的进程走。下面是真实界面，数据是示例。</SectionHead>
 
     <div class="guide" bind:this={guideEl}>
       <ol class="prog" aria-label="功能">
@@ -214,7 +248,7 @@
                 {:else if cur === 2}
                   <div class="hud wide"><ShopStage crop /></div>
                 {:else if cur === 3}
-                  <img class="shot s1" src={codex} alt="图鉴：干员" />
+                  <img class="shot s1" src={roster} alt="图鉴：我的干员" />
                   <img class="shot s2" src={operator} alt="图鉴：干员详情" />
                 {:else}
                   <img class="shot plz" src={plaza} alt="阵容广场网站" />
@@ -257,26 +291,28 @@
 </section>
 
 <!-- ============ 皮肤 ============ -->
-<section class="section alt skins">
+<section class="section skins">
   <div class="wrap sk-in">
     <div class="sk-copy" use:reveal>
-      <span class="lbl"><b class="mint">// 02</b>&nbsp;&nbsp;Themes</span>
-      <h2>跟着游戏主题换装</h2>
-      <p>游戏里换了卫戍协议的主题，侧栏自动跟着换：卫戍协议终端、乌萨斯齐心团、『全能的』可露希尔，用的都是游戏里的原素材。也可以在设置里固定一套。</p>
+      <span class="lbl"><b class="mint">// 03</b>&nbsp;&nbsp;Themes</span>
+      <h2>跟着游戏换装，也能换个风格</h2>
+      <p>游戏里换了卫戍协议的主题，侧栏自动跟着换：卫戍协议终端、乌萨斯齐心团、『全能的』可露希尔，用的都是游戏里的原素材。不想照游戏来，还有<b>毛玻璃</b>、<b>圆润</b>两套通用风格，深色浅色都有、可以跟随系统，主题色也能自己挑。</p>
       <button class="btn" onclick={() => (demo = true)}><Icon name="play" size={18} />在演示里切换看看</button>
     </div>
     <div class="sk-pics">
       <figure use:reveal={0}><img class="shot" src={match} alt="卫戍协议终端主题" width="380" height="860" loading="lazy" /><figcaption class="lbl">Terminal · 终端</figcaption></figure>
-      <figure use:reveal={90}><img class="shot" src={ursus} alt="乌萨斯齐心团主题" width="380" height="860" loading="lazy" /><figcaption class="lbl">Ursus · 乌萨斯</figcaption></figure>
-      <figure use:reveal={180}><img class="shot" src={closure} alt="可露希尔主题" width="380" height="860" loading="lazy" /><figcaption class="lbl">Closure · 可露希尔</figcaption></figure>
+      <figure use:reveal={60}><img class="shot" src={ursus} alt="乌萨斯齐心团主题" width="380" height="860" loading="lazy" /><figcaption class="lbl">Ursus · 乌萨斯</figcaption></figure>
+      <figure use:reveal={120}><img class="shot" src={closure} alt="可露希尔主题" width="380" height="860" loading="lazy" /><figcaption class="lbl">Closure · 可露希尔</figcaption></figure>
+      <figure use:reveal={180}><img class="shot" src={glass} alt="毛玻璃主题（浅色）" width="380" height="860" loading="lazy" /><figcaption class="lbl">Glass · 毛玻璃</figcaption></figure>
+      <figure use:reveal={240}><img class="shot" src={round} alt="圆润主题（深色，换了主题色）" width="380" height="860" loading="lazy" /><figcaption class="lbl">Round · 圆润</figcaption></figure>
     </div>
   </div>
 </section>
 
 <!-- ============ 还有 ============ -->
-<section class="section">
+<section class="section alt">
   <div class="wrap">
-    <SectionHead no="03" title="还有这些" en="More" />
+    <SectionHead no="04" title="还有这些" en="More" />
     <div class="more">
       {#each MORE as m, i (m.title)}
         <div class="mc" use:reveal={(i % 3) * 70}>
@@ -291,23 +327,23 @@
 </section>
 
 <!-- ============ 下载 ============ -->
-<section class="section alt" id="download">
+<section class="section" id="download">
   <div class="wrap">
-    <SectionHead no="04" title="下载" en="Download">三个地方的安装包都一样，选一个顺手的。</SectionHead>
+    <SectionHead no="05" title="下载" en="Download">三个地方的安装包都一样，选一个顺手的。</SectionHead>
     <Downloads />
   </div>
 </section>
 
 <!-- ============ 更新 + 问答 ============ -->
-<section class="section">
+<section class="section alt">
   <div class="wrap two">
     <div>
-      <SectionHead no="05" title="最近更新" en="Updates" small />
+      <SectionHead no="06" title="最近更新" en="Updates" small />
       <ReleaseList releases={RELEASES.slice(0, 3)} compact />
       <a class="more-link" href="/changelog/">全部 {RELEASES.length} 个版本<Icon name="arrow" size={16} /></a>
     </div>
     <div>
-      <SectionHead no="06" title="常见问题" en="FAQ" small />
+      <SectionHead no="07" title="常见问题" en="FAQ" small />
       <FaqList items={homeFaq} />
       <a class="more-link" href="/faq/">更多问题<Icon name="arrow" size={16} /></a>
     </div>
@@ -362,13 +398,22 @@
     color: var(--fg-0);
     text-shadow: 0 2px 30px rgb(var(--shade-rgb) / 0.6);
   }
+  /* 老名字留作副标题，老用户一眼认得出（v1.0 改名） */
+  h1 .alt {
+    display: block;
+    margin-top: 0.22em;
+    font-size: 0.42em;
+    letter-spacing: 0.16em;
+    color: var(--fg-2);
+  }
   .en {
     display: block;
     margin: 14px 0 22px;
     font-family: var(--font-term);
     font-size: clamp(14px, 1.5vw, 20px);
     font-weight: 600;
-    letter-spacing: 0.42em;
+    letter-spacing: 0.24em;
+    white-space: nowrap;
     text-transform: uppercase;
     color: var(--mint);
     text-shadow: 0 0 18px rgb(var(--mint-rgb) / 0.45);
@@ -472,7 +517,9 @@
     margin-top: 56px;
     padding: 18px 4px 0;
     border-top: 1px solid var(--line-soft);
-    overflow: hidden;
+    /* 圆盘素材外圈带约 16px 发光：hidden 会把最左边那个和底部的发光切平，留 18px 再裁 */
+    overflow: clip;
+    overflow-clip-margin: 18px;
   }
 
   /* ---------- 数字 ---------- */
@@ -725,6 +772,59 @@
     display: none;
   }
 
+  /* ---------- v1.0 场上 ---------- */
+  .fd-in {
+    display: grid;
+    grid-template-columns: minmax(0, 6fr) minmax(0, 5fr);
+    gap: 56px;
+    align-items: start;
+  }
+  .fd-list {
+    display: grid;
+    gap: 22px;
+    margin: 8px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .fd-list li {
+    display: flex;
+    gap: 16px;
+  }
+  .fd-list .ic {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    color: var(--mint);
+    background: rgb(var(--mint-rgb) / 0.08);
+    box-shadow: inset 0 0 0 1px rgb(var(--mint-rgb) / 0.3);
+  }
+  .fd-list h3 {
+    margin: 2px 0 6px;
+    font-size: 18px;
+  }
+  .fd-list p {
+    color: var(--fg-2);
+    font-size: 14px;
+  }
+  .fd-note {
+    margin-top: 28px;
+    padding: 12px 14px;
+    font-size: 13px;
+    color: var(--fg-3);
+    background: var(--bg-1);
+    box-shadow: inset 2px 0 0 var(--gold);
+  }
+  .fd-pics {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+  }
+  .fd-pics figure:nth-child(2) {
+    margin-top: 56px;
+  }
+
   /* ---------- 皮肤 ---------- */
   .sk-in {
     display: grid;
@@ -743,17 +843,23 @@
   }
   .sk-pics {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 18px;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 12px;
   }
   figure {
     margin: 0;
   }
-  figure:nth-child(2) {
-    margin-top: 40px;
+  .sk-pics figure:nth-child(2) {
+    margin-top: 24px;
   }
-  figure:nth-child(3) {
-    margin-top: 80px;
+  .sk-pics figure:nth-child(3) {
+    margin-top: 48px;
+  }
+  .sk-pics figure:nth-child(4) {
+    margin-top: 72px;
+  }
+  .sk-pics figure:nth-child(5) {
+    margin-top: 96px;
   }
   figure img {
     width: 100%;
@@ -870,6 +976,7 @@
       height: auto;
     }
     .sk-in,
+    .fd-in,
     .two {
       grid-template-columns: 1fr;
       gap: 48px;
@@ -911,7 +1018,11 @@
       padding: 22px;
     }
     .sk-pics {
+      grid-template-columns: repeat(3, 1fr);
       gap: 10px;
+    }
+    .sk-pics figure {
+      margin-top: 0 !important;
     }
   }
 </style>

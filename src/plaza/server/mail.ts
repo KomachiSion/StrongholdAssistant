@@ -20,15 +20,15 @@ const FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microso
 const MONO = "ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace"
 export function codeMailHtml(code: string) {
  const link = (href: string, label: string) => `<a href="${href}" style="color:#0969da;text-decoration:none">${label}</a>`
- return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><title>卫戍协议助手验证码</title></head>
+ return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><title>高效雅雅·卫戍协议助手验证码</title></head>
 <body style="margin:0;padding:0;background:#f6f8fa;font-family:${FONT};color:#1f2328">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f6f8fa"><tr><td align="center" style="padding:32px 16px">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px">
  <tr><td align="center" style="padding-bottom:20px">
-  <img src="${SITE}/mail/logo.png" width="48" height="48" alt="卫戍协议助手" style="display:block;border:0;border-radius:10px">
+  <img src="${SITE}/mail/logo.png" width="48" height="48" alt="高效雅雅·卫戍协议助手" style="display:block;border:0;border-radius:10px">
  </td></tr>
  <tr><td style="background:#ffffff;border:1px solid #d1d9e0;border-radius:6px;padding:28px 32px">
-  <p style="margin:0 0 4px;font-size:13px;color:#59636e">卫戍协议助手 · 阵容广场</p>
+  <p style="margin:0 0 4px;font-size:13px;color:#59636e">高效雅雅·卫戍协议助手 · 阵容广场</p>
   <h1 style="margin:0 0 20px;padding-bottom:12px;border-bottom:1px solid #d1d9e0;font-size:22px;font-weight:600;line-height:1.3">登录验证码</h1>
   <p style="margin:0 0 16px;font-size:15px;line-height:1.6">在登录页输入下面的验证码就能继续：</p>
   <div style="margin:0 0 16px;padding:16px;background:#f6f8fa;border:1px solid #d1d9e0;border-radius:6px;text-align:center;font-family:${MONO};font-size:32px;font-weight:600;letter-spacing:8px;color:#1f2328">${code}</div>
@@ -43,7 +43,7 @@ export function codeMailHtml(code: string) {
 }
 
 export async function sendCodeMail(env: Env, email: string, code: string) {
- const text = `你的验证码是 ${code}，10 分钟内有效。\n如果不是你本人在登录卫戍协议助手的阵容广场，请忽略这封邮件。`
+ const text = `你的验证码是 ${code}，10 分钟内有效。\n如果不是你本人在登录高效雅雅·卫戍协议助手的阵容广场，请忽略这封邮件。`
  const html = codeMailHtml(code)
  let sent: Response, errorCode: unknown
  try {
@@ -51,7 +51,7 @@ export async function sendCodeMail(env: Env, email: string, code: string) {
    const params = {
     AccessKeyId: env.ALIYUN_DM_ACCESS_KEY_ID, AccountName: env.ALIYUN_DM_ACCOUNT,
     Action: 'SingleSendMail', AddressType: '1', ReplyToAddress: 'false', ToAddress: email,
-    Subject: `卫戍协议助手验证码：${code}`, HtmlBody: html, FromAlias: '卫戍协议助手', ClickTrace: '0',
+    Subject: `高效雅雅·卫戍协议助手验证码：${code}`, HtmlBody: html, FromAlias: '高效雅雅·卫戍协议助手', ClickTrace: '0',
     Format: 'JSON', Version: '2015-11-23', RegionId: 'cn-hangzhou',
     SignatureMethod: 'HMAC-SHA1', SignatureVersion: '1.0',
     SignatureNonce: crypto.randomUUID(), Timestamp: new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'),
@@ -70,7 +70,7 @@ export async function sendCodeMail(env: Env, email: string, code: string) {
   } else {
    sent = await fetch('https://api.resend.com/emails', {
     method: 'POST', headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from: env.MAIL_FROM, to: [email], subject: `卫戍协议助手登录验证码：${code}`, html, text }),
+    body: JSON.stringify({ from: env.MAIL_FROM, to: [email], subject: `高效雅雅·卫戍协议助手登录验证码：${code}`, html, text }),
    })
   }
  } catch {

@@ -73,6 +73,8 @@ foreach ($name in @('msvcp140.dll','msvcp140_1.dll','msvcp140_2.dll','msvcp140_a
     Copy-Item -LiteralPath (Join-Path ([Environment]::SystemDirectory) $name) -Destination (Join-Path $publish 'runtimes/win-x64/native')
 }
 Get-ChildItem -LiteralPath $publish -File -Recurse | Where-Object { $_.Extension -in @('.pdb', '.xml') -or $_.Name -eq 'createdump.exe' } | Remove-Item -Force
+# 产品只做图像匹配，不使用 OpenCV 视频解码插件。
+Get-ChildItem -LiteralPath $publish -File -Recurse -Filter 'opencv_videoio_ffmpeg*.dll' | Remove-Item -Force
 # Maa 的包通过内容复制带入所有平台文件；只裁剪本次生成的发布目录。
 $unused = @(Get-ChildItem -LiteralPath (Join-Path $publish 'runtimes') -Directory | Where-Object Name -ne 'win-x64')
 $unused += Get-Item -LiteralPath (Join-Path $publish 'MaaAgentBinary') -ErrorAction SilentlyContinue

@@ -204,6 +204,8 @@ public sealed class ShopReader(IOcrEngine engine, IReadOnlyList<string> catalogN
         if (_emptyReadings >= 2) Failure = $"商店卡片的名字没读出来。\n{OcrSummary(texts)}";
         AppLogger.Info("Shop", $"UI 缩放={k:F3}; 可见卡片={HasVisibleCards}; 识别名称={string.Join('|', items.Select(i => i.Name))}");
         AllItems = ShopLayout.Snap(items, width, height, k, theme);
+        // 卡片少时长边检测会漏掉整个商店；已读到收起控件和槽内名称也能确认展开。
+        HasVisibleCards |= AllItems.Count > 0;
         return AllItems.Where(i => trackedNames.Contains(i.Name)).ToArray();
     }
 

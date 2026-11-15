@@ -2,6 +2,8 @@ using System.Drawing;
 using ASPAssistant.Core.Data;
 using ASPAssistant.Core.Models;
 using ASPAssistant.Core.Services;
+using ASPAssistant.Core.Placement;
+using JsonDataStore = ASPAssistant.Core.Data.JsonDataStore;
 using ASPAssistant.Tests.Services;
 
 namespace StrongholdAssistant.Tests;
@@ -50,4 +52,103 @@ public sealed class FieldReaderTests(EnemyRecognitionFixture fixture)
             new(1, 0, 1, 0, true), false, false, []);
         Assert.Equal("慕斯", o.DragOperator); Assert.Empty(o.Cells);
     }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task EquipmentRowIsExcludedFromProductObservations(bool shopVisible)
+    {
+        var reader = await Reader();
+        var bytes = File.ReadAllBytes(Sample("prep-ready-1920x1080.png"));
+        using var bitmap = new Bitmap(Sample("prep-ready-1920x1080.png"));
+        var cells = reader.ReadCells(bitmap, null, shopVisible);
+        Assert.Contains(cells, p => p.Key.Zone == "board" && p.Key.Row == 3);
+        Assert.DoesNotContain(cells.Keys, c => c.Zone == "board" && c.Row == 4);
+        Assert.DoesNotContain(reader.OverlayGeometry!.Anchors.Keys, c => c.Zone == "board" && c.Row == 4);
+
+        var observation = await reader.ReadAsync(bytes, DateTimeOffset.UtcNow,
+            new(1, 0, 1, 0, true), true, shopVisible, []);
+        Assert.NotEmpty(observation.Cells);
+        Assert.DoesNotContain(observation.Cells.Keys, c => c.Zone == "board" && c.Row == 4);
+        Assert.DoesNotContain(observation.Sprites!.Keys, c => c.Zone == "board" && c.Row == 4);
+    }
+
+    [Theory]
+    [InlineData(1920, 0, 4)]
+    [InlineData(1280, 0, 4)]
+    [InlineData(1920, 60, 0)]
+    public async Task RecordedFourthTierIsReadOnlyAtItsBenchAnchor(int width, int shift, int expected)
+    {
+        var reader = await Reader();
+        using var sprite = new Bitmap(Sample("sprite-N29.png"));
+        using var frame = new Bitmap(1920, 1080);
+        using (var g = Graphics.FromImage(frame))
+        {
+            g.Clear(Color.Black);
+            // 已核实的四阶整备区图块；角标位于图块内约 (35, 49)。
+            g.DrawImageUnscaled(sprite, 219 + shift, 560);
+        }
+        using var scaled = new Bitmap(frame, width, width * 1080 / 1920);
+        var cells = reader.ReadCells(scaled, null, true);
+        Assert.Equal(expected, cells[new("bench", 1, 0)]);
+        Assert.Equal(expected == 0 ? 0 : 1, cells.Count(p => p.Value > 0));
+    }
+
+    [Fact]
+    public async Task RecordedBenchSummonCountDoesNotCountAsOperator()
+    {
+        var reader = await Reader();
+        using var equipment = new Bitmap(Sample("field-equipment-tier4.png"));
+        using var frame = new Bitmap(1920, 1080);
+        using (var g = Graphics.FromImage(frame))
+        {
+            g.Clear(Color.Black);
+            // 历史文件名误称装备；实际是夜莺召唤物，角标旁有 X2 数量标签。
+            g.DrawImageUnscaled(equipment, 218, 560);
+        }
+        Assert.DoesNotContain(reader.ReadCells(frame, null, true), p => p.Value > 0);
+    }
+
+    [Theory]
+    [InlineData(1920, "field-equipment-tier4.png")]
+    [InlineData(1280, "field-equipment-tier4.png")]
+    [InlineData(1920, "field-summon-side.png")]
+    public async Task BoardSummonTriangleIsExcludedWithoutAQuantityLabel(int width, string sample)
+    {
+        var reader = await Reader();
+        // 侧面令牌来自同一录屏 1404 秒；游戏画面归上海鹰角网络所有。
+        using var summon = new Bitmap(Sample(sample));
+        using var frame = new Bitmap(1920, 1080);
+        reader.ReadCells(frame, null, true);
+        var cell = new FieldCell("board", 5, 3);
+        var anchor = reader.OverlayGeometry!.Anchors[cell];
+        using (var g = Graphics.FromImage(frame))
+        {
+            // 仅保留角标与下方召唤物，遮去右侧数量标签，验证棋盘独立判据。
+            int x = (int)(anchor.X * 1920) - 35, y = (int)(anchor.Y * 1080) - 48;
+            g.DrawImageUnscaled(summon, x, y);
+            g.FillRectangle(Brushes.Black, x + 57, y + 24, 71, 42);
+        }
+        using var scaled = new Bitmap(frame, width, width * 1080 / 1920);
+        Assert.Equal(0, reader.ReadCells(scaled, null, true)[cell]);
+        Assert.DoesNotContain(cell, reader.OverlayGeometry!.Badges.Keys);
+    }
+
+    [Fact]
+    public async Task RecognizedMapOnlyReadsDeployableCellsAndUnknownMapKeepsAnchors()
+    {
+        var reader = await Reader();
+        var bytes = File.ReadAllBytes(Sample("field-57.jpg"));
+        using var bitmap = new Bitmap(Sample("field-57.jpg"));
+        var board = new BoardRecognizer(Data).Recognize(bytes)!;
+        var map = (await GarrisonBoardStore.LoadAsync(Data))!.Find(board.MapId)!;
+        reader.ReadCells(bitmap, board, true);
+        var known = reader.OverlayGeometry!.Anchors.Keys.Where(c => c.Zone == "board").ToArray();
+        Assert.NotEmpty(known);
+        Assert.All(known, c => Assert.True(GarrisonMap.CanDeploy(map.At(new(c.Col, c.Row)), false)));
+        reader.ReadCells(bitmap, null, true);
+        Assert.Equal(28, reader.OverlayGeometry!.Anchors.Keys.Count(c => c.Zone == "board"));
+        Assert.True(known.Length < 28);
+    }
+
 }

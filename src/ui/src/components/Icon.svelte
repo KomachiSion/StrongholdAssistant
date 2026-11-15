@@ -14,6 +14,7 @@
   import starFill from 'remixicon/icons/System/star-fill.svg?raw'
   import check from 'remixicon/icons/System/check-line.svg?raw'
   import arrowRight from 'remixicon/icons/Arrows/arrow-right-s-line.svg?raw'
+  import arrowLeft from 'remixicon/icons/Arrows/arrow-left-s-line.svg?raw'
   import arrowDown from 'remixicon/icons/Arrows/arrow-down-s-line.svg?raw'
   import arrowUp from 'remixicon/icons/Arrows/arrow-up-s-line.svg?raw'
   import contractLeft from 'remixicon/icons/Arrows/contract-left-line.svg?raw'
@@ -52,7 +53,7 @@
   import bell from 'remixicon/icons/Media/notification-3-line.svg?raw'
   import award from 'remixicon/icons/Business/award-line.svg?raw'
 
-  const icons = { settings, cloud, cloudOff, subtract, close, refresh, search, grid, focus, add, star, starFill, check, arrowRight, arrowDown, arrowUp, contractLeft, expandRight, pencil, trash, lock, lockFill, forbid, magic, scan, stop, heart, heartFill, pin, pinFill, download, upload, folder, share, paste, cut, copy, selectAll, chat, flag, reply, workbench, sidebar, history, chart, eye, eyeOff, bell, award, maximize, restore }
+  const icons = { settings, cloud, cloudOff, subtract, close, refresh, search, grid, focus, add, star, starFill, check, arrowRight, arrowLeft, arrowDown, arrowUp, contractLeft, expandRight, pencil, trash, lock, lockFill, forbid, magic, scan, stop, heart, heartFill, pin, pinFill, download, upload, folder, share, paste, cut, copy, selectAll, chat, flag, reply, workbench, sidebar, history, chart, eye, eyeOff, bell, award, maximize, restore }
   export type IconName = keyof typeof icons
 </script>
 

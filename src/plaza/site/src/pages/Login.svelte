@@ -143,7 +143,7 @@
     </div>
 
     {#if handedOff}
-      <p class="lead ok">登录成功，回到卫戍协议助手就好，这个窗口会自动关闭。</p>
+      <p class="lead ok">登录成功，回到高效雅雅就好，这个窗口会自动关闭。</p>
     {:else if step === 'email'}
       {#if mode !== 'reset'}
         <div class="tabs">
@@ -152,7 +152,7 @@
         </div>
       {/if}
       {#if mode === 'register'}
-        <p class="lead">用邮箱注册：我们发一封验证码邮件，验证后设一个密码，以后用邮箱和密码登录。登录后才能点赞；发布阵容在卫戍协议助手里操作。</p>
+        <p class="lead">用邮箱注册：我们发一封验证码邮件，验证后设一个密码，以后用邮箱和密码登录。登录后才能点赞；发布阵容在高效雅雅里操作。</p>
       {:else if mode === 'reset'}
         <p class="lead">我们往你的邮箱发一封验证码邮件，验证后设一个新密码。</p>
       {:else}

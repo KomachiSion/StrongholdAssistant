@@ -14,6 +14,9 @@
     <PublishSingleFile>true</PublishSingleFile>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(ForkPreview)' == 'true'">
+    <DefineConstants>$(DefineConstants);FORK_PREVIEW</DefineConstants>
+  </PropertyGroup>
   <ItemGroup>
     <Using Include="System.IO" />
     <Resource Include="../../branding/icon.ico" Link="icon.ico" />

@@ -29,7 +29,7 @@
   // 装备：通用装备 + 干员的候选装备；干员的优先装备描金框
   const eqs = $derived(lineupEquipment(lineup))
   const pri = $derived(new Set(members.flatMap((m) => m.equipment?.filter((x) => x.priority).map((x) => x.name) ?? [])))
-  const bannedHere = $derived(app.bannedIn({ members }))
+  const risk = $derived(app.lineupRisk(lineup))
   const strat = $derived(lineup.strategyId ? app.catalog.strategies.find((s) => s.id === lineup.strategyId) : null)
   const progress = $derived(goalProgress(lineup.goals, members, members.map((m) => m.name)))
 </script>
@@ -45,13 +45,22 @@
       <p>
         {#if strat}<span class="st"><img src={asset.strategy(strat.id)} alt="" />{strat.name}</span>{/if}
         {#if lineup.stages?.length}<span class="stg" title="卡片上是成型阵容；前面还有 {lineup.stages.length} 个回合阶段">{lineup.stages.length + 1} 阶段</span>{/if}
-        {#if bannedHere.length}<span class="bad">{bannedHere.length} 名本局禁用</span>{/if}
+
         {@render sub?.()}
       </p>
     </div>
-    {#if target}<span class="badge term">Target</span>{/if}
+    {#if target}<span class="badge term" title="当前选择置顶，不代表推荐">当前选择</span>{/if}
     {@render actions?.()}
   </header>
+  <div class="risk" class:bad={risk.rank > 0} aria-live="polite">
+    <b>{risk.label}</b>
+    {#if risk.keyBans.length}<span>关键被禁：{risk.keyBans.join('、')}</span>{/if}
+    {#if risk.otherBans.length}<span>普通成员被禁 {risk.otherBans.length} 名：{risk.otherBans.join('、')}</span>{/if}
+    {#if risk.affectedGoals.length}<span>目标盟约受限：{risk.affectedGoals.map(id => app.cov(id).name).join('、')}</span>{/if}
+    {#if !risk.hasKeys}<small>未配置关键干员，无法判断核心完整性</small>{/if}
+    <small>{risk.uncertain ? '禁用信息尚未核验完整，请补充识别；以上仅基于已知信息' : '按已知禁用信息评估，不代表保证可用'}</small>
+    {#if target}<small>当前选择置顶，不代表推荐</small>{/if}
+  </div>
   <div class="bonds">
     {#each progress as g (g.covenant.id)}
       {@const inc = app.matchCovenant(g.covenant.id)?.incomplete}
@@ -86,6 +95,8 @@
 </article>
 
 <style>
+  .risk { display: flex; flex-direction: column; gap: 3px; font-size: var(--fs-sm); overflow-wrap: anywhere; }
+  .risk small { color: var(--fg-3); }
   .ew {
     display: inline-flex;
   }

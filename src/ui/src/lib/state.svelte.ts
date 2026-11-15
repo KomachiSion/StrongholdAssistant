@@ -1,5 +1,6 @@
 // 界面状态：从 api 取数据，派生出各页要用的视图
 import { api } from './api'
+import { evaluateLineup, compareLineupRisk } from './lineup-risk'
 import { shareText } from './share'
 import { unseenNotes } from './changelog'
 import { plaza } from './plaza.svelte'
@@ -255,9 +256,11 @@ export class AppState {
   bannedIn(l: { members: LineupMember[] }) {
     return l.members.filter((m) => this.banned.has(m.name))
   }
-  /** 本局适不适合用这套阵容：目标盟约阵容不完整的个数优先，其次名单被禁人数；越小越好 */
-  lineupPenalty(l: Lineup) {
-    return l.goals.filter((g) => this.matchCovenant(g.id)?.incomplete).length * 100 + this.bannedIn(l).length
+  lineupRisk(l: Lineup) {
+    return evaluateLineup(l, this.match)
+  }
+  compareLineups(a: Lineup, b: Lineup) {
+    return compareLineupRisk(this.lineupRisk(a), this.lineupRisk(b))
   }
 
   private save() {

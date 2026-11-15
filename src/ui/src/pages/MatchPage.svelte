@@ -83,15 +83,12 @@
     pickingSt = false
     stq = ''
   }
-  // 目标阵容固定排第一个（不管本局合不合适，方便对照）；其余按目标盟约里阵容不完整的个数、再按名单被禁人数排序，一共取 3 套
-  // 工作台里够宽就排成三栏（宽度按页面自己量，侧栏里不会触发）
+  // 当前选择保留置顶供对照，不代表推荐；其余按关键/盟约/普通成员风险分组。
   let pageW = $state(0)
   const wide = $derived(app.workbench && pageW >= 960)
   const usable = $derived(
-    app.lineups
-      .map((l) => ({ l, bad: app.session.targetLineupId === l.id ? -Infinity : app.lineupPenalty(l) }))
-      .sort((a, b) => a.bad - b.bad)
-      .slice(0, 3),
+    [...app.lineups].sort((a, b) => +(app.session.targetLineupId === b.id) - +(app.session.targetLineupId === a.id) || app.compareLineups(a, b))
+      .slice(0, 3).map(l => ({ l })),
   )
 
   // 特别关注：本局阵容不完整的关注盟约、被禁的关注干员
@@ -460,7 +457,7 @@
 
 {#snippet bLineups()}
   <section>
-    <SectionHeader title="本局可用阵容" en="LINEUP PLANNER" ontoggle={fold('lineups')} folded={!open('lineups')}>
+    <SectionHeader title="本局阵容适配" en="LINEUP PLANNER" ontoggle={fold('lineups')} folded={!open('lineups')}>
       {#snippet icon()}
         <Icon name="grid" size={18} />
       {/snippet}

@@ -115,11 +115,11 @@
     st.strategy = null
   }
 
-  // 列表：自带攻略的换成阵容；「本局」在已读到的里按阵容适配度排（不完整盟约 × 100 + 被禁人数）
+  // 列表：自带攻略的换成阵容；「本局」在已读到的里按阵容适配度排（关键干员、盟约和普通成员风险）
   const cards = $derived(items.map((it) => ({ it, sk: it.guide ? guideToLineup(it.guide, app.catalog) : null })))
   const shown = $derived(
     st.sort === 'match' && isAll
-      ? [...cards].sort((a, b) => (a.sk ? app.lineupPenalty(a.sk.lineup) : 1e9) - (b.sk ? app.lineupPenalty(b.sk.lineup) : 1e9))
+      ? [...cards].sort((a, b) => a.sk && b.sk ? app.compareLineups(a.sk.lineup, b.sk.lineup) : +!a.sk - +!b.sk)
       : cards,
   )
   const num = (n: number) => (n >= 10000 ? `${(n / 10000).toFixed(1)}万` : String(n))

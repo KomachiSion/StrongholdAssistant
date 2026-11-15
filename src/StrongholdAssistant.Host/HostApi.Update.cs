@@ -19,6 +19,10 @@ public sealed partial class HostApi
 
     public async Task<object> CheckUpdateAsync()
     {
+#if FORK_PREVIEW
+        // Fork preview must not replace itself with upstream/MirrorChyan builds.
+        return ReportUpdate(new { state = "error", message = "Fork 试用版不支持应用内更新，请到 KomachiSion/StrongholdAssistant 的 Releases 手动下载。" });
+#else
         if (Volatile.Read(ref _downloadStatus) is { } downloading) return downloading;
         Updater.GetUpdateProxy = () => Settings.UpdateProxy;
         if (Updater.IsDevBuild) return new { state = "latest" };
@@ -35,6 +39,7 @@ public sealed partial class HostApi
         status["source"] = info.Source;
         if (info.Notes is { } notes) status["notes"] = notes;
         return ReportUpdate(status);
+#endif
     }
 
     public Task ApplyUpdateAsync()

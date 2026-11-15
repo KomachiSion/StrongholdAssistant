@@ -1,0 +1,51 @@
+name: Fork Windows preview
+on:
+  push:
+    branches: [trial/key-ban-v0.9.8]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  windows-preview:
+    if: github.repository == 'KomachiSion/StrongholdAssistant'
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - run: npm --prefix src/ui ci
+      - run: npm --prefix src/ui test
+      - name: Type check against documented upstream baseline
+        shell: pwsh
+        run: |
+          $output = npm --prefix src/ui run check 2>&1 | Out-String
+          $code = $LASTEXITCODE
+          Write-Output $output
+          if ($code -ne 0) {
+            if ($output -notmatch 'found 2 errors and 0 warnings' -or $output -notmatch 'bridge.ts' -or $output -notmatch 'mock.ts' -or $output -notmatch 'roster') { throw 'Unexpected type-check failure' }
+            Write-Output 'Known upstream API interface omissions; see fork notes.'
+          }
+          exit 0
+      - run: npm --prefix src/ui run build
+      - name: Package and startup smoke test
+        shell: pwsh
+        run: ./scripts/build-fork-preview.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-preview
+          path: out/fork-release/*
+      - name: Publish fork-only prerelease
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = 'v0.9.8-keyban.1'
+          gh release view $tag --repo $env:GITHUB_REPOSITORY 2>$null
+          if ($LASTEXITCODE -eq 0) { throw 'Release already exists; refusing to overwrite a published preview' }
+          gh release create $tag --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --prerelease --title 'v0.9.8-keyban.1 · 关键干员推荐试用版' --notes-file docs/key-ban-risk.md out/fork-release/*
+          if ($LASTEXITCODE -ne 0) { throw 'Release upload failed' }

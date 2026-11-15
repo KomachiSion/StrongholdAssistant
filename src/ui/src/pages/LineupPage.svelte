@@ -210,7 +210,7 @@
       </div>
     {/if}
     <div class="list">
-      {#each [...app.lineups].sort((a, b) => (compact ? +(app.session.targetLineupId === b.id) - +(app.session.targetLineupId === a.id) : 0) || app.lineupPenalty(a) - app.lineupPenalty(b)) as l (l.id)}
+      {#each [...app.lineups].sort((a, b) => (compact ? +(app.session.targetLineupId === b.id) - +(app.session.targetLineupId === a.id) : 0) || app.compareLineups(a, b)) as l (l.id)}
         {@const isT = app.session.targetLineupId === l.id}
         <LineupCard lineup={l} target={isT} headOnly={compact} ontitle={() => app.edit(l)}>
           {#snippet sub()}{#if l.note}<span class="note">{l.note}</span>{/if}{/snippet}

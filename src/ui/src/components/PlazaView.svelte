@@ -118,13 +118,13 @@
     plaza.check()
   })
 
-  // 本局排序在本地算：只看当期能导入的，按阵容适配度（不完整盟约 × 100 + 被禁人数）排，热度次之
+  // 本局排序在本地算：只看当期能导入的，按关键干员、盟约和普通成员风险排，同级保留原顺序
   const shown = $derived(
     sort === 'match'
       ? posts
           .filter((p) => p.current)
-          .map((p) => ({ p, pen: app.lineupPenalty(postToLineup(p)) }))
-          .sort((a, b) => a.pen - b.pen)
+          .map((p) => ({ p, lineup: postToLineup(p) }))
+          .sort((a, b) => app.compareLineups(a.lineup, b.lineup))
           .map((x) => x.p)
       : posts,
   )

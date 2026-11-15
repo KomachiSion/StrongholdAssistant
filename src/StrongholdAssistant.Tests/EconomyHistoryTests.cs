@@ -28,7 +28,7 @@ public sealed class EconomyHistoryTests : IDisposable
         Open(api);
         Read(api, 11, 20);
         var previous = api.Match.Economy;
-        foreach (int invalid in new[] { 112, 0, 16 })
+        foreach (int invalid in new[] { 112, 0, 21 })
         {
             Read(api, invalid, 1);
             Assert.Equal(previous, api.Match.Economy);
@@ -132,7 +132,7 @@ public sealed class EconomyHistoryTests : IDisposable
         Assert.Equal(10, api.Match.Economy.StartMoney);
         Open(api);
         Read(api, 1, 3);
-        Assert.Equal(7, api.Match.Economy!.Next);
+        Assert.Equal(5, api.Match.Economy!.Next);
         Read(api, 2, 6);
         foreach (var strategy in new[] { "band_cannot", "band_lmlee", "band_mlynar", "band_fund", "band_protect", "band_treasure", "band_ducklord", "band_siracusa" })
         {
@@ -143,9 +143,9 @@ public sealed class EconomyHistoryTests : IDisposable
         api = await CreateApi();
         Open(api);
         Read(api, 1, 8);
-        Assert.Equal("own", api.Match.Economy!.Basis);
-        Assert.Equal(5, api.Match.Economy.Extra);
-        Assert.Equal(11, api.Match.Economy.Next);
+        Assert.Equal("table", api.Match.Economy!.Basis);
+        Assert.Equal(4, api.Match.Economy.Extra);
+        Assert.Equal(9, api.Match.Economy.Next);
         Assert.Empty(api.Match.Economy.Incomes);
     }
 
@@ -156,13 +156,55 @@ public sealed class EconomyHistoryTests : IDisposable
         api.ApplyRecognizedMatch(api.Match with { Mode = new("mode_single_1", "规程等级1") }, []);
         Read(api, 8, 2);
         Assert.Null(api.Match.Economy!.StartMoney);
-        Assert.Equal("none", api.Match.Economy.Basis);
+        Assert.Equal("table", api.Match.Economy.Basis);
         Read(api, 9, null);
         Read(api, 9, 12);
         Assert.Equal(12, api.Match.Economy.StartMoney);
         Assert.Equal(new RoundMoney(9, 12), Assert.Single(Assert.Single(api.History()).Local!.Rounds));
         api.ObserveEconomy(new(10, 5, null, null, false));
         Assert.Equal(9, api.Match.Economy.Round);
+    }
+
+    [Fact]
+    public async Task FixedTableWorksWithoutModeAndMissingNextRoundHasNoPrediction()
+    {
+        var api = await CreateApi();
+        Read(api, 1, 4);
+        Assert.Equal(5, api.Match.Economy!.Next);
+        Assert.Equal("table", api.Match.Economy.Basis);
+        Read(api, 3, 6);
+        Assert.Equal(7, api.Match.Economy.Next);
+        Assert.False(api.Match.Economy.Estimated);
+        Read(api, 6, 9);
+        Assert.Equal(10, api.Match.Economy.Next);
+        Assert.Equal("table", api.Match.Economy.Basis);
+        Assert.True(api.Match.Economy.Estimated);
+        Read(api, 20, 11);
+        Assert.Null(api.Match.Economy.Next);
+        Assert.Equal("none", api.Match.Economy.Basis);
+        Assert.False(api.Match.Economy.Estimated);
+    }
+
+    [Fact]
+    public async Task StartingMoneyWaitsForStableNonDecreasingValueAndIgnores112()
+    {
+        var api = await CreateApi();
+        Open(api);
+        Read(api, 5, 8);
+        void Tick(int round, int money) => api.ObserveEconomy(new(round, money, 1, 5, true));
+        Tick(112, 1);
+        Assert.Equal(5, api.Match.Economy!.Round);
+        Tick(6, 1);
+        Tick(6, 9);
+        Tick(6, 9);
+        Assert.Equal(9, api.Match.Economy.StartMoney);
+        Tick(7, 12);
+        Tick(7, 11);
+        Tick(7, 11);
+        Assert.Null(api.Match.Economy.StartMoney);
+        Tick(7, 12);
+        Tick(7, 12);
+        Assert.Equal(12, api.Match.Economy.StartMoney);
     }
 
     [Fact]

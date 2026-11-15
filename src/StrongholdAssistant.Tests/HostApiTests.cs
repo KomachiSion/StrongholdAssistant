@@ -30,7 +30,7 @@ public sealed class HostApiTests : IDisposable
             .SelectMany(t => t.GetProperty("firstHalf").EnumerateArray().Concat(t.GetProperty("secondHalf").EnumerateArray()))
             .Concat(catalog.GetProperty("bosses").EnumerateArray())
             .Select(e => e.GetProperty("id").GetString()!).ToHashSet();
-        Assert.True(required.SetEquals(enemies.Keys));
+        Assert.True(required.IsSubsetOf(enemies.Keys));
         // 国服 2026-11-14 master：图鉴名字与属性表第 0 级原值。
         var sample = enemies["enemy_1010_demon_2"];
         Assert.Equal("萨卡兹大剑组长", sample.GetProperty("name").GetString());

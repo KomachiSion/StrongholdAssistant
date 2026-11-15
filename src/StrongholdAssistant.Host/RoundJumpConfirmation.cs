@@ -14,7 +14,9 @@ internal sealed class RoundJumpConfirmation
             return true;
         }
         if (_candidate != round) { _candidate = round; _frames = 0; _since = now; }
-        return ++_frames >= 5 && now - _since >= TimeSpan.FromSeconds(3);
+        ++_frames;
+        if (round >= previous + 2 && round <= previous + 3) return _frames >= 2;
+        return _frames >= 5 && now - _since >= TimeSpan.FromSeconds(3);
     }
 
     public void Reset() { _candidate = null; _frames = 0; }

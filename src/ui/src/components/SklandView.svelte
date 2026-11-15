@@ -296,7 +296,7 @@
   .secs button[role='tab'].on {
     color: var(--fg-0);
     font-weight: var(--fw-bold);
-    box-shadow: inset 0 -2px 0 var(--mint);
+    box-shadow: inset 0 calc(var(--edge) * -1) 0 var(--mint);
   }
   .web {
     margin-left: auto;
@@ -364,7 +364,7 @@
     color: var(--fg-2);
     background: var(--bg-2);
   }
-  .sorts button:hover:not(:disabled) {
+  .sorts button:hover:not(:disabled, .on) {
     color: var(--fg-1);
   }
   .sorts button.on {
@@ -417,7 +417,7 @@
     margin-bottom: 10px;
     padding: 8px 10px 10px;
     background: var(--bg-1);
-    box-shadow: inset 2px 0 0 var(--mint-lo);
+    box-shadow: inset var(--edge) 0 0 var(--mint-lo);
   }
   .fh {
     display: flex;

@@ -95,6 +95,7 @@ public partial class MainWindow
         _source = HwndSource.FromHwnd(new WindowInteropHelper(this).Handle);
         _source.AddHook(OnWindowMessage);
         InitializeHotkey();
+        StateChanged += OnWindowStateChanged;
         if (_api.StartupWorkbench) SetWorkbench(true);
         LocationChanged += (_, _) => RememberWorkbenchBounds();
         SizeChanged += (_, _) => RememberWorkbenchBounds();
@@ -143,6 +144,8 @@ public partial class MainWindow
         _scanner.ThemeDetected += reading => Dispatcher.Invoke(() => _api.ObserveTheme(reading));
         _api.InitializeBoardRoutes(data);
         _api.InitializeField(data, scanOcr);
+        _api.InitializeMatchReading(data, scanOcr);
+        _scanner.ObserveMatchFrameAsync = _api.ObserveMatchFrameAsync;
         _api.FieldCursorRegion = () =>
         {
             if (_tracker.CurrentViewport is not { } viewport || !User32.GetCursorPos(out var point)) return null;
@@ -321,6 +324,7 @@ public partial class MainWindow
 
     private IntPtr OnWindowMessage(IntPtr hwnd, int message, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
+        if (HandleWorkbenchMessage(hwnd, message, wParam, lParam, ref handled)) return IntPtr.Zero;
         if (message == User32.WM_HOTKEY && wParam.ToInt32() == 3)
         {
             handled = true;
@@ -376,9 +380,14 @@ public partial class MainWindow
         if (_workbench)
         {
             MaxWidth = double.PositiveInfinity;
-            var minimum = WorkbenchGeometry.MinimumSize(CurrentWorkArea());
+            var minimum = WorkbenchGeometry.MinimumSize(CurrentWorkArea(), _uiScale);
             MinWidth = minimum.Width; MinHeight = minimum.Height;
             ResizeMode = ResizeMode.CanResize;
+            if (WindowState == WindowState.Normal)
+            {
+                Width = Math.Max(Width, MinWidth);
+                Height = Math.Max(Height, MinHeight);
+            }
             if (Browser.CoreWebView2 is not null) Browser.ZoomFactor = _uiScale;
             Topmost = _api.Settings.AlwaysOnTop;
             return;
@@ -392,7 +401,7 @@ public partial class MainWindow
                 : WindowGeometry.PanelWidth(_dock.Width, _uiScale, _collapsed);
             if (_collapsed && _collapseUpHeight is { } height) Height = height * _uiScale;
         }
-        ResizeMode = _collapsed ? ResizeMode.NoResize : ResizeMode.CanResize;
+        ResizeMode = ResizeMode.CanMinimize;
         if (Browser.CoreWebView2 is not null) Browser.ZoomFactor = _uiScale;
         Splash.LayoutTransform = new System.Windows.Media.ScaleTransform(_uiScale, _uiScale);
         // 覆盖模式（全屏或旁边放不下）盖在游戏上，不置顶会被游戏挡住，所以总是置顶；其余按用户的置顶设置

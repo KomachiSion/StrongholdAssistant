@@ -66,7 +66,7 @@
       const p = post!
       plaza.imported(p.id).catch(() => {})
       plaza.viewing = null
-      await app.importLineup(postToLineup(p), asTarget)
+      await app.importLineup(postToLineup(p), asTarget, true)
     })
   const like = () =>
     run(async () => {
@@ -397,7 +397,7 @@
     user-select: text;
     color: var(--fg-1);
     background: var(--well);
-    box-shadow: inset 2px 0 0 var(--mint-lo);
+    box-shadow: inset var(--edge) 0 0 var(--mint-lo);
   }
   .stats {
     display: flex;
@@ -466,7 +466,7 @@
   .r.on {
     color: var(--fg-1);
     background: var(--bg-3);
-    box-shadow: inset 2px 0 0 var(--mint);
+    box-shadow: inset var(--edge) 0 0 var(--mint);
   }
   .dot {
     width: 11px;
@@ -491,7 +491,7 @@
     padding: 6px 8px;
     color: var(--gold);
     background: rgb(var(--gold-rgb) / 0.08);
-    box-shadow: inset 2px 0 0 var(--gold);
+    box-shadow: inset var(--edge) 0 0 var(--gold);
   }
   .acct {
     display: flex;
@@ -500,7 +500,7 @@
     gap: 8px;
     padding: 10px;
     background: var(--well);
-    box-shadow: inset 2px 0 0 var(--mint);
+    box-shadow: inset var(--edge) 0 0 var(--mint);
   }
   .acct p {
     margin: 0;
@@ -567,7 +567,7 @@
     color: var(--red-fg);
     padding: 6px 8px;
     background: var(--red-tint);
-    box-shadow: inset 2px 0 0 var(--red);
+    box-shadow: inset var(--edge) 0 0 var(--red);
   }
   /* margin-top: auto：工作台里面板是右侧全高，内容少时底栏也贴底边 */
   /* 内容区自己滚；底部按钮栏固定在下面 */
@@ -614,7 +614,7 @@
   }
   .n.new {
     background: color-mix(in srgb, var(--mint) 8%, transparent);
-    box-shadow: inset 2px 0 0 var(--mint);
+    box-shadow: inset var(--edge) 0 0 var(--mint);
   }
   .ni {
     display: grid;
@@ -661,7 +661,7 @@
     line-height: 1.6;
     color: var(--fg-2);
     background: var(--well);
-    box-shadow: inset 2px 0 0 var(--line);
+    box-shadow: inset var(--edge) 0 0 var(--line);
     display: -webkit-box;
     -webkit-line-clamp: 3;
     line-clamp: 3;

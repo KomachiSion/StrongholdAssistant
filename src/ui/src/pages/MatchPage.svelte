@@ -37,6 +37,8 @@
     app.showToast(on ? '已打开敌人路线：休整期在棋盘上画本回合路线' : '已关闭敌人路线')
   }
   let openType = $state<string | null>(null)
+  // 本回合敌人（149）：只认和当前回合对得上的那份；读到的是上一回合的就当这回合还没看
+  const roundEn = $derived(m.roundEnemies && m.economy && m.roundEnemies.round === m.economy.round ? m.roundEnemies : null)
   const setRoutes = (patch: Partial<typeof app.settings.routes>) => {
     app.settings.routes = { ...app.settings.routes, ...patch }
     app.saveSettings()
@@ -245,13 +247,13 @@
     <button class="strategy" title="点一下换策略" onclick={() => (pickingSt = true)}>
       <img src={asset.strategy(strategy.id)} alt="" />
       <div>
-        <div class="sn"><b>{strategy.name}</b><span>{strategy.initiator}</span></div>
+        <div class="sn"><b>{strategy.name}</b><span>{strategy.initiator}</span>{#if m.strategySource === 'recognized'}<em class="auto">自动识别</em>{/if}</div>
         <p>{strategy.description}</p>
       </div>
     </button>
   {:else if m.source !== 'none'}
     <button class="stnone" onclick={() => (pickingSt = true)}>
-      <Icon name="add" size={14} />选本局策略<em>识别读不到策略；选上后资金预测会按策略算</em>
+      <Icon name="add" size={14} />选本局策略<em>进了对局会自动认出，也可以先自己选；资金预测会按策略算</em>
     </button>
   {/if}
 {/snippet}
@@ -386,6 +388,32 @@
     </SectionHeader>
     {#if open('enemy')}
     <div class="enemy" transition:slide={sl}>
+      {#if roundEn}
+        <div class="rnd">
+          <span class="vlabel">第 {roundEn.round} 回合敌人<small>{roundEn.enemies.length} 种 · 游戏里敌人列表读到的</small></span>
+          <div class="vgrid">
+            {#each roundEn.enemies as e, i (e.name + i)}
+              {#if e.id}
+                <button class="vitem" title="{e.name}：点开看资料" onclick={() => (app.detail = { kind: 'enemy', id: e.id! })}>
+                  <span class="vimg"><img src={asset.enemy(e.id)} alt="" onerror={(ev) => ev.currentTarget.classList.add('miss')} /><b>{e.name.slice(0, 1)}</b></span>
+                  <span class="vname">{e.name}</span>
+                </button>
+              {:else}
+                <span class="vitem" title="资料里没有这个名字">
+                  <span class="vimg"><b>{e.name.slice(0, 1)}</b></span>
+                  <span class="vname">{e.name}</span>
+                </span>
+              {/if}
+            {/each}
+          </div>
+        </div>
+      {:else if m.economy}
+        <!-- 这回合还没读到：提醒玩家在游戏里点一下（用户 2026-11-15：每回合提醒点「看怪物」） -->
+        <div class="rhint">
+          <Icon name="search" size={14} />
+          <span>第 {m.economy.round} 回合：点游戏里<b>回合数右边的放大镜</b>打开敌人列表，助手会读下来</span>
+        </div>
+      {/if}
       {#if boss}
         <button class="boss" onclick={() => (app.detail = { kind: 'boss', id: boss.id })}>
           <span class="bpic"><img src={asset.boss(boss.id)} alt="" /></span>
@@ -553,7 +581,7 @@
     color: var(--fg-2);
     padding: 8px 10px 8px 12px;
     background: rgb(var(--gold-rgb) / 0.07);
-    box-shadow: inset 2px 0 0 var(--gold);
+    box-shadow: inset var(--edge) 0 0 var(--gold);
   }
   .sg-h {
     font-weight: var(--fw-bold);
@@ -636,7 +664,7 @@
     color: var(--mint);
     padding: 6px 8px;
     background: var(--mint-tint);
-    box-shadow: inset 2px 0 0 var(--mint);
+    box-shadow: inset var(--edge) 0 0 var(--mint);
   }
   .note span {
     flex: 1;
@@ -665,13 +693,13 @@
     align-items: center;
     color: var(--gold);
     background: rgb(var(--gold-rgb) / 0.08);
-    box-shadow: inset 2px 0 0 var(--gold);
+    box-shadow: inset var(--edge) 0 0 var(--gold);
   }
   .focus.bad {
     flex-direction: column;
     color: var(--red-fg);
     background: var(--red-tint);
-    box-shadow: inset 2px 0 0 var(--red);
+    box-shadow: inset var(--edge) 0 0 var(--red);
   }
   .fh {
     display: flex;
@@ -709,7 +737,7 @@
     color: var(--mint);
     padding: 6px 8px;
     background: var(--mint-tint);
-    box-shadow: inset 2px 0 0 var(--mint);
+    box-shadow: inset var(--edge) 0 0 var(--mint);
   }
   .editing {
     outline: 1px dashed rgb(var(--mint-rgb) / 0.45);
@@ -815,6 +843,13 @@
   .sn span {
     font-size: var(--fs-sm);
     color: var(--fg-3);
+  }
+  .sn .auto {
+    font-style: normal;
+    font-size: var(--fs-2xs);
+    color: var(--mint);
+    padding: 0 4px;
+    box-shadow: inset 0 0 0 1px rgb(var(--hl-rgb) / 0.35);
   }
   .strategy p {
     margin: 1px 0 0;
@@ -1107,6 +1142,23 @@
   .vlabel small {
     font-weight: var(--fw-base);
     color: var(--fg-4);
+  }
+  .rnd {
+    padding: 6px 8px 8px;
+    background: var(--bg-1);
+  }
+  .rhint {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 9px;
+    font-size: var(--fs-sm);
+    color: var(--fg-3);
+    border: 1px dashed var(--line);
+  }
+  .rhint b {
+    color: var(--fg-1);
+    font-weight: var(--fw-semi);
   }
   .vgrid {
     display: grid;

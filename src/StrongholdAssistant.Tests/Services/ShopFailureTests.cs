@@ -47,7 +47,23 @@ public class ShopFailureTests(EnemyRecognitionFixture fixture)
         Assert.Null(reader.Failure);
     }
 
-    private static async Task<List<string>> ScanShopAsync(ShopReader reader, IOcrEngine engine, byte[] bytes)
+    [Fact]
+    public async Task EmptyThenReadableDoesNotReportFailure()
+    {
+        var ocr = new Mock<IOcrEngine>();
+        List<OcrTextResult> texts = [new("收起", (3500, 370, 160, 60))];
+        ocr.Setup(e => e.RecognizeRegionAsync(It.IsAny<byte[]>(), It.IsAny<int>(), It.IsAny<int>(),
+            It.IsAny<int>(), It.IsAny<int>()))
+            .ReturnsAsync(() => texts);
+        var reader = new ShopReader(ocr.Object, ["山"]) { Theme = GameShopTheme.Closure };
+        var bytes = await File.ReadAllBytesAsync(Path.Combine(AppContext.BaseDirectory, "TestData", "shop-tier4-gray.png"));
+        Assert.Empty(await ScanShopAsync(reader, ocr.Object, bytes, expectItems: true,
+            beforeSecond: () => texts.Add(new("山", (740, 390, 40, 40)))));
+        Assert.Null(reader.Failure);
+        Assert.Single(reader.AllItems);
+    }
+
+    private static async Task<List<string>> ScanShopAsync(ShopReader reader, IOcrEngine engine, byte[] bytes, bool expectItems = false, Action? beforeSecond = null)
     {
         var state = new ASPAssistant.Core.GameState.GameState();
         using var scanner = new OcrScannerService(new ScreenCaptureService(), new GarrisonOcrStrategy(),
@@ -58,6 +74,12 @@ public class ShopFailureTests(EnemyRecognitionFixture fixture)
         await (Task)typeof(OcrScannerService).GetMethod("ScanFrameAsync", BindingFlags.Instance | BindingFlags.NonPublic)!
             .Invoke(scanner, [bytes, 1920, 1080, DateTimeOffset.UtcNow, 0d, null, 0d])!;
         Assert.Empty(state.ShopItems);
+        Assert.Null(reader.Failure);
+        Assert.Empty(failures);
+        beforeSecond?.Invoke();
+        await (Task)typeof(OcrScannerService).GetMethod("ScanFrameAsync", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(scanner, [bytes, 1920, 1080, DateTimeOffset.UtcNow, 0d, null, 0d])!;
+        if (!expectItems) Assert.Empty(state.ShopItems);
         return failures;
     }
 }

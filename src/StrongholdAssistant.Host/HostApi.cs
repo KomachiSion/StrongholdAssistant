@@ -103,6 +103,9 @@ public sealed partial class HostApi
                 if (extra[category]![entry![category == "bosses" ? "id" : "name"]!.GetValue<string>()] is JsonObject fields)
                     foreach (var field in fields) entry[field.Key] = field.Value?.DeepClone();
         var api = new HostApi(userDirectory, ids, operators, covenants, JsonSerializer.SerializeToElement(merged, JsonOptions));
+        using var roundIncome = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(dataDirectory, "round_income.json")));
+        api._roundIncome = roundIncome.RootElement.GetProperty("default").Deserialize<Dictionary<int, int>>()!;
+        api._estimatedIncomeRounds = roundIncome.RootElement.GetProperty("estimated").Deserialize<HashSet<int>>()!;
         api._modes = extra["modes"]!.Deserialize<GameModeInfo[]>(JsonOptions)!;
         api.SettingsStore = new HostSettingsStore(Path.Combine(userDirectory, "settings.json"));
         api.Settings = api.SettingsStore.LoadSettings();
@@ -331,6 +334,7 @@ public sealed partial class HostApi
         await _scanGate.WaitAsync();
         try
         {
+            ResetMatchReading();
             ResetField();
             lock (_historyGate)
             {

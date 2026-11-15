@@ -4,6 +4,7 @@
   import { app, type SettingsTab } from '../lib/state.svelte'
   import Seg from './Seg.svelte'
   import { fontStack } from '../lib/fonts'
+  import { ACCENTS } from '../lib/accent'
   import { api, type BackupSummary, type GameTheme, type ImportMode, type EmulatorInstance, type Settings, type UiSkin, type MarkerStyle } from '../lib/api'
   import Icon from './Icon.svelte'
   import NotesList from './NotesList.svelte'
@@ -21,6 +22,22 @@
     { id: 'follow', name: '跟随游戏主题', note: '默认' },
     ...themes.map((t) => ({ ...t, note: '' })),
     { id: 'classic', name: '经典', note: '助手原来的样子' },
+    // 不照游戏做的通用风格（v0.9.8），各有深色、浅色
+    { id: 'glass', name: '毛玻璃', note: '通用软件风格，深色 / 浅色' },
+    { id: 'round', name: '圆润', note: '圆角胶囊按钮，深色 / 浅色' },
+  ]
+  // 自选颜色：拖动取色器时连续触发，最后一次才保存
+  let accentTimer: ReturnType<typeof setTimeout> | undefined
+  const pickAccent = (v: string) => {
+    app.settings.uiAccent = v.toLowerCase()
+    clearTimeout(accentTimer)
+    accentTimer = setTimeout(() => app.saveSettings(), 300)
+  }
+  const customAccent = $derived(!!app.settings.uiAccent && !ACCENTS.some((a) => a.v === app.settings.uiAccent))
+  const schemes: { v: Settings['uiScheme']; label: string }[] = [
+    { v: 'system', label: '跟随系统' },
+    { v: 'dark', label: '深色' },
+    { v: 'light', label: '浅色' },
   ]
   const scales: { v: 'auto' | number; label: string }[] = [
     { v: 'auto', label: '自动' },
@@ -530,6 +547,36 @@
           </button>
         {/each}
       </div>
+      {#if app.settings.uiSkin === 'glass' || app.settings.uiSkin === 'round'}
+        <div class="scheme">
+          <span>配色</span>
+          <div class="scales">
+            {#each schemes as c (c.v)}
+              <button class:on={app.settings.uiScheme === c.v} onclick={() => set('uiScheme', c.v)}>{c.label}</button>
+            {/each}
+          </div>
+        </div>
+        <div class="scheme">
+          <span>主题色</span>
+          <div class="accents">
+            {#each ACCENTS as a (a.v)}
+              <button
+                class="acc"
+                class:def={!a.v}
+                class:on={app.settings.uiAccent === a.v}
+                style:--sw={a.v || undefined}
+                title={a.name}
+                aria-label={a.name}
+                onclick={() => set('uiAccent', a.v)}
+              ></button>
+            {/each}
+            <!-- 自选：系统取色器 -->
+            <label class="acc pick" class:on={customAccent} style:--sw={customAccent ? app.settings.uiAccent : undefined} title="自选颜色">
+              <input type="color" value={app.settings.uiAccent || '#3b82f6'} oninput={(e) => pickAccent(e.currentTarget.value)} />
+            </label>
+          </div>
+        </div>
+      {/if}
     </section>
 
     <section>
@@ -1049,7 +1096,7 @@
   .themes button.on {
     color: var(--fg-1);
     background: linear-gradient(90deg, var(--mint-tint), transparent 70%), var(--bg-2);
-    box-shadow: inset 2px 0 0 var(--mint);
+    box-shadow: inset var(--edge) 0 0 var(--mint);
   }
   .themes b {
     font-size: var(--fs-md);
@@ -1063,6 +1110,55 @@
     display: grid;
     grid-template-columns: repeat(6, 1fr);
     gap: 2px;
+  }
+  /* 通用风格主题的配色：主题列表下面一行 */
+  .scheme {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 8px;
+    font-size: var(--fs-base);
+    color: var(--fg-2);
+  }
+  .accents {
+    flex: 1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  /* 色块：圆点；选中的外面一圈 */
+  .acc {
+    position: relative;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--sw);
+    box-shadow: inset 0 0 0 1px rgb(var(--shade-rgb) / 0.15);
+    cursor: pointer;
+  }
+  .acc.on {
+    box-shadow:
+      0 0 0 2px var(--bg-1),
+      0 0 0 3.5px var(--fg-2);
+  }
+  /* 主题默认：一半主题蓝一半主题紫 */
+  .acc.def {
+    background: conic-gradient(#3b82f6 0 50%, #8b5cf6 0);
+  }
+  /* 自选：没选时是彩虹圈 */
+  .acc.pick {
+    background: var(--sw, conic-gradient(#ef4444, #eab308, #22c55e, #14b8a6, #3b82f6, #8b5cf6, #ec4899, #ef4444));
+    overflow: hidden;
+  }
+  .acc.pick input {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+  .scheme .scales {
+    flex: 1;
+    grid-template-columns: repeat(3, 1fr);
   }
   .scales.grow {
     flex: 1;
@@ -1410,7 +1506,7 @@
   }
   .fscroll button.on {
     color: var(--mint);
-    box-shadow: inset 2px 0 0 var(--mint);
+    box-shadow: inset var(--edge) 0 0 var(--mint);
   }
   .cdk input {
     flex: 1;
@@ -1511,7 +1607,7 @@
     gap: 8px;
     padding: 8px;
     background: var(--bg-1);
-    box-shadow: inset 2px 0 0 var(--mint);
+    box-shadow: inset var(--edge) 0 0 var(--mint);
   }
   .imp p {
     margin: 0;
@@ -1537,7 +1633,7 @@
   }
   .modes button.on {
     color: var(--fg-1);
-    box-shadow: inset 2px 0 0 var(--mint);
+    box-shadow: inset var(--edge) 0 0 var(--mint);
   }
   .modes .radio {
     flex: none;

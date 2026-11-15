@@ -110,6 +110,11 @@ function computeMatch(source: MatchInfo['source'], recognizedAt: string): MatchI
     bannedOperators: [...banned],
     bossId: 'enemy_1521_dslily',
     enemyTypes: ['REBORN', 'INVISIBLE', 'DOT'],
+    strategySource: 'recognized',
+    // ?renemy=0 看「本回合还没读到」的提醒
+    roundEnemies: new URLSearchParams(location.search).get('renemy') === '0' ? null
+      : { round: 6, at: new Date().toISOString(), enemies: [{ id: 'enemy_1010_demon_2', name: '萨卡兹大剑组长' }, { id: null, name: '源石虫' }, { id: null, name: '宿主士兵' }] },
+    customPicks: { 5: ['凯尔希·思衡托'], 6: [] },
     banGroups: g.groups,
     solo: false,
     awaitingDetail: false,
@@ -119,6 +124,7 @@ function computeMatch(source: MatchInfo['source'], recognizedAt: string): MatchI
   }
 }
 // 回合与资金：?econ=carry|deferred|kazimier|random 换策略规则，?econ=none 没有基础资金数据
+const maxListeners = new Set<(m: boolean) => void>()
 let incomes: Income[] = [{ id: 'i-1', source: '精打细算玩偶', elite: false, amount: 1, kind: 'each', round: 4 }]
 function economy(): Economy {
   const q = new URLSearchParams(location.search).get('econ')
@@ -135,10 +141,11 @@ function economy(): Economy {
     extra: 1,
     incomes,
     rule,
-    basis: q === 'none' ? 'none' : 'own',
+    basis: q === 'none' ? 'none' : 'table',
+    estimated: q !== 'none',
   }
 }
-const emptyMatch = (): MatchInfo => ({ source: 'none', strategyId: null, covenants: [], bannedOperators: [], bossId: null, enemyTypes: [], banGroups: [], solo: false, awaitingDetail: false, bansScanned: false, mode: null, economy: null })
+const emptyMatch = (): MatchInfo => ({ source: 'none', strategyId: null, covenants: [], bannedOperators: [], bossId: null, enemyTypes: [], banGroups: [], solo: false, awaitingDetail: false, bansScanned: false, mode: null, economy: null, strategySource: null, roundEnemies: null, customPicks: null })
 // ?solo：单人开局后、还没读到对局详情的状态
 let match: MatchInfo = location.search.includes('solo')
   ? { ...emptyMatch(), solo: true, awaitingDetail: true }
@@ -194,6 +201,8 @@ let settings: Settings = {
   uiFont: '',
   uiFontWeight: 'normal',
   uiSkin: (new URLSearchParams(location.search).get('skin') as Settings['uiSkin'] | null) ?? 'follow', // ?skin=ursus：官网截图用
+  uiScheme: (new URLSearchParams(location.search).get('scheme') as Settings['uiScheme'] | null) ?? 'system', // ?scheme=light
+  uiAccent: new URLSearchParams(location.search).get('accent') ?? '', // ?accent=%2322c55e
   shopMarkers: true,
   shopScanSpeed: 'normal',
   routes: { enabled: false, display: 'always', peekSeconds: 6, hotkey: 'Alt+R', overlap: 'cycle', cycleSeconds: 2.2, fly: 'main', side: 'auto' },
@@ -348,7 +357,7 @@ export const mockApi: Api = {
     continuousTimer = window.setInterval(tick, 1000)
   },
   setMatchStrategy: async (id) => {
-    match = { ...match, strategyId: id }
+    match = { ...match, strategyId: id, strategySource: id ? 'manual' : null }
     return wait(match, 0)
   },
   setCovenantIncomplete: (id, v) => {
@@ -404,7 +413,14 @@ export const mockApi: Api = {
   saveSession: async (s) => {
     session = structuredClone(s)
   },
-  windowCommand: async () => {},
+  windowCommand: async (cmd) => {
+    if (cmd === 'maximize' || cmd === 'restore') for (const cb of maxListeners) cb(cmd === 'maximize')
+  },
+  resizeWindow: async () => {},
+  onMaximized: (cb) => {
+    maxListeners.add(cb)
+    return () => maxListeners.delete(cb)
+  },
   // 原型里 F2 当作全局快捷键；?hotkeyBusy：改快捷键总是被占用
   exportDiagnostics: () => wait(String.raw`C:\Users\你\Desktop\卫戍协议助手-诊断-2026-11-12.zip`, 600),
   setHotkey: async (combo) => {

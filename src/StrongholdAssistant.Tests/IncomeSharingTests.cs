@@ -85,13 +85,13 @@ public sealed class IncomeSharingTests : IDisposable
         api.Changed += (name, _) => { if (name == "match") events++; };
         var match = Assert.IsType<MatchInfo>(await api.InvokeAsync("setMatchStrategy", [JsonSerializer.SerializeToElement("band_cannot")]));
         Assert.Equal("carry", match.Economy!.Rule);
-        Assert.Equal(13, match.Economy.Next);
+        Assert.Equal(12, match.Economy.Next);
         Assert.Contains(api.History(), h => h.Local!.StrategyId == "band_cannot");
         api.ApplyRecognizedMatch(api.Match with { StrategyId = null }, []);
         Assert.Equal("band_cannot", api.Match.StrategyId);
         api.SetMatchStrategy(null);
         Assert.Null(api.Match.Economy!.Rule);
-        Assert.Equal(7, api.Match.Economy.Next);
+        Assert.Equal(6, api.Match.Economy.Next);
         Assert.True(events >= 2);
         Assert.Equal("策略不存在。", Assert.Throws<ArgumentException>(() => api.SetMatchStrategy("invalid")).Message);
         Read(api, 2, 0);
@@ -99,12 +99,12 @@ public sealed class IncomeSharingTests : IDisposable
         Open(api);
         Assert.Null(api.Match.StrategyId);
         Read(api, 1, 4);
-        Assert.Equal(6, api.Match.Economy!.Next);
-        Assert.Equal("own", api.Match.Economy.Basis);
+        Assert.Equal(5, api.Match.Economy!.Next);
+        Assert.Equal("table", api.Match.Economy.Basis);
     }
 
     [Fact]
-    public async Task SharedTableUsesMinimumCachesAndRejectsWrongFingerprint()
+    public async Task SharedTableStillDownloadsAndCachesButDoesNotAffectPrediction()
     {
         var api = await CreateApi();
         using var handler = new FakeHttp();
@@ -118,30 +118,30 @@ public sealed class IncomeSharingTests : IDisposable
         handler.Table = handler.Table with { Rows = [new("mode_multi_hard", false, 1, 5), new("mode_multi_hard", false, 2, 6)] };
         await api.DownloadIncomeTableAsync();
         Read(api, 1, 4);
-        Assert.Equal(6, api.Match.Economy!.Next);
-        Assert.Equal("shared", api.Match.Economy.Basis);
+        Assert.Equal(5, api.Match.Economy!.Next);
+        Assert.Equal("table", api.Match.Economy.Basis);
         Read(api, 2, 8);
-        Assert.Equal(2, api.Match.Economy.Extra);
+        Assert.Equal(3, api.Match.Economy.Extra);
         api = await CreateApi();
         api.IncomeClient = http;
         handler.Fail = true;
         await api.DownloadIncomeTableAsync();
         Open(api);
         Read(api, 1, 4);
-        Assert.Equal(6, api.Match.Economy!.Next);
+        Assert.Equal(5, api.Match.Economy!.Next);
         handler.Fail = false;
         handler.Table = handler.Table with { Fingerprint = 0, Rows = [new("mode_multi_hard", false, 2, 1)] };
         await api.DownloadIncomeTableAsync();
-        Assert.Equal(6, api.Match.Economy.Next);
+        Assert.Equal(5, api.Match.Economy.Next);
         handler.Table = handler.Table with { Fingerprint = api.DataFingerprint, Rows = [new("mode_multi_hard", false, 1, 4), new("mode_multi_hard", false, 2, 10)] };
         await api.DownloadIncomeTableAsync();
-        Assert.Equal(8, api.Match.Economy.Next);
-        Assert.Equal("own", api.Match.Economy.Basis);
+        Assert.Equal(5, api.Match.Economy.Next);
+        Assert.Equal("table", api.Match.Economy.Basis);
         await File.WriteAllTextAsync(Path.Combine(_directory, "income-table.json"), JsonSerializer.Serialize(handler.Table with { Fingerprint = 0 }, HostApi.JsonOptions));
         api = await CreateApi();
         api.ApplyRecognizedMatch(api.Match with { Mode = new("mode_single_1", "规程等级1") }, []);
         Read(api, 1, 4);
-        Assert.Equal("none", api.Match.Economy!.Basis);
+        Assert.Equal("table", api.Match.Economy!.Basis);
     }
 
     [Fact]

@@ -67,7 +67,7 @@
       linear-gradient(180deg, var(--pop-top), var(--pop-bottom));
     box-shadow:
       inset 0 0 0 1px var(--line-strong),
-      inset 2px 0 0 var(--mint),
+      inset var(--edge) 0 0 var(--mint),
       0 6px 18px rgb(var(--shade-rgb) / 0.55);
     animation: in var(--t-fast) var(--ease-out);
   }

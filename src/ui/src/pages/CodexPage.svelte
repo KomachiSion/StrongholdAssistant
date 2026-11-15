@@ -234,7 +234,7 @@
     background: var(--bg-2);
   }
   .brow.cur {
-    box-shadow: inset 2px 0 0 var(--gold);
+    box-shadow: inset var(--edge) 0 0 var(--gold);
   }
   .bpic {
     flex: none;

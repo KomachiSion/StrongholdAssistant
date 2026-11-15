@@ -99,7 +99,7 @@
     opacity: 1;
   }
   /* 经典（助手原来的样子）：圆盘用 CSS 画，不用位图 */
-  :global([data-skin='classic']) .disc {
+  :global([data-plain]) .disc {
     background: radial-gradient(circle at 50% 40%, var(--bond-off-top), var(--bond-off-bottom) 70%);
     box-shadow:
       inset 0 0 0 1.5px var(--bond-off-ring),
@@ -111,7 +111,7 @@
       box-shadow var(--t-mid),
       transform var(--t-fast) var(--ease-out);
   }
-  :global([data-skin='classic']) .on .disc {
+  :global([data-plain]) .on .disc {
     background: radial-gradient(circle at 50% 38%, var(--mint-hi), var(--mint) 55%, var(--mint-lo));
     box-shadow:
       inset 0 0 0 1.5px rgb(var(--hl-rgb) / 0.25),
@@ -119,8 +119,8 @@
       0 0 0 2px rgb(var(--shade-rgb) / 0.55),
       var(--mint-glow);
   }
-  :global([data-skin='classic']) .disc::before,
-  :global([data-skin='classic']) .disc::after {
+  :global([data-plain]) .disc::before,
+  :global([data-plain]) .disc::after {
     display: none;
   }
   .clickable:hover .disc {

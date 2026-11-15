@@ -82,31 +82,31 @@
     box-shadow: 0 0 10px rgb(var(--mint-rgb) / 0.25);
   }
   /* 经典（助手原来的样子）：不用卡框位图，细边框加顶上一道等阶色 */
-  :global([data-skin='classic']) .card {
+  :global([data-plain]) .card {
     background: var(--bg) center / cover, var(--bg-2);
     outline: none;
     box-shadow:
       inset 0 0 0 1px var(--line),
       inset 0 2px 0 var(--c);
   }
-  :global([data-skin='classic']) .card:hover {
+  :global([data-plain]) .card:hover {
     filter: none;
     box-shadow:
       inset 0 0 0 1px var(--line-hi),
       inset 0 2px 0 var(--c);
   }
-  :global([data-skin='classic']) .card.selected {
+  :global([data-plain]) .card.selected {
     box-shadow:
       inset 0 0 0 1.5px var(--fg-1),
       inset 0 2px 0 var(--c);
   }
-  :global([data-skin='classic']) .card.tracked {
+  :global([data-plain]) .card.tracked {
     box-shadow:
       inset 0 0 0 1.5px var(--mint),
       inset 0 2px 0 var(--c),
       0 0 10px rgb(var(--mint-rgb) / 0.25);
   }
-  :global([data-skin='classic']) .pic {
+  :global([data-plain]) .pic {
     margin: 0;
   }
   .pic {

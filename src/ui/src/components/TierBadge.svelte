@@ -1,6 +1,6 @@
 <script lang="ts">
   import { asset, ROMAN } from '../lib/assets'
-  import { skin } from '../lib/skin.svelte'
+  import { skin, modernSkin } from '../lib/skin.svelte'
 
   // 罗马数字等阶角标，用皮肤位图（每套皮肤样子不同）。size 是终端方角标的边长，其他皮肤按 --tier-h 换算高度、宽度随图。
   // 可露希尔的高阶角标是拼的（游戏里也是）：5、6 阶右上角和左下角各一颗星，按描边染色（5 阶金、6 阶青）；
@@ -10,6 +10,10 @@
 </script>
 
 <span class="tb" style:--s="{size}px" title="{ROMAN[tier]} 阶">
+  {#if modernSkin(skin.id)}
+    <!-- 通用风格（毛玻璃、圆润）：不用游戏角标，等阶色的小圆角牌写罗马数字 -->
+    <span class="txt" style:--c="var(--tier-{tier})">{ROMAN[tier]}</span>
+  {:else}
   <span class="plate">
     <!-- 经典：助手原来用的商店卡角标（游戏 img_chess_level_*） -->
     <img src={skin.id === 'classic' ? asset.card(`img_chess_level_${tier}`) : asset.skin(`tier_${tier}`)} alt={ROMAN[tier]} />
@@ -21,6 +25,7 @@
       <span class="star bl" class:six={tier === 6} style:--src="url({asset.skin('tier_star')})"></span>
     {/if}
   </span>
+  {/if}
 </span>
 
 <style>
@@ -30,6 +35,19 @@
     min-width: var(--s);
     height: var(--s);
     flex: none;
+  }
+  .txt {
+    min-width: calc(var(--s) * 0.82);
+    height: calc(var(--s) * 0.72);
+    padding: 0 3px;
+    display: grid;
+    place-items: center;
+    font: var(--fw-bold) calc(var(--s) * 0.42) / 1 var(--font-ui);
+    letter-spacing: 0.02em;
+    color: var(--tier-ink);
+    background: var(--c);
+    border-radius: var(--r-1);
+    box-shadow: 0 1px 2px rgb(var(--shade-rgb) / 0.25);
   }
   .plate {
     position: relative;

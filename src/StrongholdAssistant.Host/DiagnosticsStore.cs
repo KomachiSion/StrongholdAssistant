@@ -1,4 +1,6 @@
 using System.Drawing;
+using ASPAssistant.Core.Models;
+using ASPAssistant.Core.Services;
 using System.Drawing.Imaging;
 using System.IO.Compression;
 using System.Text.Json;
@@ -10,6 +12,39 @@ namespace StrongholdAssistant.Host;
 public sealed class DiagnosticsStore(string directory)
 {
     private readonly object _gate = new();
+    private readonly Dictionary<(int? Round, BoardCamera Camera), int> _boardFailures = new();
+
+    internal void ResetBoardFailures()
+    {
+        lock (_gate) _boardFailures.Clear();
+    }
+
+    internal void SaveBoardFailure(byte[] screenshot, int? round, BoardRecognition result, bool solo, string? bossId, DateTimeOffset time)
+    {
+        lock (_gate)
+        {
+            var key = (round, result.Camera);
+            int count = _boardFailures.GetValueOrDefault(key);
+            if (count >= 3) return;
+            var folder = Path.Combine(directory, "diagnostics", "board");
+            Directory.CreateDirectory(folder);
+            var name = time.UtcDateTime.ToString("yyyyMMdd-HHmmssfffffff");
+            using var input = new MemoryStream(screenshot);
+            using var image = new Bitmap(input);
+            File.WriteAllBytes(Path.Combine(folder, name + ".png"), DiagnosticPng(image));
+            File.WriteAllText(Path.Combine(folder, name + ".json"), SanitizeJson(new
+            {
+                time, round, mapId = result.MapId, camera = result.Camera, score = result.Score,
+                gap = result.Gap, reason = result.Rejection, solo, bossId, width = result.Width, height = result.Height
+            }));
+            _boardFailures[key] = count + 1;
+            foreach (var old in Directory.GetFiles(folder, "*.json").OrderDescending().Skip(30))
+            {
+                File.Delete(old);
+                File.Delete(Path.ChangeExtension(old, ".png"));
+            }
+        }
+    }
     public string SaveFailure(byte[]? screenshot, string reason, string? source, double? scale, string[] steps)
     {
         int? width = null, height = null;
@@ -58,10 +93,10 @@ public sealed class DiagnosticsStore(string directory)
             {
                 var root = Path.Combine(directory, folder);
                 if (!Directory.Exists(root)) continue;
-                foreach (var file in Directory.GetFiles(root).Where(f => folder == "logs"
+                foreach (var file in Directory.GetFiles(root, "*", folder == "diagnostics" ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly).Where(f => folder == "logs"
                     ? Path.GetExtension(f) == ".log" : Path.GetExtension(f) is ".json" or ".png"))
                 {
-                    var entry = zip.CreateEntry(folder + "/" + Path.GetFileName(file));
+                    var entry = zip.CreateEntry(folder + "/" + Path.GetRelativePath(root, file).Replace('\\', '/'));
                     using var output = entry.Open();
                     if (Path.GetExtension(file) == ".png")
                     {
@@ -79,7 +114,7 @@ public sealed class DiagnosticsStore(string directory)
             }
             var all = JsonSerializer.SerializeToNode(settings, HostApi.JsonOptions)!.AsObject();
             // 白名单避免将未来增加的云端或账号字段带入诊断包。
-            string[] allowed = ["gameTheme", "gameThemeAuto", "uiSkin", "plazaNotices", "shopMarkers", "shopScanSpeed", "autoCheckUpdate", "updateSource", "updateProxy", "uiScale", "alwaysOnTop", "gameSource",
+            string[] allowed = ["gameTheme", "gameThemeAuto", "uiSkin", "uiScheme", "uiAccent", "plazaNotices", "shopMarkers", "shopScanSpeed", "autoCheckUpdate", "updateSource", "updateProxy", "uiScale", "alwaysOnTop", "gameSource",
                 "followGame", "dockSide", "overlaySide", "toggleHotkey", "refreshKey", "startupMode", "collapseMode", "focusCovenants", "focusOperators", "routes"];
             var safe = new JsonObject();
             foreach (var key in allowed) safe[key] = all[key]?.DeepClone();

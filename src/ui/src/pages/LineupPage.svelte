@@ -359,7 +359,7 @@
     padding: 7px 10px 8px;
     text-align: left;
     background: var(--bg-1);
-    box-shadow: inset 2px 0 0 var(--mint-lo);
+    box-shadow: inset var(--edge) 0 0 var(--mint-lo);
   }
   .desc:hover {
     background: var(--bg-2);

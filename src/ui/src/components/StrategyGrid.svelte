@@ -99,7 +99,7 @@
   }
   .detail.on {
     background: linear-gradient(90deg, var(--mint-tint), transparent 70%), var(--bg-1a);
-    box-shadow: inset 2px 0 0 var(--mint), inset 0 0 0 1px rgb(var(--mint-rgb) / 0.3);
+    box-shadow: inset var(--edge) 0 0 var(--mint), inset 0 0 0 1px rgb(var(--mint-rgb) / 0.3);
   }
   .detail img {
     flex: none;
@@ -175,8 +175,8 @@
   .gh span {
     padding: 0 6px;
     box-shadow:
-      inset 2px 0 0 var(--fg-4),
-      inset -2px 0 0 var(--fg-4);
+      inset var(--edge) 0 0 var(--fg-4),
+      inset calc(var(--edge) * -1) 0 0 var(--fg-4);
   }
   .grid {
     display: grid;

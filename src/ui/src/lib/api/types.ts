@@ -52,6 +52,12 @@ export interface Operator {
   /** 数据默认的技能、模组 id（v0.7.0）；没有模组为 null */
   defaultSkill: string
   defaultModule: string | null
+  /**
+   * 皮肤（任务 163）：游戏 skin_table 里这名干员的全部皮肤，默认、精二在前，再按上架时间；id 是 skinId，
+   * name 是皮肤名（默认写「默认服装」、精二写「精英化二」）。头像素材在 data/skins/<id>.webp（文件名里的 # @ 原样保留）。
+   * 宿主还没生成这份数据时可以不写
+   */
+  skins?: OperatorOption[]
 }
 
 export interface Equipment {
@@ -266,6 +272,29 @@ export interface MatchInfo {
   mode: { id: string; name: string } | null
   /** 回合与资金（v0.7.0）：休整期扫描商店时顺带读出；这一局还没读到过为 null。新局、清空本局时清空 */
   economy: Economy | null
+  /**
+   * strategyId 从哪来（v0.9.8）：'recognized' = 选策略页或对局右侧策略头像认出来的；'manual' = 用户在本局页选的。
+   * 每局只自动填一次（本局第一次认出时），之后用户手动改了就以手动为准，不再被识别覆盖。新局、清空本局时为 null
+   */
+  strategySource: 'recognized' | 'manual' | null
+  /**
+   * 本回合敌人（v0.9.8）：休整期玩家点回合数右边的放大镜打开敌人列表时读到的。
+   * round 和当前回合（economy.round）不一样时界面当作「本回合还没看」。新局、清空本局时为 null
+   */
+  roundEnemies: RoundEnemies | null
+  /**
+   * 本局自选干员（v0.9.9）：开局「确定自选编队」页（第 3/3 步）选完时读到的。玩家最多带 6 名自选干员进来，
+   * V 阶、VI 阶各选 0～2 名。键是阶数，值是干员名（和 bannedOperators 一样用名字）。
+   * null = 这一局没读到这一页；读到了但一个没选是 { 5: [], 6: [] }。新局、清空本局时为 null
+   */
+  customPicks: { 5: string[]; 6: string[] } | null
+}
+
+export interface RoundEnemies {
+  round: number
+  at: string // ISO 时间，最后一次读到
+  /** 按列表从上到下；同一回合多次读到（列表要往下翻）时合并去重。id 是 Catalog.enemies 里的，名字对不上时为 null */
+  enemies: { id: string | null; name: string }[]
 }
 
 /**
@@ -300,8 +329,16 @@ export interface Economy {
    * random 私募基金 / 献身护卫 / 宝藏探机 / 神秘顾客 / 量体裁衣；没有为 null
    */
   rule: 'carry' | 'deferred' | 'kazimier' | 'random' | null
-  /** 基础资金来自：own 自己的对局、shared 大家的资金表、none 还没有这个模式的数据 */
-  basis: 'own' | 'shared' | 'none'
+  /**
+   * 基础资金来自：table 固定资金表 data/round_income.json（v0.9.8 起只用这个）；none 表里没有下回合的数。
+   * own / shared（自己学的、大家的资金表）是旧值，v0.9.8 起宿主不再给出
+   */
+  basis: 'table' | 'own' | 'shared' | 'none'
+  /**
+   * 下回合的基础资金是暂定值（v0.9.8）。2026-11-15 用险境整局录屏核对后界面不再标「估」，
+   * 字段保留不用；以后宿主可以不再给（一律 false）
+   */
+  estimated: boolean
 }
 
 /** 一条用户点上的收入（v0.7.0） */
@@ -489,9 +526,15 @@ export interface RouteOverlaySettings {
 export type GameTheme = 'terminal' | 'ursus' | 'closure' // 卫戍协议终端 / 乌萨斯齐心团 / 「全能的」可露希尔
 
 /** 助手界面的皮肤（v0.8.0）：'follow' 跟着游戏主题，或固定成某一套（和游戏主题分开设置） */
-/** 界面皮肤：三套游戏主题，加「经典」（v0.8.1，助手 0.8.0 之前的样子：终端配色，图标用 CSS 画） */
-export type SkinId = GameTheme | 'classic'
+/**
+ * 界面皮肤：三套游戏主题，加「经典」（v0.8.1，助手 0.8.0 之前的样子：终端配色，图标用 CSS 画），
+ * 加两套不照游戏做的通用风格（v0.9.8）：glass 毛玻璃、round 圆润，各有深色、浅色（见 Settings.uiScheme）
+ */
+export type SkinId = GameTheme | 'classic' | 'glass' | 'round'
 export type UiSkin = 'follow' | SkinId
+
+/** 拖边改大小的边或角：上下左右、左上右上左下右下 */
+export type ResizeEdge = 'n' | 's' | 'w' | 'e' | 'nw' | 'ne' | 'sw' | 'se'
 
 export interface Settings {
   /**
@@ -503,6 +546,16 @@ export interface Settings {
   gameThemeAuto: boolean
   /** 界面皮肤（v0.8.0，默认 'follow'）。只影响助手界面的样子，和商店识别无关 */
   uiSkin: UiSkin
+  /**
+   * 通用风格主题（glass、round）的配色（v0.9.8，默认 'system'）：跟随系统（Windows「应用模式」深浅）/ 深色 / 浅色。
+   * 游戏主题和经典总是深色，不看这一项。宿主只存；不进云同步
+   */
+  uiScheme: 'system' | 'dark' | 'light'
+  /**
+   * 通用风格主题的主题色（v0.9.8，默认 ''）：'' 用主题自带的（毛玻璃蓝、圆润紫），否则是 '#rrggbb'（小写）。
+   * 界面按深浅配色自己换算亮度。宿主只存，校验格式；不进云同步
+   */
+  uiAccent: string
   /**
    * 界面字体（v0.9.5）：本机装的字体族名（listFonts 返回的写法）；空串 = 默认（随界面打包的 MiSans）。
    * 选的字体缺字时界面自己回落到 MiSans。宿主只存，不校验字体在不在
@@ -893,6 +946,63 @@ export interface FieldEvent {
   to: FieldCell | null
 }
 
+/**
+ * 我的干员（任务 162、163，设计见 docs/design.md「我的干员：读物资调配页」）：从卫戍协议「物资调配」页读到的
+ * 每名干员的当前配置。宿主存在数据文件夹（roster.json），重启后还在；不进云同步、不进备份（重新读一遍就有）。
+ * 用途：小人比对按皮肤选模板；站位推荐和伤害计算要技能、模组、潜能、等级；自选编队缩小自选候选
+ */
+export interface Roster {
+  /** 最近一次读取结束的时间（ISO）；没读过为 null */
+  readAt: string | null
+  /** 读到过的干员，按物资调配页列表的顺序；同一名干员只有一条，以最近一次读到的为准 */
+  operators: RosterOperator[]
+  /**
+   * 自选编队（页顶「自选编队 n/12」）：列表里带橙框和「+」的自选干员名，按列表顺序。
+   * 这次读取滑到头了就整体换成这次看到的；中途停下的只把看到的加进去。没读过为 []
+   */
+  customSquad: string[]
+}
+
+export interface RosterOperator {
+  /** 干员名（Operator.name） */
+  name: string
+  /**
+   * 卡面头像对应的皮肤：Operator.skins 的 id（游戏 skin_table 的 skinId，如默认 'char_1012_skadi2#1'、
+   * 精二 'char_1012_skadi2#2'、时装 'char_1012_skadi2@boc#4'）。认不出为 null
+   */
+  skin: string | null
+  /** 打勾的技能（Operator.skills 的 id）；认不出为 null */
+  skill: string | null
+  /** 打勾的模组（Operator.modules 的 id）；'' = 没有选模组（含这名干员没有模组）；认不出为 null */
+  module: string | null
+  /** 潜能 1～6；认不出为 null */
+  potential: number | null
+  /**
+   * 精英化 0～2、等级。卡上有两个数字（如「55/50」「1/60」），哪个是什么由 162 实机核实后定；
+   * 确认读不出来就一直为 null
+   */
+  elite: number | null
+  level: number | null
+  /** 这一条最近一次读到的时间（ISO）；用户手动改过也更新 */
+  readAt: string
+  /** 用户手动改过的项；再读一遍时这些项照样用读到的覆盖，并从这里去掉 */
+  edited?: ('skin' | 'skill' | 'module' | 'potential')[]
+}
+
+/** 「读取我的干员」的进度（任务 163），开始、每读完一屏、结束时推送 */
+export interface RosterScanStatus {
+  running: boolean
+  /** 这次读到的干员数（去重） */
+  read: number
+  /**
+   * 结束原因，running 为 false 时才有：end 滑到头了；user 点了停止；left 画面不是物资调配页了；
+   * input 用户动了鼠标或按了键；lost 游戏窗口丢了；failed 出错
+   */
+  reason?: 'end' | 'user' | 'left' | 'input' | 'lost' | 'failed'
+  /** 结束时给用户看的一句话；failed 时第二行起是技术细节（同消息桥的错误约定） */
+  message?: string
+}
+
 export interface Api {
   catalog(): Promise<Catalog>
   connection(): Promise<Connection>
@@ -1067,8 +1177,17 @@ export interface Api {
    * 置顶按用户设置。sidebar：回到侧栏，位置和大小照「跟随游戏窗口」设置恢复（跟随就重新贴到游戏旁，不跟随就回到侧栏的自由位置）。
    * 每次启动都是侧栏；收起（collapse / collapseUp）只在侧栏里用
    * redock（v0.8.2）：清掉跟随、覆盖时拖动记下的位置（四个偏移都清），侧栏马上贴回默认位置。设置里点「贴在游戏」「盖在画面」的选项时发
+   * maximize / restore（v0.9.8）：工作台最大化（铺满当前屏幕的工作区，不盖任务栏）/ 还原。只在工作台里发；
+   * 最大化时收回侧栏先还原，侧栏回原来的位置；下次进工作台还是最大化（记在工作台位置里）
    */
-  windowCommand(cmd: 'minimize' | 'close' | 'collapse' | 'expand' | 'ready' | 'workbench' | 'sidebar' | 'redock'): Promise<void>
+  windowCommand(cmd: 'minimize' | 'close' | 'collapse' | 'expand' | 'ready' | 'workbench' | 'sidebar' | 'redock' | 'maximize' | 'restore'): Promise<void>
+  /**
+   * 拖边改大小（v0.9.8，只在工作台、没最大化时）：界面在窗口四边、四角画了透明的拖动区，按下鼠标时发，
+   * 宿主接着按系统的方式拖这条边或这个角（鼠标还按着）。最小尺寸照 windowCommand('workbench') 说明
+   */
+  resizeWindow(edge: ResizeEdge): Promise<void>
+  /** 后端推送：工作台最大化 / 还原（v0.9.8，含双击标题栏、Win+↑、拖标题栏离开最大化）；进工作台时也推一次当前状态 */
+  onMaximized(cb: (maximized: boolean) => void): () => void
   /**
    * 向上收起（v0.4.2）：宽度和左上角不变，高度改成 height（界面 CSS 像素，宿主乘界面缩放）。
    * 收起期间内容高度变了（追踪列表增减）界面会再发一次；跟随游戏时上边仍和游戏对齐。expand 恢复
@@ -1093,4 +1212,25 @@ export interface Api {
   onScan(cb: (s: ScanStatus) => void): () => void
   /** 后端推送：场上与整备区有变化（任务 137）；同样的状态不重复推 */
   onField(cb: (f: FieldState) => void): () => void
+  /** 我的干员（任务 163）；没读过是 { readAt: null, operators: [], customSquad: [] } */
+  roster(): Promise<Roster>
+  /**
+   * 开始「读取我的干员」（任务 163）：先截一张，认不出是物资调配页就 reject（message 给用户看，如
+   * 「先在游戏里打开卫戍协议的「物资调配」页，再点读取。」）。认出了就 resolve，之后在后台：
+   * 先把列表滑到最左，再一屏一屏往右滑、截图、识别，读到的随时并进 Roster 并推送 roster、rosterScan。
+   * 只在列表区域横向滑动，不点任何卡片和按钮。滑到头、画面离开这一页、用户动了鼠标或按键、游戏窗口丢了就停，
+   * 推送 rosterScan { running: false, reason, message }。已经在读时再调直接 resolve
+   */
+  startRosterScan(): Promise<void>
+  /** 停止读取（任务 163）；没在读时什么也不做。停下后推送 rosterScan { running: false, reason: 'user' } */
+  stopRosterScan(): Promise<void>
+  /**
+   * 手动改一名干员（任务 163，图鉴详情里）：改的项写进 edited，readAt 改成现在；Roster 里还没有这名干员就新建一条
+   * （没给的项为 null）。返回更新后的 Roster，也推送 roster
+   */
+  setRosterOperator(name: string, patch: Partial<Pick<RosterOperator, 'skin' | 'skill' | 'module' | 'potential'>>): Promise<Roster>
+  /** 后端推送：我的干员有变化（读取中每读完一屏、手动改了之后） */
+  onRoster(cb: (r: Roster) => void): () => void
+  /** 后端推送：读取我的干员的进度 */
+  onRosterScan(cb: (s: RosterScanStatus) => void): () => void
 }

@@ -6,7 +6,8 @@ const base = new URL('./assets', document.baseURI).href
 
 export const asset = {
   /** 跟着界面皮肤换的素材：bond_on / bond_off、tier_1~6、frame / frame_5 / frame_6、level_1~6 */
-  skin: (f: string) => `${base}/game/skin/${skin.id}/${f}.png`,
+  // 经典和两套通用风格没有自己的位图，用到的（盟约字形底等）从终端取
+  skin: (f: string) => `${base}/game/skin/${skin.id === 'ursus' || skin.id === 'closure' ? skin.id : 'terminal'}/${f}.png`,
   bond: (id: string) => `${base}/game/bond/${id}.png`,
   card: (f: string) => `${base}/game/card/${f}.png`,
   hud: (f: string) => `${base}/game/hud/${f}.png`,

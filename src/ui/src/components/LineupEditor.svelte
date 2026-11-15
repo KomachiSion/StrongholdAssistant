@@ -515,7 +515,7 @@
     margin-top: 8px;
     padding: 8px;
     background: rgb(var(--shade-rgb) / 0.3);
-    box-shadow: inset 2px 0 0 var(--mint);
+    box-shadow: inset var(--edge) 0 0 var(--mint);
   }
   .mph {
     display: flex;
@@ -563,11 +563,11 @@
     display: inline-flex;
     align-items: stretch;
     background: var(--bg-2);
-    box-shadow: inset 0 -2px 0 var(--fg-4);
+    box-shadow: inset 0 calc(var(--edge) * -1) 0 var(--fg-4);
   }
   .ce.pri {
     background: rgb(var(--gold-rgb) / 0.12);
-    box-shadow: inset 0 -2px 0 var(--gold);
+    box-shadow: inset 0 calc(var(--edge) * -1) 0 var(--gold);
   }
   .cb {
     display: inline-flex;
@@ -923,7 +923,7 @@
     line-height: 1.5;
     color: var(--red-fg);
     background: var(--red-tint);
-    box-shadow: inset 2px 0 0 var(--red);
+    box-shadow: inset var(--edge) 0 0 var(--red);
   }
   footer {
     display: flex;

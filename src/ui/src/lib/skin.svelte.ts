@@ -8,4 +8,9 @@
 //   level_N           ← arts/playerdetailshoplevel/shop_level_N
 import type { SkinId } from './api/types'
 
-export const skin = $state<{ id: SkinId }>({ id: 'terminal' })
+export const skin = $state<{ id: SkinId; scheme: 'dark' | 'light' }>({ id: 'terminal', scheme: 'dark' })
+
+/** 不用游戏卡框、盟约圆盘、等阶角标位图的皮肤（经典、两套通用风格），这些都用 CSS 画 */
+export const plainSkin = (id: SkinId) => id === 'classic' || id === 'glass' || id === 'round'
+/** 不照游戏做的通用风格（v0.9.8）：毛玻璃、圆润，有深色、浅色 */
+export const modernSkin = (id: SkinId) => id === 'glass' || id === 'round'

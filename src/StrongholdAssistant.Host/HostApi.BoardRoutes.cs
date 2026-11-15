@@ -13,6 +13,7 @@ public sealed partial class HostApi
     internal Func<byte[], string?, BoardCamera?, BoardMatch?> RecognizeBoard { get; set; } = null!;
     private readonly Dictionary<BoardCamera, BoardMatch> _boardCameras = new();
     private string? _boardMap;
+    private string? _boardPlayerSide;
     private int? _boardRound;
     private int? _acceptedBoardRound;
     private readonly RoundJumpConfirmation _boardJump = new();
@@ -60,7 +61,8 @@ public sealed partial class HostApi
         RecognizeBoard = (frame, map, camera) =>
         {
             _latestBoardFrame = frame;
-            var result = recognizer.RecognizeDetailed(frame, map, camera);
+            var result = recognizer.RecognizeDetailed(frame, map, camera,
+                _boardRound is { } round && _boardRouteStore.IsBossRound(round, Match.Solo, Match.Mode?.Id), _boardPlayerSide);
             LogBoardRecognition(result);
             return result.Match;
         };
@@ -86,7 +88,7 @@ public sealed partial class HostApi
             }
             if (!mainScreen)
             {
-                _boardJump.Reset();
+                if (reading is { IsRest: false }) _boardJump.Reset();
                 PublishBoardRoutes(null);
                 return;
             }
@@ -98,7 +100,7 @@ public sealed partial class HostApi
             }
             if (reading is { IsRest: true }) _nonRestReadings = 0;
             // OCR 降频或暂时没读到回合，不把它当作离开休整期。
-            if (reading is not { IsRest: true }) { _boardJump.Reset(); return; }
+            if (reading is not { IsRest: true }) return;
             int? round = reading.IsFinalRound ? _boardRouteStore.LastRound(Match.Solo, Match.Mode?.Id) : reading.Round;
             if (round is not (>= 1 and <= 15)) { _boardJump.Reset(); return; }
             if (!_boardJump.Accept(_acceptedBoardRound, round.Value, BoardClock()))
@@ -114,7 +116,6 @@ public sealed partial class HostApi
             if (_boardRound != round || _boardSize != image.Size)
             {
                 _boardCameras.Clear();
-                _boardMap = null;
                 _boardRound = round;
                 _boardSize = image.Size;
             }
@@ -125,6 +126,12 @@ public sealed partial class HostApi
                 if (board is not null)
                 {
                     _boardMap = board.MapId;
+                    if (_boardPlayerSide is null && board.Camera == BoardCamera.Expanded && board.PlayerSide is not null)
+                    {
+                        _boardPlayerSide = board.PlayerSide;
+                        // 收起镜头可能先独立判过侧边；展开确认后按本局侧边重新识别。
+                        _boardCameras.Clear();
+                    }
                     _boardCameras[board.Camera] = board;
                 }
             }
@@ -146,8 +153,19 @@ public sealed partial class HostApi
         var now = BoardClock();
         if (result.Match is null && _lastFailedBoardLog is { } last && now - last < TimeSpan.FromSeconds(10)) return;
         _recognitionLogState = state;
-        if (result.Match is null) _lastFailedBoardLog = now;
-        BoardLog($"识别 {(result.Match is null ? "失败" : "成功")} map={result.MapId} camera={result.Camera} score={result.Score:F3} gap={result.Gap?.ToString("F3") ?? "n/a"} reason={result.Rejection ?? "通过"} size={result.Width}x{result.Height}");
+        if (result.Match is null)
+        {
+            _lastFailedBoardLog = now;
+            if (_latestBoardFrame is { } frame)
+            {
+                try { _diagnostics.SaveBoardFailure(frame, _boardRound, result, Match.Solo, Match.BossId, now); }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or System.Runtime.InteropServices.ExternalException)
+                {
+                    AppLogger.Error("Diagnostics", "保存棋盘失败现场失败", ex);
+                }
+            }
+        }
+        BoardLog($"识别 {(result.Match is null ? "失败" : "成功")} map={result.MapId} camera={result.Camera} score={result.Score:F3} side={result.Match?.PlayerSide ?? "null"} left={result.LeftScore?.ToString("F3") ?? "n/a"} right={result.RightScore?.ToString("F3") ?? "n/a"} gap={result.Gap?.ToString("F3") ?? "n/a"} reason={result.Rejection ?? "通过"} size={result.Width}x{result.Height}");
     }
 
     internal byte[]? GetDiagnosticBoardFrame()
@@ -159,7 +177,6 @@ public sealed partial class HostApi
     {
         _nonRestReadings = 0;
         _boardCameras.Clear();
-        _boardMap = null;
         _boardRound = null;
         PublishBoardRoutes(null);
     }
@@ -168,7 +185,10 @@ public sealed partial class HostApi
     {
         lock (_boardGate)
         {
+            _boardMap = null;
+            _boardPlayerSide = null;
             _acceptedBoardRound = null;
+            _diagnostics.ResetBoardFailures();
             _boardJump.Reset();
             _roundRejectionState = null;
             ClearBoard();
@@ -180,7 +200,7 @@ public sealed partial class HostApi
         bool same = next is null && _boardRoutes is null;
         if (next is not null && _boardRoutes is { } previous)
             same = next.MapId == previous.MapId && next.Camera == previous.Camera && next.Round == previous.Round
-                && next.Solo == previous.Solo && next.BossId == previous.BossId && _boardMode == Match.Mode?.Id
+                && next.PlayerSide == previous.PlayerSide && next.Solo == previous.Solo && next.BossId == previous.BossId && _boardMode == Match.Mode?.Id
                 && new[] { (0d, 0d), (6d, 4d) }.All(p =>
                 {
                     var a = next.Projection.Project(p.Item1, p.Item2);

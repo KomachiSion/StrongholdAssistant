@@ -155,6 +155,12 @@ public sealed class RouteLayer : Canvas
 
     // ── 绘制 ───────────────────────────────────────────────────────────
 
+    internal static bool MatchesSide(EnemyRoute route, string setting, string? playerSide)
+    {
+        var side = setting == "auto" ? playerSide : setting;
+        return route.Side is null || side is null || route.Side == side;
+    }
+
     private void Rebuild()
     {
         Children.Clear();
@@ -169,11 +175,11 @@ public sealed class RouteLayer : Canvas
             return new Point(x * _size.Width, y * _size.Height);
         }
 
-        // 按设置筛：飞行三档；联机首领只看自己一侧（自动时两边都画）
+        // 按设置筛：飞行三档；联机首领只看自己一侧（自动时优先用识别侧边）
         var mainFly = data.Routes.Where(r => r.Motion == "fly" && !r.Boss).MaxBy(r => r.Count);
         var shown = data.Routes
             .Where(r => r.Boss || r.Motion != "fly" || _settings.Fly == "all" || (_settings.Fly == "main" && r == mainFly))
-            .Where(r => r.Side is null || _settings.Side == "auto" || r.Side == _settings.Side)
+            .Where(r => MatchesSide(r, _settings.Side, data.PlayerSide))
             .ToList();
 
         if (_settings.Overlap == "cycle" && shown.Count > 1)

@@ -8,16 +8,21 @@ namespace StrongholdAssistant.Host;
 public sealed record IncomeSource(string Name, string Trigger, string Kind, int Amount, int EliteAmount);
 public sealed record Income(string Id, string Source, bool Elite, int Amount, string Kind, int Round);
 public sealed record Economy(int Round, int Money, int? StartMoney, int? Level, int? UpgradeCost,
-    string ReadAt, int? Next, int Extra, Income[] Incomes, string? Rule, string Basis);
+    string ReadAt, int? Next, int Extra, Income[] Incomes, string? Rule, string Basis)
+{
+    public bool Estimated { get; init; }
+}
 
 public sealed partial class HostApi
 {
     private Dictionary<string, int> _baseMoney = [];
     private int? _observedRound;
-    private readonly RoundJumpConfirmation _economyJump = new();
+    private Dictionary<int, int> _roundIncome = [];
+    private HashSet<int> _estimatedIncomeRounds = [];
     private int? _startMoney;
     private int? _pendingEconomyRound;
     private int? _pendingStartMoney;
+    private int? _highestStartMoney;
     private bool _canReadStart;
     private bool _openingObserved;
 
@@ -50,14 +55,9 @@ public sealed partial class HostApi
     internal static int IncomeAt(IEnumerable<Income> incomes, int round) => incomes
         .Where(i => round > i.Round && (i.Kind == "each" || round == i.Round + 1)).Sum(i => i.Amount);
 
-    private string MoneyKey(int round) => $"{Match.Mode!.Id}|{Match.Solo}|{round}";
     private (int? Amount, string Basis) BaseMoneySource(int round)
     {
-        if (Match.Mode is null || round is < 1 or > 15) return (null, "none");
-        int? own = _baseMoney.TryGetValue(MoneyKey(round), out int amount) ? amount : null;
-        int? shared = _sharedMoney.GetValueOrDefault(MoneyKey(round));
-        return shared is not null && (own is null || shared < own) ? (shared, "shared")
-            : own is not null ? (own, "own") : (null, "none");
+        return _roundIncome.TryGetValue(round, out int amount) ? (amount, "table") : (null, "none");
     }
 
     private int? BaseMoney(int round) => BaseMoneySource(round).Amount;
@@ -65,18 +65,20 @@ public sealed partial class HostApi
     private Economy PredictCurrent(Economy economy)
     {
         var prediction = Predict(economy, Match.StrategyId, BaseMoney);
-        var rounds = prediction.Rule == "deferred" && economy.Round == 2
-            ? new[] { 1, 2, 3 } : new[] { economy.Round, economy.Round + 1 };
-        return prediction with { Basis = rounds.Any(r => BaseMoneySource(r).Basis == "shared") ? "shared" : prediction.Basis };
+        return prediction with { Estimated = prediction.Basis == "table" && _estimatedIncomeRounds.Contains(economy.Round + 1) };
     }
 
     public MatchInfo SetMatchStrategy(string? id)
+        => UpdateMatchStrategy(id, id is null ? null : "manual");
+
+    private MatchInfo UpdateMatchStrategy(string? id, string? source)
     {
         if (id is not null && !Catalog.GetProperty("strategies").EnumerateArray()
             .Any(s => s.GetProperty("id").GetString() == id)) throw new ArgumentException("策略不存在。");
         lock (_historyGate)
         {
-            Match = Match with { StrategyId = id };
+            if (source == "recognized" && Match.StrategySource is not null) return Match;
+            Match = Match with { StrategyId = id, StrategySource = source };
             if (Match.Economy is { } economy) Match = Match with { Economy = PredictCurrent(economy) };
             int index = _history.FindIndex(r => r.Id == _activeRecord);
             if (index >= 0)
@@ -105,34 +107,27 @@ public sealed partial class HostApi
         next += IncomeAt(economy.Incomes, economy.Round + 1) + extra;
         if (rule == "carry") next += economy.Money + (economy.Money >= 5 ? 1 : 0);
         return economy with { Next = next, Extra = extra, Rule = rule,
-            Basis = basis(economy.Round) is not null || basis(economy.Round + 1) is not null ? "own" : "none" };
+            Basis = basis(economy.Round + 1) is not null ? "table" : "none" };
     }
 
     internal void ObserveEconomy(EconomyReading reading)
     {
         lock (_historyGate)
         {
-            if (!reading.IsRest || reading.Round is not (>= 1 and <= 15))
+            if (!reading.IsRest || reading.Round is not (>= 1 and <= 20))
             {
-                _economyJump.Reset();
                 _pendingEconomyRound = null;
                 _pendingStartMoney = null;
                 return;
             }
             int round = reading.Round.Value;
-            // 第 1 回合仍按既有两帧确认规则判断新局。
-            if (!_economyJump.Accept(round == 1 ? null : _observedRound, round, BoardClock()))
-            {
-                _pendingEconomyRound = null;
-                _pendingStartMoney = null;
-                return;
-            }
             if (_observedRound != round)
             {
                 _pendingStartMoney = null;
                 if (_pendingEconomyRound != round)
                 {
                     _pendingEconomyRound = round;
+                    _highestStartMoney = reading.Money;
                     return;
                 }
             }
@@ -151,13 +146,16 @@ public sealed partial class HostApi
             // 确认换回合的这一帧作为资金的首次读数，再等一帧相同值。
             if (_canReadStart && _startMoney is null)
             {
-                if (reading.Money is { } moneySample && _pendingStartMoney == moneySample)
+                if (reading.Money is { } moneySample && _pendingStartMoney == moneySample
+                    && (_highestStartMoney is null || moneySample >= _highestStartMoney))
                 {
                     _startMoney = moneySample;
                     _canReadStart = false;
                     _roundSamples[round] = moneySample - IncomeAt(Match.Economy?.Incomes ?? [], round);
                 }
                 _pendingStartMoney = reading.Money;
+                if (reading.Money is { } sample)
+                    _highestStartMoney = Math.Max(_highestStartMoney ?? sample, sample);
             }
             string now = DateTimeOffset.UtcNow.ToString("O");
             UpdateHistoryRound(round, _startMoney, now);
@@ -206,9 +204,9 @@ public sealed partial class HostApi
         ResetBoardRound();
         _roundSamples.Clear();
         _observedRound = null;
-        _economyJump.Reset();
         _pendingEconomyRound = null;
         _pendingStartMoney = null;
+        _highestStartMoney = null;
         _startMoney = null;
         _canReadStart = false;
         _openingObserved = false;

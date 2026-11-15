@@ -326,7 +326,7 @@
     color: var(--red-fg);
     padding: 6px 8px;
     background: var(--red-tint);
-    box-shadow: inset 2px 0 0 var(--red);
+    box-shadow: inset var(--edge) 0 0 var(--red);
   }
   .hist {
     display: flex;
@@ -388,7 +388,7 @@
   .recs button.on {
     color: var(--fg-1);
     background: var(--bg-3);
-    box-shadow: inset 2px 0 0 var(--mint);
+    box-shadow: inset var(--edge) 0 0 var(--mint);
   }
   .recs span {
     font-size: var(--fs-sm);
@@ -403,7 +403,7 @@
     font-size: var(--fs-base);
     color: var(--fg-2);
     background: var(--well);
-    box-shadow: inset 2px 0 0 var(--mint);
+    box-shadow: inset var(--edge) 0 0 var(--mint);
   }
   .spin {
     width: 12px;
@@ -457,7 +457,7 @@
     padding: 6px 8px;
     color: var(--gold);
     background: rgb(var(--gold-rgb) / 0.08);
-    box-shadow: inset 2px 0 0 var(--gold);
+    box-shadow: inset var(--edge) 0 0 var(--gold);
   }
   .desc {
     margin: 0;
@@ -470,7 +470,7 @@
     user-select: text;
     color: var(--fg-2);
     background: var(--well);
-    box-shadow: inset 2px 0 0 var(--mint-lo);
+    box-shadow: inset var(--edge) 0 0 var(--mint-lo);
   }
   .nm {
     display: flex;

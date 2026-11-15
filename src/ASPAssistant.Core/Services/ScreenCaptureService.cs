@@ -10,6 +10,9 @@ namespace ASPAssistant.Core.Services;
 
 public class ScreenCaptureService
 {
+    // 2026-11-15：窗口缺失和前台不一致只在状态变化时记录。
+    private bool _windowMissing;
+    private IntPtr? _mismatchedForeground;
     public GameConnectionService Connection { get; }
     public ScreenCaptureService(GameConnectionService? connection = null)
         => Connection = connection ?? new();
@@ -34,9 +37,12 @@ public class ScreenCaptureService
         if (Connection.IsAdb) return Connection.CaptureAdbScreen(MaxCaptureWidth);
         if (hwnd == IntPtr.Zero)
         {
-            AppLogger.Warn("ScreenCapture", "Arknights window not found");
+            if (!_windowMissing) AppLogger.Warn("ScreenCapture", "Arknights window not found");
+            _windowMissing = true;
+            _mismatchedForeground = null;
             return null;
         }
+        _windowMissing = false;
 
         // Skip minimized windows: ClientToScreen returns (-32000,-32000) for them,
         // which causes CopyFromScreen to throw Win32Exception(6) ERROR_INVALID_HANDLE.
@@ -50,9 +56,11 @@ public class ScreenCaptureService
         var foreground = User32.GetForegroundWindow();
         if (foreground != hwnd && (allowedForeground == IntPtr.Zero || foreground != allowedForeground))
         {
-            AppLogger.Warn("ScreenCapture", $"Foreground mismatch: game=0x{hwnd.ToInt64():X}, foreground=0x{foreground.ToInt64():X}");
+            if (_mismatchedForeground != foreground) AppLogger.Warn("ScreenCapture", $"Foreground mismatch: game=0x{hwnd.ToInt64():X}, foreground=0x{foreground.ToInt64():X}");
+            _mismatchedForeground = foreground;
             return null;
         }
+        _mismatchedForeground = null;
 
         var screenRect = User32.GetClientRectScreen(hwnd);
         if (screenRect == null)

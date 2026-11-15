@@ -66,7 +66,7 @@ public partial class MainWindow
     {
         if (WindowState == System.Windows.WindowState.Minimized)
         {
-            WindowState = System.Windows.WindowState.Normal;
+            WindowState = _workbench ? _stateBeforeMinimize : System.Windows.WindowState.Normal;
             Activate();
             User32.SetForegroundWindow(new WindowInteropHelper(this).Handle);
         }

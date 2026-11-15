@@ -34,8 +34,10 @@ public sealed class EconomyReaderTests(ASPAssistant.Tests.Services.EnemyRecognit
     public async Task ReadsHigherLevelsAndLeavesMissingRoundNull(string file, int money, int level, int? cost)
     {
         var bytes = await File.ReadAllBytesAsync(Path.Combine(AppContext.BaseDirectory, "TestData", file));
-        var result = await new EconomyReader(_ocr, file.Contains("terminal") ? GameShopTheme.Terminal : file.Contains("ursus") ? GameShopTheme.Ursus : GameShopTheme.Closure).ReadAsync(bytes, 1920, 1080);
+        var reader = new EconomyReader(_ocr, file.Contains("terminal") ? GameShopTheme.Terminal : file.Contains("ursus") ? GameShopTheme.Ursus : GameShopTheme.Closure);
+        var result = await reader.ReadAsync(bytes, 1920, 1080);
         Assert.Equal(new EconomyReading(null, money, level, cost, false), result);
+        Assert.Equal(result, await reader.ReadAsync(bytes, 1920, 1080));
     }
 
 

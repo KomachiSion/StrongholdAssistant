@@ -49,6 +49,11 @@ class Plaza {
   focusComment = $state<string | null>(null)
 
   private async req<T>(method: string, path: string, body?: unknown): Promise<T> {
+    // 浏览器里开发、地址带 ?demo：列表、详情用示例阵容（构建产物里摇树掉）
+    if (import.meta.env.DEV && !window.chrome?.webview && location.search.includes('demo')) {
+      const r = await (await import('./mock/plaza')).demoReq(method, path)
+      if (r !== undefined) return r as T
+    }
     let r: Response
     try {
       r = await fetch(PLAZA + '/api' + path, {
@@ -177,6 +182,20 @@ export function ago(iso: string) {
   if (m < 43200) return `${Math.floor(m / 1440)} 天前`
   return iso.slice(0, 10)
 }
+
+/**
+ * 判断「我的阵容里已经有这套」用的内容键：名字、盟约、干员、通用装备、策略、阶段数都一样就算同一套。
+ * 不比技能、模组（导入时会按我的默认补上）和候选装备；导入后改过名字或干员就不算了
+ */
+export const lineupKey = (l: Lineup) =>
+  JSON.stringify([
+    l.name.trim(),
+    l.goals.map((g) => g.id + g.level).sort(),
+    l.members.map((m) => m.name).sort(),
+    [...l.equipment].sort(),
+    l.strategyId,
+    l.stages?.length ?? 0,
+  ])
 
 /** 广场帖子转成本地阵容的样子（给阵容卡显示、导入用） */
 export const postToLineup = (p: Post): Lineup => ({

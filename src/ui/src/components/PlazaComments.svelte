@@ -177,7 +177,7 @@
     font-size: var(--fs-md);
     font-weight: var(--fw-bold);
     background: linear-gradient(90deg, var(--bg-3), transparent);
-    box-shadow: inset 2px 0 0 var(--mint);
+    box-shadow: inset var(--edge) 0 0 var(--mint);
   }
   .hd b {
     font-weight: var(--fw-base);
@@ -234,7 +234,7 @@
     font-size: var(--fs-sm);
     color: var(--fg-2);
     background: var(--bg-3);
-    box-shadow: inset 2px 0 0 var(--mint);
+    box-shadow: inset var(--edge) 0 0 var(--mint);
   }
   .rt button {
     display: grid;
@@ -279,7 +279,7 @@
     color: var(--red-fg);
     padding: 6px 8px;
     background: var(--red-tint);
-    box-shadow: inset 2px 0 0 var(--red);
+    box-shadow: inset var(--edge) 0 0 var(--red);
   }
   ul {
     margin: 0;

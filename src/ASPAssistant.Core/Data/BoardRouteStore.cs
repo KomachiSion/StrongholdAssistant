@@ -24,6 +24,10 @@ public sealed class BoardRouteStore
         _data.Battles.TryGetValue(mode ?? (solo ? "mode_single_20" : "mode_multi_normal"), out var rounds)
             ? rounds.Keys.Select(int.Parse).Max() : null;
 
+    public bool IsBossRound(int round, bool solo, string? mode) =>
+        _data.Battles.TryGetValue(mode ?? (solo ? "mode_single_20" : "mode_multi_normal"), out var rounds)
+        && rounds.TryGetValue(round.ToString(), out var battles) && battles.Any(b => !string.IsNullOrEmpty(b.BossId));
+
     public BoardRoutes? Find(BoardMatch board, int round, bool solo, string? bossId, string? mode, out string? reason)
     {
         reason = null;
@@ -42,6 +46,6 @@ public sealed class BoardRouteStore
         else level = battles.FirstOrDefault()?.Level;
         if (level is null || !_data.Maps.TryGetValue(board.MapId, out var map)
             || !map.Levels.TryGetValue(level, out var routes)) { reason = "关卡没找到"; return null; }
-        return new(board.MapId, round, solo, bossId, routes.Routes, routes.BossSpots, board.Camera, board.Projection);
+        return new(board.MapId, round, solo, bossId, routes.Routes, routes.BossSpots, board.Camera, board.Projection, board.PlayerSide);
     }
 }

@@ -2,7 +2,7 @@
   import { fly } from 'svelte/transition'
   import { app } from '../lib/state.svelte'
   import { asset, ROMAN } from '../lib/assets'
-  import { skin } from '../lib/skin.svelte'
+  import { skin, plainSkin } from '../lib/skin.svelte'
   import Icon from './Icon.svelte'
 
   // 回合与资金（v0.7.0，设计见 docs/design.md「回合与资金」）：「第 6 回合 · 资金 4 · 下回合约 12 · 升级 5」。
@@ -27,7 +27,7 @@
     deferred: '得闲饮茶：前三回合的钱第 3 回合一起发',
   }
   const notes = $derived(
-    e ? [e.extra > 0 && `含本局额外 +${e.extra}`, e.rule && RULE[e.rule], e.basis === 'shared' && '基础资金来自大家的资金表'].filter(Boolean) : [],
+    e ? [e.extra > 0 && `含本局额外 +${e.extra}`, e.rule && RULE[e.rule]].filter(Boolean) : [],
   )
 
   // 「+ 收入」：只列会加以后回合资金、但识别不了的（Catalog.incomeSources）
@@ -38,8 +38,7 @@
     await app.addIncome(name, elite)
     picking = false
   }
-  const openShare = () => (app.settingsOpen = true)
-  const classic = $derived(skin.id === 'classic')
+  const classic = $derived(plainSkin(skin.id))
 </script>
 
 <svelte:window onkeydown={(ev) => ev.key === 'Escape' && (picking = false)} />
@@ -77,7 +76,8 @@
     {#if !compact}
       {#if e.next === null && e.basis === 'none' && !saving}
         <p class="sub">
-          还没有这个模式的资金数据，打一局就有了{#if !app.settings.shareIncome}<button class="link" onclick={openShare}>帮大家补全资金表</button>{/if}
+          <!-- 150 起只用固定资金表；表里没有的回合（目前第 7 回合以后）不猜 -->
+          第 {e.round + 1} 回合发多少钱还没核实，先不预测
         </p>
       {:else if notes.length}
         <p class="sub">{notes.join(' · ')}</p>
@@ -244,11 +244,6 @@
     margin: 4px 0 0;
     font-size: var(--fs-sm);
     color: var(--fg-4);
-  }
-  .link {
-    margin-left: 8px;
-    font-size: var(--fs-sm);
-    color: var(--mint);
   }
   .chips {
     display: flex;

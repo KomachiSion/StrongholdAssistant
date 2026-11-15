@@ -4,7 +4,7 @@ using ASPAssistant.Core.Models;
 
 namespace StrongholdAssistant.Host;
 
-public sealed record FreeWindowBounds(double Left, double Top, double Width, double Height);
+public sealed record FreeWindowBounds(double Left, double Top, double Width, double Height, bool Maximized = false);
 public sealed record DockSettings(double Width = 380, SidePanelOffset? FollowOffsetDip = null,
     SidePanelOffset? OverlayOffsetDip = null, FreeWindowBounds? FreeBounds = null,
     FreeWindowBounds? WorkbenchBounds = null, bool LastWorkbench = false,
@@ -28,7 +28,7 @@ public sealed class HostSettingsStore(string path)
             Write(json);
         }
         var uiSkin = json["uiSkin"] is JsonValue value && value.TryGetValue<string>(out var skin)
-            && skin is ("follow" or "terminal" or "ursus" or "closure" or "classic") ? skin : "follow";
+            && skin is ("follow" or "terminal" or "ursus" or "closure" or "classic" or "glass" or "round") ? skin : "follow";
         var settings = new SettingsDto(json["gameTheme"]?.GetValue<string>() ?? "terminal",
             json["shopMarkers"]?.GetValue<bool>() ?? true,
             json["autoCheckUpdate"]?.GetValue<bool>() ?? true)
@@ -36,6 +36,10 @@ public sealed class HostSettingsStore(string path)
             GameThemeAuto = json["gameThemeAuto"]?.GetValue<bool>() ?? true,
             RunAsAdmin = json["runAsAdmin"]?.GetValue<bool>() ?? false,
             UiSkin = uiSkin,
+            UiScheme = json["uiScheme"] is JsonValue schemeValue && schemeValue.TryGetValue<string>(out var scheme)
+                && scheme is ("system" or "dark" or "light") ? scheme : "system",
+            UiAccent = json["uiAccent"] is JsonValue accentValue && accentValue.TryGetValue<string>(out var accent)
+                && ValidAccent(accent) ? accent : "",
             UiFont = json["uiFont"]?.GetValue<string>() ?? "",
             UiFontWeight = json["uiFontWeight"] is JsonValue weightValue
                 && weightValue.TryGetValue<string>(out var weight) && weight is ("normal" or "medium" or "bold") ? weight : "normal",
@@ -90,8 +94,11 @@ public sealed class HostSettingsStore(string path)
         settings.Routes.Validate();
         if (settings.ShopScanSpeed is not ("normal" or "fast"))
             throw new ArgumentException("商店识别速度无效。");
-        if (settings.UiSkin is not ("follow" or "terminal" or "ursus" or "closure" or "classic"))
+        if (settings.UiSkin is not ("follow" or "terminal" or "ursus" or "closure" or "classic" or "glass" or "round"))
             throw new ArgumentException("界面主题无效。");
+        if (settings.UiScheme is not ("system" or "dark" or "light"))
+            throw new ArgumentException("界面配色无效。");
+        if (!ValidAccent(settings.UiAccent)) throw new ArgumentException("主题色无效。");
         var proxy = settings.UpdateProxy;
         if (proxy != "" && (proxy is null
             || !System.Text.RegularExpressions.Regex.IsMatch(proxy, @"\A(?:http|socks5)://(?:\[[^\]]+\]|[^\s/:@?#\\]+):[0-9]+\z", System.Text.RegularExpressions.RegexOptions.IgnoreCase)
@@ -100,6 +107,9 @@ public sealed class HostSettingsStore(string path)
             throw new ArgumentException("代理地址格式不对。");
         Merge(settings with { RunAsAdmin = Read()["runAsAdmin"]?.GetValue<bool>() ?? false });
     }
+    private static bool ValidAccent(string? accent) => accent is not null && (accent == ""
+        || System.Text.RegularExpressions.Regex.IsMatch(accent, @"\A#[0-9a-fA-F]{6}\z"));
+
     public void SaveRunAsAdmin(bool on) => Merge(new { runAsAdmin = on });
     public void SaveDock(DockSettings dock) => Merge(dock);
 

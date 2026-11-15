@@ -36,9 +36,7 @@ public class OcrScannerService : IDisposable
     private string[] _trackedNames = [];
     private IReadOnlyList<ShopItem> _cachedItems = [];
     private EconomyReading? _lastEconomy;
-    private bool _economyStable;
-    private bool _skipEconomy;
-    private byte[]? _economyContext;
+    private EconomyReader? _economyReader;
     private byte[]? _informationContext;
     private long _lastTimingLog;
     public void InvalidateShop() => Interlocked.Increment(ref _cacheVersion);
@@ -148,6 +146,7 @@ public class OcrScannerService : IDisposable
     private (int, int) _boardSurfaceSize;
     public bool BoardShopVisible => _shopReader.HasVisibleCards;
     public Func<byte[], DateTimeOffset, EconomyReading?, bool, bool, IReadOnlyList<ShopItem>, Task>? ObserveFieldAsync { get; set; }
+    public Func<byte[], int, int, EconomyReading?, double, Task>? ObserveMatchFrameAsync { get; set; }
 
     public void Start() => _scanTimer.Start();
 
@@ -264,12 +263,13 @@ public class OcrScannerService : IDisposable
         var theme = _shopReader.Theme;
         var tracked = _getTrackedNames().ToArray();
         var key = (width, height, theme);
+        if (key != _frameKey) _economyReader = null;
         bool forced = version != _readVersion || key != _frameKey || !tracked.SequenceEqual(_trackedNames);
         var clock = Stopwatch.StartNew();
         // ADB 返回编码图；样图测试也走这一入口。PC 截图已经在编码前生成了指纹。
         fingerprint ??= ShopFrameFingerprint.Read(screenshot, theme);
         fingerprintMs += clock.Elapsed.TotalMilliseconds;
-        bool changed = forced || _fingerprint is null || !ShopFrameFingerprint.SameNames(_fingerprint.Names, fingerprint.Names);
+        bool changed = _shopReader.NeedsEmptyConfirmation || forced || _fingerprint is null || !ShopFrameFingerprint.SameNames(_fingerprint.Names, fingerprint.Names);
         if (_fingerprint is { } previous && changed)
         {
             lock (_shopGate)
@@ -295,7 +295,6 @@ public class OcrScannerService : IDisposable
             _readVersion = version;
             _frameKey = key;
             _trackedNames = tracked;
-            _economyStable = _skipEconomy = false;
         }
         clock.Restart();
         PublishShopItems(_cachedItems, _shopReader.HasVisibleCards, capturedAt);
@@ -313,33 +312,19 @@ public class OcrScannerService : IDisposable
         if (theme != _shopReader.Theme)
         {
             theme = _shopReader.Theme;
-            _economyStable = _skipEconomy = false;
-            _economyContext = null;
+            _economyReader = null;
         }
 
-        // 静止画面不读资金；画面变化但资金稳定时隔轮读。刷新和名称变化立即恢复。
-        bool economyChanged = _economyContext is null || !_economyContext.AsSpan().SequenceEqual(fingerprint.Context);
+        // 每帧确认读数；各数字区域由持久化 reader 独立比较，未变不调用 OCR。
         EconomyReading? boardEconomy = _lastEconomy;
-        if ((EconomyRead is not null || BoardRoutesRequested() || ObserveFieldAsync is not null) && (changed || economyChanged))
+        if (EconomyRead is not null || BoardRoutesRequested() || ObserveFieldAsync is not null)
         {
-            if (!_skipEconomy || changed)
-            {
-                clock.Restart();
-                var reading = await new EconomyReader(_ocrEngine, theme).ReadAsync(screenshot, width, height);
-                _economyStable = reading == _lastEconomy;
-                _lastEconomy = reading;
-                boardEconomy = reading;
-                _economyContext = fingerprint.Context;
-                EconomyRead?.Invoke(reading);
-                economyMs = clock.Elapsed.TotalMilliseconds;
-                _skipEconomy = _economyStable;
-            }
-            else
-            {
-                _skipEconomy = false;
-                // 顶栏有变化但本轮资金 OCR 降频时，不用旧的休整期状态启动棋盘识别。
-                boardEconomy = null;
-            }
+            clock.Restart();
+            _economyReader ??= new EconomyReader(_ocrEngine, theme);
+            var reading = await _economyReader.ReadAsync(screenshot, width, height, _shopReader.UiScale);
+            _lastEconomy = boardEconomy = reading;
+            EconomyRead?.Invoke(reading);
+            economyMs = clock.Elapsed.TotalMilliseconds;
         }
         // 状态机尚未稳定、等待对局详情时继续确认；稳定的商店静帧不再做信息页 OCR。
         bool informationChanged = _informationContext is null || !_informationContext.AsSpan().SequenceEqual(fingerprint.Context);
@@ -364,6 +349,8 @@ public class OcrScannerService : IDisposable
             if (!_pauseBanScreenDetection && !_banScreenActive && ObserveFieldAsync is { } observe && fieldEconomy is not null)
                 await observe(screenshot, capturedAt, fieldEconomy, BoardMainScreenVisible, BoardShopVisible, _shopReader.AllItems);
         }
+        if (!_pauseBanScreenDetection && ObserveMatchFrameAsync is { } observeMatch)
+            await observeMatch(screenshot, width, height, boardEconomy, _shopReader.UiScale ?? 1);
         double total = captureMs + fingerprintMs + (shopMs ?? 0) + publishMs + (economyMs ?? 0) + (informationMs ?? 0);
         // 有卡片时至多每两秒一行；慢轮（超过 800 ms）始终记录。
         if (total >= 800 || _shopReader.HasVisibleCards && Environment.TickCount64 - _lastTimingLog >= 2000)

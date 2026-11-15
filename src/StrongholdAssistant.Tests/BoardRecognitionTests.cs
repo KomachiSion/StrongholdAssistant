@@ -6,6 +6,7 @@ namespace StrongholdAssistant.Tests;
 public sealed class BoardRecognitionTests
 {
     [Theory]
+    [InlineData("board-city-r13-expanded.jpg", "m05", BoardCamera.Expanded, .347, .222, .329, .539)]
     [InlineData("shop-ui100-2000x1125.png", "m01", BoardCamera.Expanded, .347, .227, .329, .532)]
     [InlineData("shop-terminal-ui100-2000x1125.png", "m01", BoardCamera.Expanded, .347, .227, .329, .532)]
     [InlineData("shop-ursus-ui100-2000x1125.png", "m01", BoardCamera.Expanded, .347, .227, .329, .532)]
@@ -19,6 +20,7 @@ public sealed class BoardRecognitionTests
         var recognizer = new BoardRecognizer(Path.Combine(AppContext.BaseDirectory, "data"));
         var match = recognizer.Recognize(File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "TestData", file)));
         Assert.NotNull(match);
+        Assert.Null(match.PlayerSide);
         Assert.Equal(map, match.MapId); Assert.Equal(camera, match.Camera);
         var top = match.Projection.Project(0, 0); var bottom = match.Projection.Project(0, 4);
         Assert.InRange(Math.Abs(top.X - topX), 0, .012); Assert.InRange(Math.Abs(top.Y - topY), 0, .012);

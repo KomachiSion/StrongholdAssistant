@@ -16,6 +16,9 @@ namespace ASPAssistant.Core.Services;
 /// </summary>
 public sealed class ShopReader(IOcrEngine engine, IReadOnlyList<string> catalogNames)
 {
+    // 2026-11-15：可见商店连续两次名称读空才报告失败。
+    private int _emptyReadings;
+    internal bool NeedsEmptyConfirmation => _emptyReadings == 1;
     private readonly string[] _names = catalogNames.OrderByDescending(n => n.Length).ToArray();
     private volatile GameShopTheme _theme = GameShopTheme.Terminal;
     public GameShopTheme Theme { get => _theme; set => _theme = value; }
@@ -33,7 +36,10 @@ public sealed class ShopReader(IOcrEngine engine, IReadOnlyList<string> catalogN
         UiScale = null;
         AllItems = [];
         if (trackedNames.Count == 0 && !ReadUntracked)
+        {
+            _emptyReadings = 0;
             return [];
+        }
         var theme = Theme;
 
         using var stream = new MemoryStream(screenshot);
@@ -142,8 +148,11 @@ public sealed class ShopReader(IOcrEngine engine, IReadOnlyList<string> catalogN
         var texts = (await engine.RecognizeRegionAsync(ocrInput, 0, 0, strip.Width, strip.Height))
             .Where(t => t.Text.Trim() is not [< (char)128] || t.Box.W <= t.Box.H * 2).ToList();
         if (!texts.Any(t => t.Text.Contains("收起", StringComparison.Ordinal) && t.Box.X + t.Box.W > width * 1.6))
+        {
             // 没找到「收起」时商店未打开，属于正常画面，不上报识别失败。
+            _emptyReadings = 0;
             return [];
+        }
         var originalTexts = texts.Where(t => t.Box.Y + t.Box.H / 2.0 >= height * 300 / 1080.0
             || t.Text.Contains("收起", StringComparison.Ordinal)).ToList();
         var items = MatchNames(originalTexts, width, height, canvasTop, _names).ToList();
@@ -191,7 +200,8 @@ public sealed class ShopReader(IOcrEngine engine, IReadOnlyList<string> catalogN
                 }
             }
         }
-        if (HasVisibleCards && items.Count == 0) Failure = $"商店卡片的名字没读出来。\n{OcrSummary(texts)}";
+        _emptyReadings = HasVisibleCards && items.Count == 0 ? Math.Min(2, _emptyReadings + 1) : 0;
+        if (_emptyReadings >= 2) Failure = $"商店卡片的名字没读出来。\n{OcrSummary(texts)}";
         AppLogger.Info("Shop", $"UI 缩放={k:F3}; 可见卡片={HasVisibleCards}; 识别名称={string.Join('|', items.Select(i => i.Name))}");
         AllItems = ShopLayout.Snap(items, width, height, k, theme);
         return AllItems.Where(i => trackedNames.Contains(i.Name)).ToArray();

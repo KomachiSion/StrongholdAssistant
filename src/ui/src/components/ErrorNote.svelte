@@ -62,7 +62,7 @@
   .en {
     background: var(--red-tint);
     box-shadow:
-      inset 3px 0 0 var(--red),
+      inset calc(var(--edge) * 1.5) 0 0 var(--red),
       inset 0 0 0 1px rgb(var(--red-rgb) / 0.35);
   }
   .top {

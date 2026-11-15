@@ -33,7 +33,7 @@
     white-space: nowrap;
     background: var(--bg-2a);
     box-shadow:
-      inset 2px 0 0 var(--mint),
+      inset var(--edge) 0 0 var(--mint),
       inset 0 0 0 1px var(--line-strong),
       0 6px 20px rgb(var(--shade-rgb) / 0.55);
     pointer-events: none;
@@ -45,7 +45,7 @@
   .toast.bad {
     white-space: normal;
     box-shadow:
-      inset 2px 0 0 var(--red),
+      inset var(--edge) 0 0 var(--red),
       inset 0 0 0 1px var(--line-strong),
       0 6px 20px rgb(var(--shade-rgb) / 0.55);
   }

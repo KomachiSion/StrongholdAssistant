@@ -38,6 +38,8 @@
   import cut from 'remixicon/icons/Design/scissors-cut-line.svg?raw'
   import copy from 'remixicon/icons/Document/file-copy-line.svg?raw'
   import selectAll from 'remixicon/icons/Editor/text.svg?raw'
+  import maximize from 'remixicon/icons/Media/fullscreen-line.svg?raw'
+  import restore from 'remixicon/icons/Media/fullscreen-exit-line.svg?raw'
   import chat from 'remixicon/icons/Communication/chat-3-line.svg?raw'
   import flag from 'remixicon/icons/Business/flag-2-line.svg?raw'
   import reply from 'remixicon/icons/Business/reply-line.svg?raw'
@@ -50,7 +52,7 @@
   import bell from 'remixicon/icons/Media/notification-3-line.svg?raw'
   import award from 'remixicon/icons/Business/award-line.svg?raw'
 
-  const icons = { settings, cloud, cloudOff, subtract, close, refresh, search, grid, focus, add, star, starFill, check, arrowRight, arrowDown, arrowUp, contractLeft, expandRight, pencil, trash, lock, lockFill, forbid, magic, scan, stop, heart, heartFill, pin, pinFill, download, upload, folder, share, paste, cut, copy, selectAll, chat, flag, reply, workbench, sidebar, history, chart, eye, eyeOff, bell, award }
+  const icons = { settings, cloud, cloudOff, subtract, close, refresh, search, grid, focus, add, star, starFill, check, arrowRight, arrowDown, arrowUp, contractLeft, expandRight, pencil, trash, lock, lockFill, forbid, magic, scan, stop, heart, heartFill, pin, pinFill, download, upload, folder, share, paste, cut, copy, selectAll, chat, flag, reply, workbench, sidebar, history, chart, eye, eyeOff, bell, award, maximize, restore }
   export type IconName = keyof typeof icons
 </script>
 

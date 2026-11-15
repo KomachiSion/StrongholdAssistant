@@ -25,13 +25,16 @@
   import PlazaPasswordGate from './components/PlazaPasswordGate.svelte'
   import Tooltip from './components/Tooltip.svelte'
   import { api } from './lib/api'
-  import { skin } from './lib/skin.svelte'
+  import { skin, plainSkin, modernSkin } from './lib/skin.svelte'
+  import type { ResizeEdge } from './lib/api/types'
+  import { accentTokens, ACCENT_KEYS } from './lib/accent'
   import { asset } from './lib/assets'
   import { fly } from 'svelte/transition'
   import { cubicOut } from 'svelte/easing'
   import UpdateBar from './components/UpdateBar.svelte'
   import { FONT_WEIGHTS, fontStack } from './lib/fonts'
 
+  const EDGES: ResizeEdge[] = ['n', 's', 'w', 'e', 'nw', 'ne', 'sw', 'se']
   let upH = $state(0)
   $effect(() => {
     if (app.collapsed === 'up' && upH) api.collapseUp(upH)
@@ -46,10 +49,25 @@
     // 乌萨斯
     'flag', 'round', 'panel', 'sweep',
   ]
+  const darkQuery = matchMedia('(prefers-color-scheme: dark)')
+  let sysDark = $state(darkQuery.matches)
+  $effect(() => {
+    const f = (e: MediaQueryListEvent) => (sysDark = e.matches)
+    darkQuery.addEventListener('change', f)
+    return () => darkQuery.removeEventListener('change', f)
+  })
   $effect(() => {
     skin.id = app.settings.uiSkin === 'follow' ? app.gameTheme : app.settings.uiSkin
     const root = document.documentElement
     root.dataset.skin = skin.id
+    // 通用风格（毛玻璃、圆润）有深浅两种配色，跟随系统时看 Windows 的应用模式；游戏主题和经典总是深色
+    skin.scheme = modernSkin(skin.id) && (app.settings.uiScheme === 'light' || (app.settings.uiScheme === 'system' && !sysDark)) ? 'light' : 'dark'
+    root.dataset.scheme = skin.scheme
+    root.toggleAttribute('data-plain', plainSkin(skin.id))
+    root.toggleAttribute('data-modern', modernSkin(skin.id))
+    // 自定义主题色只在通用风格里用；写在根元素的行内样式上，盖过主题样式表里的强调色
+    const custom = modernSkin(skin.id) && /^#[0-9a-f]{6}$/i.test(app.settings.uiAccent) ? accentTokens(app.settings.uiAccent, skin.scheme) : null
+    for (const k of ACCENT_KEYS) custom ? root.style.setProperty(k, custom[k]) : root.style.removeProperty(k)
     for (const f of SKIN_IMAGES) root.style.setProperty(`--skin-${f.replace('_', '-')}`, `url(${asset.skin(f)})`)
   })
   // 界面字体和字重（v0.9.5）：选的字体缺字时回落到 MiSans
@@ -141,6 +159,12 @@
     {@render body()}
   {/if}
 </div>
+{#if app.workbench && !app.maximized}
+  <!-- 工作台拖边改大小（v0.9.8）：网页盖满了窗口，系统的缩放边摸不到，所以在四边四角放透明的拖动区，按下交给宿主 -->
+  {#each EDGES as e (e)}
+    <i class="grip-{e} resize" role="presentation" onpointerdown={(ev) => ev.button === 0 && (ev.preventDefault(), api.resizeWindow(e))}></i>
+  {/each}
+{/if}
 {/if}
 
 {#snippet body()}
@@ -197,6 +221,65 @@
 <PlazaPasswordGate />
 
 <style>
+  /* 拖边改大小：边 5px、角 10px，压在所有内容上面；标题栏是拖动区，这里要挖掉 */
+  .resize {
+    position: fixed;
+    z-index: 1000;
+    -webkit-app-region: no-drag;
+  }
+  .grip-n,
+  .grip-s {
+    left: 10px;
+    right: 10px;
+    height: 5px;
+    cursor: ns-resize;
+  }
+  .grip-n {
+    top: 0;
+  }
+  .grip-s {
+    bottom: 0;
+  }
+  .grip-w,
+  .grip-e {
+    top: 10px;
+    bottom: 10px;
+    width: 5px;
+    cursor: ew-resize;
+  }
+  .grip-w {
+    left: 0;
+  }
+  .grip-e {
+    right: 0;
+  }
+  .grip-nw,
+  .grip-ne,
+  .grip-sw,
+  .grip-se {
+    width: 10px;
+    height: 10px;
+  }
+  .grip-nw {
+    top: 0;
+    left: 0;
+    cursor: nwse-resize;
+  }
+  .grip-se {
+    bottom: 0;
+    right: 0;
+    cursor: nwse-resize;
+  }
+  .grip-ne {
+    top: 0;
+    right: 0;
+    cursor: nesw-resize;
+  }
+  .grip-sw {
+    bottom: 0;
+    left: 0;
+    cursor: nesw-resize;
+  }
   /* 启动：标题栏和原生骨架一致、不动，其余区块等宿主显示网页后依次淡入上移 */
   .shell.boot > :global(:not(:first-child)) {
     opacity: 0;
@@ -256,7 +339,7 @@
     font-size: var(--fs-base);
     color: var(--fg-3);
     background: var(--bg-1);
-    box-shadow: inset 2px 0 0 var(--red);
+    box-shadow: inset var(--edge) 0 0 var(--red);
   }
   .crash b {
     font-size: var(--fs-lg);

@@ -387,7 +387,7 @@
   .row {
     background: var(--bg-1);
     box-shadow: inset 0 0 0 1px var(--line-soft);
-    border-left: 2px solid var(--bg-4);
+    border-left: var(--edge) solid var(--bg-4);
   }
   .row.win {
     border-left-color: var(--mint);

@@ -25,6 +25,32 @@ public partial class MainWindow : Window
         _userDirectory = userDirectory;
         _tracker = new(findWindow: _capture.Connection.FindGameWindow, getViewport: _capture.Connection.GetViewport);
         InitializeComponent();
+        ApplySplashTheme();
+    }
+
+    private void ApplySplashTheme()
+    {
+        var directory = _userDirectory ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "StrongholdAssistant");
+        var settings = new HostSettingsStore(Path.Combine(directory, "settings.json")).LoadSettings();
+        var light = settings.UiScheme == "light";
+        if (settings.UiScheme == "system")
+        {
+            using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
+            light = key?.GetValue("AppsUseLightTheme") is int value && value == 1;
+        }
+        if (light && settings.UiSkin is "glass" or "round")
+        {
+            var colors = settings.UiSkin == "glass"
+                ? new[] { "#ECEFF4", "#E7EAEF", "#1B1F26", "#6B7280", "#0067C0", "#DDE1E7" }
+                : new[] { "#F3F1F8", "#ECE9F4", "#1E1B29", "#716C88", "#6854E8", "#E4E1EE" };
+            string[] keys = ["SplashBackground", "SplashBorder", "SplashText", "SplashMuted", "SplashAccent", "SplashHover"];
+            for (var i = 0; i < keys.Length; i++)
+                Resources[keys[i]] = new System.Windows.Media.SolidColorBrush(
+                    (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(colors[i]));
+            SplashBody.Background = (System.Windows.Media.Brush)Resources["SplashBackground"];
+        }
+        var background = ((System.Windows.Media.SolidColorBrush)Resources["SplashBackground"]).Color;
+        Browser.DefaultBackgroundColor = System.Drawing.Color.FromArgb(background.R, background.G, background.B);
     }
 
     private async void OnLoaded(object sender, RoutedEventArgs e)
@@ -42,8 +68,7 @@ public partial class MainWindow : Window
         var environment = await CoreWebView2Environment.CreateAsync(userDataFolder: Path.Combine(userDirectory, "WebView2"));
         environment.BrowserProcessExited += (_, args) => ASPAssistant.Core.AppLogger.Info("WebView2",
             $"BrowserProcessExited: BrowserProcessExitKind={args.BrowserProcessExitKind}; BrowserProcessId={args.BrowserProcessId}");
-        // 页面加载前的底色和界面一致，避免白屏
-        Browser.DefaultBackgroundColor = System.Drawing.Color.FromArgb(0x0b, 0x0c, 0x0d);
+        // 默认底色已在构造窗口时按启动设置应用。
         await Browser.EnsureCoreWebView2Async(environment);
         var web = Browser.CoreWebView2;
         web.ProcessFailed += (_, args) => ASPAssistant.Core.AppLogger.Error("WebView2",
@@ -102,6 +127,7 @@ public partial class MainWindow : Window
     {
         int? id = null;
         string? windowCommand = null;
+        string? resizeEdge = null;
         var locked = false;
         try
         {
@@ -118,8 +144,14 @@ public partial class MainWindow : Window
             if (request.Method == "windowCommand")
             {
                 windowCommand = request.Params[0].GetString();
-                if (windowCommand is not ("minimize" or "close" or "collapse" or "expand" or "ready" or "workbench" or "sidebar" or "redock")) throw new ArgumentException("窗口命令无效。");
+                if (windowCommand is not ("minimize" or "close" or "collapse" or "expand" or "ready" or "workbench" or "sidebar" or "redock" or "maximize" or "restore")) throw new ArgumentException("窗口命令无效。");
                 if (windowCommand == "redock") Redock();
+                result = null;
+            }
+            else if (request.Method == "resizeWindow")
+            {
+                resizeEdge = request.Params[0].GetString();
+                _ = ResizeHit(resizeEdge);
                 result = null;
             }
             else if (request.Method == "setRunAsAdmin")
@@ -172,6 +204,7 @@ public partial class MainWindow : Window
                 ? ex.Message : "请求处理失败，请检查数据后重试。";
             Browser.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new { id, error }, HostApi.JsonOptions));
             windowCommand = null;
+            resizeEdge = null;
         }
         finally { if (locked) _requests.Release(); }
         if (windowCommand == "minimize") WindowState = WindowState.Minimized;
@@ -185,6 +218,9 @@ public partial class MainWindow : Window
         }
         if (windowCommand == "workbench") SetWorkbench(true);
         if (windowCommand == "sidebar") SetWorkbench(false);
+        if (_workbench && windowCommand == "maximize") WindowState = WindowState.Maximized;
+        if (_workbench && windowCommand == "restore") WindowState = WindowState.Normal;
+        if (resizeEdge is not null) ResizeWindow(resizeEdge);
     }
 
     private void LaunchPreparedUpdate()
@@ -219,6 +255,7 @@ public partial class MainWindow : Window
         Browser.Visibility = Visibility.Visible;
         Splash.Visibility = Visibility.Collapsed;
         _uiReady = true;
+        PublishMaximized();
         while (_pendingDeepLinks.TryDequeue(out var url)) ReceiveDeepLink(url);
     }
 

@@ -66,6 +66,7 @@ export const bridgeApi: Api = {
   saveSession: call('saveSession'),
   windowCommand: call('windowCommand'),
   collapseUp: call('collapseUp'),
+  resizeWindow: call('resizeWindow'),
   settings: call('settings'),
   saveSettings: call('saveSettings'),
   appInfo: call('appInfo'),
@@ -103,6 +104,7 @@ export const bridgeApi: Api = {
   onScan: listen('scan'),
   onField: listen('field'),
   onWindow: listen('window'),
+  onMaximized: listen('maximized'),
   onDeepLink: listen('deepLink'),
   onHotkey: listen('hotkey'),
 }

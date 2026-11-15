@@ -61,7 +61,8 @@ public sealed partial class HostApi
     {
         CompleteHistory();
         ClearEconomy();
-        Match = Match with { StrategyId = null };
+        ResetMatchReading();
+        Match = Match with { StrategyId = null, StrategySource = null, RoundEnemies = null, CustomPicks = null };
         string now = DateTimeOffset.UtcNow.ToString("O");
         _activeRecord = Guid.NewGuid().ToString("N");
         // 序列化复制快照，之后编辑目标阵容不会修改历史。

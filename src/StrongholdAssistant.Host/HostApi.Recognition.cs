@@ -202,6 +202,9 @@ public sealed partial class HostApi
             BossId = next.BossId ?? (newMatch ? null : Match.BossId),
             EnemyTypes = next.EnemyTypes.Length > 0 ? next.EnemyTypes : newMatch ? [] : Match.EnemyTypes,
             StrategyId = newMatch ? null : Match.StrategyId,
+            StrategySource = newMatch ? null : Match.StrategySource,
+            RoundEnemies = newMatch ? null : Match.RoundEnemies,
+            CustomPicks = newMatch ? null : Match.CustomPicks,
             // 单人开局清空后首次录入详情，保留刚确认的单人模式。
             Solo = opening || (newMatch && Match.RecognizedAt is not null) ? false : Match.Solo,
             AwaitingDetail = false,

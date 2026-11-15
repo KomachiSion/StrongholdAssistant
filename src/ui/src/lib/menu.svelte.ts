@@ -168,7 +168,7 @@ export function strategyMenu(id: string): Omit<MenuState, 'x' | 'y'> {
 export function plazaPostMenu(p: Post): Omit<MenuState, 'x' | 'y'> {
   const imp = (asTarget: boolean) => {
     plaza.imported(p.id).catch(() => {})
-    app.importLineup(postToLineup(p), asTarget)
+    app.importLineup(postToLineup(p), asTarget, true)
   }
   return {
     title: p.lineup.name,

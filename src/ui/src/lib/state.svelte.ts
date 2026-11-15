@@ -114,6 +114,8 @@ export class AppState {
   /** 工作台（v0.7.0）：宽窗口，编阵容、逛广场、翻图鉴；每次启动都是侧栏 */
   // 启动形态由宿主按设置决定（v0.7.2），界面跟着它
   workbench = $state(appInfo.workbench ?? false)
+  /** 工作台最大化（v0.9.8），宿主推送 */
+  maximized = $state(false)
   /** 启动与关闭过渡：boot 等网页可见，in 入场，out 关闭前退场 */
   phase = $state<'boot' | 'in' | 'out'>('boot')
 
@@ -181,6 +183,7 @@ export class AppState {
     })
     api.onUpdate((u) => (this.update = u))
     api.onWindow(() => (this.phase = 'out'))
+    api.onMaximized((m) => (this.maximized = m))
     // 收起 / 展开快捷键：工作台里最小化（再按由宿主恢复），侧栏里收起和展开来回切
     api.onHotkey(() => {
       if (this.workbench) api.windowCommand('minimize')
@@ -218,7 +221,12 @@ export class AppState {
   setWorkbench(on: boolean) {
     if (on && this.collapsed) this.collapsed = false
     this.workbench = on
+    if (!on) this.maximized = false
     api.windowCommand(on ? 'workbench' : 'sidebar')
+  }
+  /** 工作台最大化 / 还原（v0.9.8） */
+  toggleMaximize() {
+    if (this.workbench) api.windowCommand(this.maximized ? 'restore' : 'maximize')
   }
   /** 标题栏的收起按钮：按设置里的收起方式 */
   collapse() {
@@ -424,6 +432,20 @@ export class AppState {
   /** stay：留在当前页面（森空岛列表里连着挑几篇时用），只弹提示 */
   importLineup(l: Lineup, asTarget: boolean, stay = false) {
     return this.attempt(() => this.doImport(l, asTarget, stay))
+  }
+  /** 一次导入几套（广场多选）：逐个保存，最后刷新一次列表，不切页面；成功时不弹提示（调用方说结果），出错时提示到第几套；返回存好了几套 */
+  async importMany(ls: Lineup[]) {
+    let n = 0
+    try {
+      for (const l of ls) {
+        await api.saveLineup(this.filled($state.snapshot(l) as Lineup))
+        n++
+      }
+    } catch (e) {
+      this.showToast(`导入到第 ${n + 1} 套时出错：${(e as Error).message}`, true)
+    }
+    this.lineups = await api.lineups()
+    return n
   }
   /** 存阵容前把默认技能、模组写进去（默认只预填，之后改默认不影响已有阵容） */
   private filled(l: Lineup) {

@@ -45,6 +45,9 @@ public sealed record SettingsDto(string GameTheme, bool ShopMarkers, bool AutoCh
     public bool RunAsAdmin { get; init; }
     public RouteOverlaySettings Routes { get; init; } = new();
     public string UiSkin { get; init; } = "follow";
+    public string UiScheme { get; init; } = "system";
+    private string _uiAccent = "";
+    public string UiAccent { get => _uiAccent; init => _uiAccent = value?.ToLowerInvariant()!; }
     public string UiFont { get; init; } = "";
     public string UiFontWeight { get; init; } = "normal";
     public bool PlazaNotices { get; init; } = true;
@@ -85,7 +88,12 @@ public sealed record MatchInfo(string Source, string? StrategyId, CovenantState[
     public bool AwaitingDetail { get; init; }
     public ASPAssistant.Core.Models.GameModeInfo? Mode { get; init; }
     public Economy? Economy { get; init; }
+    public string? StrategySource { get; init; }
+    public RoundEnemies? RoundEnemies { get; init; }
+    public Dictionary<int, string[]>? CustomPicks { get; init; }
 }
+public sealed record RoundEnemy(string? Id, string Name);
+public sealed record RoundEnemies(int Round, string At, RoundEnemy[] Enemies);
 public sealed record BanGroup(string Covenant, BanSlot[] Slots, bool Complete);
 public sealed record BanSlot(string? Name, int Tier, string[] Candidates,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] bool? Inferred = null);

@@ -13,6 +13,7 @@
 | `data/field/tier-1.png`、`tier-2.png`、`tier-3.png`、`tier-5.png` | 场上阶数识别模板，40×40 裁剪 | 用户提供的 `prep-ready-1920x1080.png` 游戏截图；游戏美术归上海鹰角网络所有 |
 | `data/field/tier-4.png`、`tier-6.png` | 场上 IV、VI 阶识别模板，原图补到 40×40 黑底画布 | [ArknightsAssets/ArknightsAssets2](https://github.com/ArknightsAssets/ArknightsAssets2) `cn` 分支 commit `774d93398fc56df29b4f55e406edda1a9df451e9`，`assets/dyn/ui/autochess/[uc]autochesscommon/chess/common_chess_level/img_chess_level_4.png`、`img_chess_level_6.png`；游戏美术归上海鹰角网络所有 |
 | `src/StrongholdAssistant.Tests/TestData/field-*.jpg` | 场上占用及拖动详情测试，5 张录屏帧，只用于测试 | 用户于 2026-11-13 提供的三主题录屏第 47、55.5、57、345、350 秒；游戏画面归上海鹰角网络所有 |
+| `src/StrongholdAssistant.Tests/TestData/board-boss-right-*.jpg`、`board-city-r13-expanded.jpg` | 联机首领回合（玩家在右侧）和普通回合的棋盘识别测试，3 张录屏帧，只用于测试 | 用户于 2026-11-14 提供的整局录屏第 40:00、44:00、45:45；游戏画面归上海鹰角网络所有 |
 | `src/ui/public/assets/game/bond/` | 盟约图标（文件名为游戏盟约 id 去掉 `Ship`） | [ArknightsAssets/ArknightsAssets2](https://github.com/ArknightsAssets/ArknightsAssets2) `cn` 分支，commit `774d93398fc56df29b4f55e406edda1a9df451e9`，`assets/dyn/ui/autochess/[uc]autochesscommon/arts/bondicon/` |
 | `src/ui/public/assets/game/card/` | 商店卡底、等阶框与等阶角标、冻结等 | 同上，`…/[uc]autochessbattle/shop/autochess_shop_card_item/` |
 | `src/ui/public/assets/game/card/icon_golden.png` | 精锐标记（图鉴里的精锐状态标签） | 同上，`…/[uc]autochessouter/handbook/act_auto_chess_handbook_state/` |
@@ -42,7 +43,7 @@
 
 `data/codex_extra.json` 的装备关系、进阶效果与首领血量取自 [ArknightsGameData](https://github.com/Kengxxiao/ArknightsGameData) 国服 `gamedata/excel/activity_table.json`（2026-11-11 数据，`act3autochess/V3_1`），由 `scripts/GenerateCodexExtra` 生成；游戏数据归上海鹰角网络所有。
 
-`data/enemies.json` 的敌人资料（特训敌人各变体与首领的名字、等级、攻击方式、基础属性、能力、描述）取自 [ArknightsGameData](https://github.com/Kengxxiao/ArknightsGameData) 国服 `gamedata/excel/enemy_handbook_table.json` 和 `gamedata/levels/enemydata/enemy_database.json`（2026-11-14 数据）；游戏数据归上海鹰角网络所有。界面上的「在 PRTS 查看」只是打开 [PRTS](https://prts.wiki) 对应页面的链接，不收录 PRTS 的内容。
+`data/enemies.json` 的敌人资料（卫戍协议各关卡、活动敌人池和特训敌人附带的全部敌人，以及首领的名字、等级、攻击方式、基础属性、能力、描述，232 条）取自 [ArknightsGameData](https://github.com/Kengxxiao/ArknightsGameData) 国服 `gamedata/excel/enemy_handbook_table.json`、`gamedata/levels/enemydata/enemy_database.json`、`gamedata/excel/activity_table.json` 和 `gamedata/levels/activities/act3autochess/`、`act1autochess/` 的关卡文件（2026-11-14 数据）；`data/strategy_portraits.json` 是 61 个策略图标（同下 `strategies/`）圆内区域的灰度特征，由 `scripts/generate-strategy-portraits.ps1` 生成，用来认对局里的策略头像；游戏数据归上海鹰角网络所有。界面上的「在 PRTS 查看」只是打开 [PRTS](https://prts.wiki) 对应页面的链接，不收录 PRTS 的内容。
 
 | 位置 | 内容 | 来源 |
 |---|---|---|
@@ -61,5 +62,8 @@
 | `src/StrongholdAssistant.Tests/TestData/shop-closure-li-user-1665x1012.jpg` | 用户提供的可露希尔商店截图，只用于测试，不进发布包 | 用户于 2026-11-12 提供；游戏画面内容归上海鹰角网络所有 |
 | `src/StrongholdAssistant.Tests/TestData/*-ui100-2000x1125.png` | 用户提供的 UI 100 信息页、禁用头像页和商店截图，只用于测试 | 用户于 2026-11-11 提供；画面内容归上海鹰角网络所有 |
 | `src/StrongholdAssistant.Tests/TestData/solo-opening-*.png`、`mumu-solo-*.png` | 用户提供的 PC 单人开局页、MuMu 单人开局及对局详情截图，由 WebP 转为 PNG，只用于测试 | 用户于 2026-11-12 提供；画面内容归上海鹰角网络所有 |
+| `src/StrongholdAssistant.Tests/TestData/strategy-selection.jpg`、`strategy-board.jpg` | 用户录屏里的选策略页和对局休整期画面，用来测试认策略；选策略页的昵称和玩家列表已涂黑，只用于测试，不进发布包 | 用户于 2026-11-14 录制；画面内容归上海鹰角网络所有 |
+| `src/StrongholdAssistant.Tests/TestData/custom-picks-selection.png`、`custom-picks-none.png` | 用户录屏里的「确定自选编队」页（选择中、倒计时结束未选择），用来测试读自选干员；左侧玩家列表已涂黑，只用于测试，不进发布包 | 用户于 2026-11-15 录制；画面内容归上海鹰角网络所有 |
+| `src/StrongholdAssistant.Tests/TestData/custom-picks-solo-selecting-2v2.png`、`custom-picks-solo-final-2v2.png` | 用户截图的单人局「确定自选编队」页（选择中、选完两阶各 2 名），用来测试读自选干员；左侧玩家栏已涂黑，只用于测试，不进发布包 | 用户于 2026-11-15 截图；画面内容归上海鹰角网络所有 |
 | `src/StrongholdAssistant.Tests/TestData/board-enemy-panel.png`、`shop-wide-ui100.png`、`shop-terminal-frozen-1610.png` | 诊断包中的敌人面板、宽屏商店和冻结商店截图；商店图只保留底部区域，只用于测试，不进发布包 | 用户于 2026-11-13 提供；画面内容归上海鹰角网络所有 |
 | `src/ui/src/lib/mock/catalog.json` | 盟约、干员、装备、首领、敌人类型、策略的当期数据 | 同上 `data/*.json`；盟约 id 与激活人数取自 [PRTS](https://prts.wiki) 的 `activity_table.json`（`act3autochess` / `V3_1`） |

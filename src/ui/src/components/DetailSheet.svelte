@@ -532,13 +532,13 @@
     padding: 0 8px 0 3px;
     color: var(--fg-1);
     background: var(--bg-2);
-    box-shadow: inset 0 -2px 0 var(--fg-4);
+    box-shadow: inset 0 calc(var(--edge) * -1) 0 var(--fg-4);
   }
   .eqc:hover {
     background: var(--bg-3);
   }
   .eqc.out {
-    box-shadow: inset 0 -2px 0 var(--gold);
+    box-shadow: inset 0 calc(var(--edge) * -1) 0 var(--gold);
   }
   .eqc img {
     width: 20px;

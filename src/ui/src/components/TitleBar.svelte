@@ -86,6 +86,12 @@
     <Icon name="settings" size={15} />
   </button>
   <button class="wbtn" title="最小化" aria-label="最小化" onclick={() => api.windowCommand('minimize')}><Icon name="subtract" size={15} /></button>
+  <!-- 工作台能最大化（v0.9.8）；侧栏贴着游戏，不最大化 -->
+  {#if app.workbench}
+    <button class="wbtn" title={app.maximized ? '还原' : '最大化'} aria-label={app.maximized ? '还原' : '最大化'} onclick={() => app.toggleMaximize()}>
+      <Icon name={app.maximized ? 'restore' : 'maximize'} size={15} />
+    </button>
+  {/if}
   <button class="wbtn close" title="关闭" aria-label="关闭" onclick={() => api.windowCommand('close')}><Icon name="close" size={16} /></button>
 </div>
 

@@ -200,7 +200,10 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             // TODO(design)：确认消息桥错误提示文案；暂用简短中文说明。
+            // 读取我的干员、模拟器连接等用 IOException 抛给玩家看的中文提示（如「先关掉右侧的盟约筛选」）也原样显示；
+            // 英文的是内部错误，仍换成通用提示（v1.0.2 玩家诊断包）
             var error = ex is RecognitionException or SklandException || ex is ArgumentException && ex.Message.EndsWith('。')
+                || ex is IOException && ex.Message.Any(c => c is >= '一' and <= '鿿')
                 ? ex.Message : "请求处理失败，请检查数据后重试。";
             // 记下原因：之前只回给界面一句通用提示，诊断包里查不到是什么错
             Trace.WriteLine($"消息桥请求失败：{ex}");

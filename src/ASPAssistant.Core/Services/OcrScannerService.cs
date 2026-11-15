@@ -152,13 +152,14 @@ public class OcrScannerService : IDisposable
     public Func<byte[], int, int, EconomyReading?, double, Task>? ObserveMatchFrameAsync { get; set; }
 
     // 与定时扫描共用占用标志，当前帧的商店、资金和棋盘判定不会与扫描交错。
-    public async Task<FieldState> ReadCurrentFieldAsync(
+    // capture：宿主给的截图方法（点助手里的「识别」时前台是助手，要和开局识别一样允许并在需要时先藏起侧栏）
+    public async Task<FieldState> ReadCurrentFieldAsync(Func<Task<byte[]?>> capture,
         Func<byte[], DateTimeOffset, EconomyReading?, bool, bool, IReadOnlyList<ShopItem>, Task<FieldState>> recognize)
     {
         while (Interlocked.CompareExchange(ref _scanning, 1, 0) != 0) await Task.Delay(20);
         try
         {
-            var frame = await Task.Run(() => _captureService.CaptureScreen());
+            var frame = await capture();
             if (frame is null) throw new InvalidOperationException("还没连上游戏");
             return await ReadFieldFrameAsync(frame, DateTimeOffset.UtcNow, recognize);
         }

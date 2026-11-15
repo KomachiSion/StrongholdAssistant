@@ -134,6 +134,48 @@ public class BanCovenantReaderTests
     ];
 
     [Fact]
+    public async Task WideFrame_ExcludesIconsOutsideBothPanelHeaders()
+    {
+        const int width = 1918, height = 1009;
+        double scale = height / (double)Height;
+        int scaledWidth = (int)Math.Round(Width * scale);
+        int offset = (width - scaledWidth) / 2;
+        using var source = new System.Drawing.Bitmap(SamplePath("ban-sample-1920x1080.png"));
+        using var bitmap = new System.Drawing.Bitmap(width, height);
+        using (var graphics = System.Drawing.Graphics.FromImage(bitmap))
+        {
+            graphics.Clear(System.Drawing.Color.Black);
+            graphics.DrawImage(source, offset, 0, scaledWidth, height);
+            // 模拟面板外的地图边缘：位置恰好像第十一列，旧的 70% 扫描范围会收进来。
+            int x = (int)(offset + (FirstColumnCenter + ColumnPitch * 10) * scale);
+            foreach (int top in new[] { 280, 560 })
+                graphics.FillRectangle(System.Drawing.Brushes.Gray, x - 15, (int)(top * scale),
+                    30, (int)(90 * scale));
+        }
+        using var buffer = new MemoryStream();
+        bitmap.Save(buffer, System.Drawing.Imaging.ImageFormat.Png);
+        OcrTextResult Transform(OcrTextResult text) => new(text.Text,
+            (offset + (int)(text.Box.X * scale), (int)(text.Box.Y * scale),
+                (int)(text.Box.W * scale), (int)(text.Box.H * scale)));
+        var ocr = new StubOcrEngine(Sample1Core().Select(Transform).ToList(),
+            Sample1Additional().Select(Transform).ToList());
+        var (coreNames, additionalNames) = LoadCovenantNames();
+        var read = await BanCovenantReader.ReadAsync(ocr, new GarrisonOcrStrategy(), buffer.ToArray(),
+            width, height, coreNames, additionalNames);
+
+        read.CoreSlots.Should().Be(10);
+        read.AdditionalSlots.Should().Be(16);
+        read.Core.Should().HaveCount(10);
+        read.Additional.Should().HaveCount(16);
+        read.UnnamedCore.Should().BeEmpty();
+        read.UnnamedAdditional.Should().BeEmpty();
+        read.Core.Where(c => c.IsBanned).Select(c => c.Name).Should().BeEquivalentTo(
+            ["炎", "萨尔贡", "阿戈尔", "叙拉古", "乌萨斯"]);
+        read.Additional.Where(c => c.IsBanned).Select(c => c.Name).Should().BeEquivalentTo(
+            ["精准", "灵巧", "坚守", "奇迹", "奥术"]);
+    }
+
+    [Fact]
     public async Task Sample1_ReadsBothPanelsAndMarksGreyIconsAsBanned()
     {
         var (coreNames, additionalNames) = LoadCovenantNames();

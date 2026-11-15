@@ -158,7 +158,8 @@ public partial class MainWindow
                 (point.Y - viewport.Top - 8f) / viewport.Height, 48f / viewport.Width, 64f / viewport.Height);
         };
         _scanner.ObserveFieldAsync = _api.ObserveFieldAsync;
-        _api.ReadCurrentField = () => _scanner.ReadCurrentFieldAsync(_api.RecognizeFieldFrameAsync);
+        // 和开局识别同一个截图方法：点助手里的「识别」时前台是助手，也能截；侧栏挡着游戏时先藏一下（v1.0.2 玩家反馈）
+        _api.ReadCurrentField = () => _scanner.ReadCurrentFieldAsync(CaptureInformationScreenAsync, _api.RecognizeFieldFrameAsync);
         _scanner.BoardRoutesRequested = () => _api.BoardRoutesEnabled;
         _scanner.BoardFrameReady += (frame, reading) =>
         {

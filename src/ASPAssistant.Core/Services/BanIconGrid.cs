@@ -1,3 +1,4 @@
+// 2026-11-15：按当前帧标题条的像素边界限制盟约图标搜索范围。
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
@@ -42,10 +43,6 @@ public static class BanIconGrid
 
     private const int MinColumnsPerRow = 4;
 
-    /// <summary>Horizontal scanning window, as fractions of the screenshot width.</summary>
-    private const double ScanLeftPercent = 0.04;
-    private const double ScanRightPercent = 0.70;
-
     /// <summary>Half width of the green sample, as a fraction of the column pitch.</summary>
     private const double SampleHalfPitch = 0.30;
 
@@ -76,16 +73,15 @@ public static class BanIconGrid
         int width = pixels.Width;
         int height = pixels.Height;
 
-        int scanLeft = Math.Max(0, (int)(ScanLeftPercent * width));
-        int scanRight = Math.Min(width, (int)(ScanRightPercent * width));
+        int bandTop = Math.Max(0, (int)(minYPercent * height));
+        int bandBottom = Math.Min(height, (int)(maxYPercent * height));
+        var (scanLeft, scanRight) = FindPanelBounds(pixels, bandTop, bandBottom);
         if (scanRight - scanLeft < 100)
             return [];
 
-        int bandTop = Math.Max(0, (int)(minYPercent * height));
-        int bandBottom = Math.Min(height, (int)(maxYPercent * height));
-
         var rows = new List<(int Top, int Bottom)>();
-        int minLight = (int)Math.Max(20, (scanRight - scanLeft) * BandMinLightShare);
+        // 保留原有亮点数量门槛，避免收窄搜索区域时改变图标行的上下边缘。
+        int minLight = (int)Math.Max(20, width * 0.66 * BandMinLightShare);
         int minHeight = (int)(BandMinHeightPercent * height);
         int maxHeight = (int)(BandMaxHeightPercent * height);
 
@@ -138,6 +134,38 @@ public static class BanIconGrid
         }
 
         return slots;
+    }
+
+    // 标题条灰底横贯面板；取区域内最长的灰底行，容许纹理造成的短缺口。
+    // 核心和附加区域分别测量，不让右侧地图或首领面板参与图标检测。
+    private static (int Left, int Right) FindPanelBounds(BanScreenPixels pixels, int top, int bottom)
+    {
+        int left = 0, right = 0;
+        int maxGap = Math.Max(1, (int)(12 * GameUiScale.InformationBaseScale(pixels.Width, pixels.Height)));
+        for (int y = top; y < bottom; y++)
+        {
+            int start = -1, lastGray = -1;
+            for (int x = 0; x <= pixels.Width; x++)
+            {
+                bool gray = false;
+                if (x < pixels.Width)
+                {
+                    var (r, g, b) = pixels.ColorAt(x, y);
+                    gray = r is >= 50 and <= 80 && Math.Abs(r - g) < 5 && Math.Abs(r - b) < 5;
+                }
+                if (gray)
+                {
+                    if (start < 0) start = x;
+                    lastGray = x;
+                }
+                if (start < 0 || (x < pixels.Width && x - lastGray <= maxGap)) continue;
+                if (lastGray + 1 - start > right - left)
+                    (left, right) = (start, lastGray + 1);
+                start = -1;
+            }
+        }
+        // 短灰线不是面板标题；缺少标题时由调用方沿用已有的不完整识别处理。
+        return right - left >= pixels.Width * 0.3 ? (left, right) : (0, 0);
     }
 
     private static List<double> DetectColumns(

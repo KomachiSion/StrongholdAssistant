@@ -15,6 +15,11 @@ public partial class MainWindow
 {
     private readonly WindowTrackerService _tracker;
     private readonly ScreenCaptureService _capture = new();
+    internal object ReadDiagnosticCapture() => new
+    {
+        method = _capture.Connection.WindowCapture.Method,
+        lastFallbackReason = _capture.Connection.WindowCapture.LastFallbackReason
+    };
     private MaaOcrEngine _ocr = null!;
     private MaaBanIconMatcher _iconMatcher = null!;
     private OcrScannerService _scanner = null!;
@@ -295,6 +300,9 @@ public partial class MainWindow
         if (!_connectGame) return null;
         if (_capture.Connection.IsAdb)
             return _closing ? null : await Task.Run(() => _capture.CaptureScreen());
+        if (_closing) return null;
+        var windowFrame = await Task.Run(() => _capture.CaptureWindowScreen());
+        if (windowFrame is not null) return windowFrame;
         var before = await Dispatcher.InvokeAsync(() =>
         {
             var game = _tracker.CurrentGameWindowHandle;
@@ -318,7 +326,7 @@ public partial class MainWindow
         try
         {
             if (before.Hidden) await Task.Delay(150);
-            return await Task.Run(() => _capture.CaptureScreen(before.Sidebar));
+            return await Task.Run(() => _capture.CaptureBitBltScreen(before.Sidebar));
         }
         finally
         {

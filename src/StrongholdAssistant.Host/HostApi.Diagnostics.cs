@@ -50,6 +50,7 @@ public sealed partial class HostApi
                 System.Diagnostics.Process.GetCurrentProcess().Handle)),
             windowSnapshot = (DialogOwner as MainWindow)?.ReadDiagnosticWindows(),
             roundEnemyPanel = EnemyPanelStats,
+            capture = (DialogOwner as MainWindow)?.ReadDiagnosticCapture(),
             gameWindows = User32.EnumerateArknightsWindows().Select(window => new
             {
                 handle = window.Handle.ToInt64(),

@@ -20,46 +20,16 @@ public sealed partial class FieldTracker
                 || !_identityOperators.Any(p => p.Name == r.Key && p.Diy) || _customCandidates.Contains(r.Key)))
             .Select(r => r.Key));
 
-    private readonly HashSet<string> _purchaseEvidence = new(StringComparer.Ordinal);
-
     public const double MinimumRosterScore = .35;
     public const double SameSpriteScore = .92;
     private readonly Dictionary<string, FieldRosterEntry> _roster = new(StringComparer.Ordinal);
     private readonly Dictionary<FieldCell, FieldSpritePatch> _pictures = [];
-    private readonly Dictionary<(FieldCell Cell, bool Force), List<(DateTimeOffset At, SpriteCandidate[] Scores)>> _votes = [];
-    private Dictionary<FieldCell, int> _voteCells = [];
-
-    private void ObserveVotes(FieldObservation o)
-    {
-        // 只维护连续占用，不在未触发的扫描里比对身份。拖动期间无法定位同阶交换，清空历史。
-        if (!o.IsRest || !o.MainScreen || o.DragOperator is not null)
-        { _votes.Clear(); _voteCells.Clear(); return; }
-        foreach (var key in _votes.Keys.ToArray())
-            if (!o.Cells.TryGetValue(key.Cell, out int tier) || tier == 0
-                || _voteCells.GetValueOrDefault(key.Cell) != tier) _votes.Remove(key);
-        _voteCells = new(o.Cells);
-    }
-
-    private void ClearVotes(FieldCell cell)
-    {
-        _votes.Remove((cell, false));
-        _votes.Remove((cell, true));
-    }
-
-    private SpriteCandidate[] RankVotes(FieldCell cell, DateTimeOffset at, FieldSpritePatch patch, int tier, bool force, string[] names)
+    private SpriteCandidate[] RankCell(FieldCell cell, FieldSpritePatch patch, int tier, bool force, string[] names)
     {
         var sources = (_gainContexts.GetValueOrDefault(cell)?.Names ?? [])
             .Concat(_purchaseCandidates.GetValueOrDefault(cell) ?? [])
             .Concat(_units.GetValueOrDefault(cell)?.Operator is { } name ? [name] : []);
-        var scores = Rank(patch, tier, force, names, sources);
-        if (!_votes.TryGetValue((cell, force), out var history)) _votes[(cell, force)] = history = [];
-        // 同帧候选扩池或重复 force 替换本帧，不把一张图重复计票。
-        history.RemoveAll(v => v.At == at);
-        history.Add((at, scores));
-        if (history.Count > 3) history.RemoveAt(0);
-        return scores.Select(c => new SpriteCandidate(c.Name,
-                history.SelectMany(v => v.Scores.Where(s => s.Name == c.Name)).Average(s => s.Score)))
-            .OrderBy(c => _roster.GetValueOrDefault(c.Name)?.Sold ?? false).ThenByDescending(c => c.Score).ToArray();
+        return Rank(patch, tier, force, names, sources);
     }
     private readonly Dictionary<FieldCell, FieldSpritePatch> _anchors = [];
     private readonly List<(FieldUnit Unit, FieldSpritePatch Patch, bool Forced)> _learned = [];
@@ -74,6 +44,8 @@ public sealed partial class FieldTracker
     private IReadOnlyList<Operator> _identityOperators = [];
     private Func<FieldSpritePatch, int, string[], SpriteMatch>? _matchSprite;
     private SpriteModelMatcher? _spriteModel;
+    private Func<FieldSpritePatch, IEnumerable<(FieldUnit Unit, FieldSpritePatch Patch)>, FieldSpritePatch>? _occlusion;
+    private Func<FieldSpritePatch, int, string[], FieldSpritePatch>? _neighborMask;
     private double IdentityAutoFillGap => _spriteModel is null ? SpriteMatcher.AutoFillGap : SpriteModelMatcher.AutoFillGap;
     private string? _strategyName;
     private sealed record GainContext(string Source, string[]? Names);
@@ -81,8 +53,10 @@ public sealed partial class FieldTracker
     private (DateTimeOffset At, GainContext Context)? _recentGift;
 
     public void ConfigureIdentity(IReadOnlyList<Operator> operators,
-        Func<FieldSpritePatch, int, string[], SpriteMatch> match, SpriteModelMatcher? model = null)
-    { _identityOperators = operators; _matchSprite = match; _spriteModel = model; }
+        Func<FieldSpritePatch, int, string[], SpriteMatch> match, SpriteModelMatcher? model = null,
+        Func<FieldSpritePatch, IEnumerable<(FieldUnit Unit, FieldSpritePatch Patch)>, FieldSpritePatch>? occlusion = null,
+        Func<FieldSpritePatch, int, string[], FieldSpritePatch>? neighborMask = null)
+    { _identityOperators = operators; _matchSprite = match; _spriteModel = model; _occlusion = occlusion; _neighborMask = neighborMask; }
 
     public void SeedRoster(string? strategyName, IEnumerable<string> custom, int? round, DateTimeOffset at)
     {
@@ -102,9 +76,9 @@ public sealed partial class FieldTracker
     }
 
     private void ResetIdentity()
-    { _bannedCandidates.Clear(); _customCandidates = null; _purchaseEvidence.Clear(); _roster.Clear(); _pictures.Clear(); _anchors.Clear(); _learned.Clear(); _confirmed.Clear(); _playerConfirmed.Clear(); _missing.Clear(); _returned.Clear(); _moved.Clear(); _history.Clear(); _gainSources.Clear(); _untrackedGains.Clear(); _gainContexts.Clear(); _recentGift = null; _strategyName = null; }
+    { _bannedCandidates.Clear(); _customCandidates = null; _roster.Clear(); _pictures.Clear(); _anchors.Clear(); _learned.Clear(); _confirmed.Clear(); _playerConfirmed.Clear(); _missing.Clear(); _returned.Clear(); _moved.Clear(); _history.Clear(); _gainSources.Clear(); _untrackedGains.Clear(); _gainContexts.Clear(); _recentGift = null; _strategyName = null; }
 
-    // 在购买配对前保存来源证据；配上的购买仍由原流程优先确定身份。
+    // 在购买配对前保存来源证据；购买记录和场上身份分别处理。
     private void CaptureGainContext(FieldObservation o, Dictionary<FieldCell, FieldUnit> before, string? dragged)
     {
         var board = before.Values.Where(u => u.Zone == "board").ToArray();
@@ -250,22 +224,18 @@ public sealed partial class FieldTracker
         if (o.Sprites is null || _matchSprite is null) return;
         var gone = before.Values.Where(u => o.Cells.GetValueOrDefault(u.Cell, -1) == 0).ToList();
 
-        foreach (var (cell, patch) in o.Sprites)
+        foreach (var (cell, rawPatch) in o.Sprites.OrderByDescending(p => _occlusion is null ? 0 : p.Value.Geometry?.BadgeFootY ?? 0))
         {
             if (!_units.TryGetValue(cell, out var unit)) continue;
             // 异阶尚未确认时不学习这一帧，避免把换入者的图块记到旧身份下。
             if (_tierChanges.ContainsKey(cell)) continue;
+            var patch = _occlusion?.Invoke(rawPatch, _units.Values.Where(u => u.Cell != cell && o.Sprites.ContainsKey(u.Cell))
+                .Select(u => (u, o.Sprites[u.Cell]))) ?? rawPatch;
             before.TryGetValue(cell, out var old);
             // 强制识别只保留直接证据的确定身份，其余重新使用冻结模板比较。
             bool reidentify = force && !(unit.Status == "sure" && unit.Source is "purchase" or "drag" or "manual");
             _pictures[cell] = patch;
             if (!reidentify && _moved.Contains(cell)) { SetIdentity(cell, unit, patch, force: force); continue; }
-            // 整排商店已限定候选；本轮结果不再被本局名单或全阶模板覆盖。
-            if (!reidentify && _purchaseCandidates.ContainsKey(cell))
-            {
-                SetIdentity(cell, unit, patch, force: force);
-                continue;
-            }
             bool arrival = old is null;
             bool unexplainedGain = !reidentify && _untrackedGains.Contains(cell);
             var context = reidentify ? null : _gainContexts.GetValueOrDefault(cell);
@@ -300,9 +270,10 @@ public sealed partial class FieldTracker
                 continue;
             }
             // 跨扫描挪格、短暂漏读及换镜头后，先找本局已确认或自动认出的个人图块。
-            var remembered = _learned.Where(p => p.Unit.Tier == unit.Tier
+            var remembered = _learned.Where(p => p.Patch.OcclusionRatio < SpriteMatcher.OcclusionLearningThreshold
+                && patch.OcclusionRatio < SpriteMatcher.OcclusionLearningThreshold && p.Unit.Tier == unit.Tier
                 && SpriteMatcher.MatchPersonal(p.Patch, patch) >= SameSpriteScore).ToArray();
-            if (!reidentify && remembered.Select(p => p.Unit.Operator).Distinct().Count() == 1)
+            if (!reidentify && !_purchaseCandidates.ContainsKey(cell) && remembered.Select(p => p.Unit.Operator).Distinct().Count() == 1)
             {
                 var known = remembered.OrderByDescending(p => p.Unit.Status == "sure").First();
                 SetIdentity(cell, known.Unit with { Source = "carry" }, patch, force: force);
@@ -316,22 +287,22 @@ public sealed partial class FieldTracker
                 .Distinct().Where(n => HasTier(n, unit.Tier)).OrderBy(n => _roster.GetValueOrDefault(n)?.Sold ?? false).ToArray();
             // 无卡赠送新格不能被“本阶唯一”强填；它可能根本不在本局名单里。
             var active = names.Where(n => !(_roster.GetValueOrDefault(n)?.Sold ?? false)).ToArray();
-            // 5. 本阶唯一。
-            if (!unexplainedGain && active.Length == 1)
+            // 本阶唯一仍需图像支持；训练侧真名最低分约0.336，门槛取0.30留余量。
+            if (!unexplainedGain && !_purchaseCandidates.ContainsKey(cell) && active.Length == 1)
             {
-                SetIdentity(cell, unit with { Operator = active[0], Source = "only", Status = "sure", Candidates = [],
+                var score = Rank(patch, unit.Tier, reidentify, active).FirstOrDefault()?.Score ?? 0;
+                SetIdentity(cell, unit with { Operator = active[0], Source = "only", Status = score >= .30 ? "auto" : "pending", Candidates = [new(active[0], score)],
                     Elite = unit.Operator == active[0] ? unit.Elite : null }, patch, force: force);
                 continue;
             }
             // 赠送等来源照旧扩充候选；低分不重新放入禁用或未选自选干员。
             var pool = names.Concat(context?.Names ?? []).Distinct().Where(n => HasTier(n, unit.Tier)).ToArray();
-            var ranked = RankVotes(cell, o.At, patch, unit.Tier, reidentify, pool);
+            var ranked = RankCell(cell, patch, unit.Tier, reidentify, pool);
             bool open = ranked.Length == 0 || ranked.Max(c => c.Score) < MinimumRosterScore;
-            // 购买证据只调整排序，不抬高匹配分数和置信度。
+            // 保留赠送来源和重认当前名字的排序偏好。
             ranked = ranked.OrderByDescending(c => c.Score
                     + (context?.Names?.Contains(c.Name) == true ? .02 : 0)
-                    + (reidentify && c.Name == unit.Operator ? .01 : 0)
-                    + (_purchaseEvidence.Contains(c.Name) || _roster.GetValueOrDefault(c.Name)?.Source == "purchase" ? .02 : 0)).ToArray();
+                    + (reidentify && c.Name == unit.Operator ? .01 : 0)).ToArray();
             var preferred = unexplainedGain ? null : ranked.Take(3).FirstOrDefault(c => (reidentify ? _playerConfirmed.Contains(c.Name) : _confirmed.Contains((c.Name, unit.Tier)))
                 && !_units.Values.Any(u => u.Cell != cell && u.Operator == c.Name));
             if (preferred is not null) ranked = new[] { preferred }.Concat(ranked.Where(c => c.Name != preferred.Name)).ToArray();
@@ -451,16 +422,29 @@ public sealed partial class FieldTracker
         var sourceNames = sources.Where(n => HasTier(n, tier)).Distinct().ToArray();
         if (names.Length == 0 && sourceNames.Length == 0) return [];
         // 先逐名字取个人模板与冻结模板的高分，再统一融合模型概率。
-        var personal = _learned.Where(p => (!force || p.Forced || p.Unit.Status == "sure" && p.Unit.Source is "purchase" or "drag" or "manual") && p.Unit.Tier == tier && (names.Contains(p.Unit.Operator!) || sourceNames.Contains(p.Unit.Operator!)))
+        var personal = _learned.Where(p => p.Patch.OcclusionRatio < SpriteMatcher.OcclusionLearningThreshold
+            && patch.OcclusionRatio < SpriteMatcher.OcclusionLearningThreshold && (!force || p.Forced || p.Unit.Status == "sure" && p.Unit.Source is "purchase" or "drag" or "manual") && p.Unit.Tier == tier && (names.Contains(p.Unit.Operator!) || sourceNames.Contains(p.Unit.Operator!)))
             .GroupBy(p => p.Unit.Operator!).ToDictionary(g => g.Key,
                 g => g.Max(p => SpriteMatcher.MatchPersonal(p.Patch, patch)));
         float[]? logits = null;
         if (_spriteModel is not null)
         {
+            var modelPatch = _neighborMask?.Invoke(patch, tier, names.Concat(sourceNames).Distinct().ToArray()) ?? patch;
             using var crop = OpenCvSharp.Cv2.ImDecode(patch.Image, OpenCvSharp.ImreadModes.Color);
+            if (modelPatch.OcclusionMask is { } maskBytes)
+            {
+                using var mask = OpenCvSharp.Cv2.ImDecode(maskBytes, OpenCvSharp.ImreadModes.Grayscale);
+                using var blocked = new OpenCvSharp.Mat(mask, new OpenCvSharp.Rect(
+                    patch.TemplateRegion?.OffsetX ?? 0, patch.TemplateRegion?.OffsetY ?? 0, crop.Width, crop.Height));
+                using var visible = new OpenCvSharp.Mat();
+                OpenCvSharp.Cv2.BitwiseNot(blocked, visible);
+                crop.SetTo(OpenCvSharp.Cv2.Mean(crop, visible), blocked);
+            }
             logits = _spriteModel.Predict(crop);
             // 训练侧271条答案的最小完整召回K为4；来源和个人模板不被模型筛掉。
-            names = _spriteModel.Shortlist(logits, names, 4).Concat(sourceNames).Concat(personal.Keys).Distinct().ToArray();
+            // 原始遮挡率达到20%时保留该阶全部候选，避免模型预筛漏掉真名。
+            if (patch.OcclusionRatio < .2) names = _spriteModel.Shortlist(logits, names, 4);
+            names = names.Concat(sourceNames).Concat(personal.Keys).Distinct().ToArray();
         }
         else names = names.Concat(sourceNames).Distinct().ToArray();
         var templates = _matchSprite!(patch, tier, names).Candidates
@@ -477,6 +461,7 @@ public sealed partial class FieldTracker
 
     private void Remember(FieldUnit unit, FieldSpritePatch patch, bool force = false)
     {
+        if (patch.OcclusionRatio >= SpriteMatcher.OcclusionLearningThreshold) return;
         if (unit.Operator is null || !(unit.Status == "auto" || unit.Status == "sure" && unit.Source != "only")) return;
         if (unit.Status == "sure") _confirmed.Add((unit.Operator, unit.Tier));
         int existing = _learned.FindIndex(p => p.Unit.Operator == unit.Operator && p.Unit.Tier == unit.Tier
@@ -500,6 +485,13 @@ public sealed partial class FieldTracker
 
     private void SetIdentity(FieldCell cell, FieldUnit identity, FieldSpritePatch patch, bool save = true, bool force = false)
     {
+        // 图像身份严重遮挡时只保留待确认，直接购买、拖动和手动证据仍可信。
+        if ((patch.OcclusionRatio >= SpriteMatcher.OcclusionPendingThreshold
+            || patch.OcclusionRatio >= SpriteMatcher.NeighborOcclusionThreshold
+                && (patch.NeighborNames.Contains(identity.Operator)
+                    || identity.Candidates.FirstOrDefault()?.Score < SpriteMatcher.NeighborMinimumScore))
+            && !(identity.Status == "sure" && identity.Source is "purchase" or "drag" or "manual"))
+            identity = identity with { Status = "pending" };
         // 装备字段归独立追踪器管理。
         var current = _units[cell];
         _units[cell] = current with { Operator = identity.Operator, Source = identity.Source,

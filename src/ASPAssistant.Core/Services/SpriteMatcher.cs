@@ -13,7 +13,7 @@ public sealed record SpriteMatch(IReadOnlyList<SpriteCandidate> Candidates, doub
 }
 
 /// <summary>冻结的小人蒙版比对。单实例由扫描线程持有并释放，不负责候选来源或扫描调度。</summary>
-public sealed class SpriteMatcher : IDisposable
+public sealed partial class SpriteMatcher : IDisposable
 {
     public const double AutoFillGap = 0.04592923876191826;
     private sealed record Template(string Name, string SkinId, int Tier, int Size, Mat Color, Mat Mask, Point2d? Origin);
@@ -61,7 +61,7 @@ public sealed class SpriteMatcher : IDisposable
         }
     }
 
-    /// <summary>按人工标定的脚点和格宽匹配；模型仍使用原裁块。</summary>
+    /// <summary>按人工标定的脚点和格宽匹配，并排除前排遮挡轮廓。</summary>
     public SpriteMatch MatchCellWidth(FieldSpritePatch patch, int tier, IReadOnlyCollection<string> candidates,
         IReadOnlyDictionary<string, string?>? skins = null)
     {
@@ -73,13 +73,19 @@ public sealed class SpriteMatcher : IDisposable
         using var crop = Cv2.ImDecode(region?.Image ?? patch.Image, ImreadModes.Color);
         var anchor = new Point((int)Math.Round(90 + g.BadgeFootX + dx - Math.Round(g.BadgeFootX)) + (region?.OffsetX ?? 0),
             (int)Math.Round((patch.Bench ? 180 : 156) + g.BadgeFootY + dy - Math.Round(g.BadgeFootY)) + (region?.OffsetY ?? 0));
-        return MatchCrop(crop, patch.Bench, tier, candidates, anchor, skins, g.CellWidth * .00271);
+        using var blocked = patch.OcclusionMask is null ? new Mat() : Cv2.ImDecode(patch.OcclusionMask, ImreadModes.Grayscale);
+        return MatchCropCore(crop, patch.Bench, tier, candidates, anchor, skins, g.CellWidth * .00271, blocked, patch);
     }
 
     /// <summary>离线裁块入口。默认180×204；自定义锚点为相对裁块的脚点（旧包为外框底部）。</summary>
     public SpriteMatch MatchCrop(Mat crop, bool bench, int tier, IReadOnlyCollection<string> candidates,
         Point? searchAnchor = null, IReadOnlyDictionary<string, string?>? skins = null,
-        double? screenPixelsPerUnit = null)
+        double? screenPixelsPerUnit = null, Mat? occlusion = null)
+        => MatchCropCore(crop, bench, tier, candidates, searchAnchor, skins, screenPixelsPerUnit, occlusion, null);
+
+    private SpriteMatch MatchCropCore(Mat crop, bool bench, int tier, IReadOnlyCollection<string> candidates,
+        Point? searchAnchor, IReadOnlyDictionary<string, string?>? skins,
+        double? screenPixelsPerUnit, Mat? occlusion, FieldSpritePatch? fieldPatch)
     {
         if (crop.Empty() || crop.Type() != MatType.CV_8UC3)
             throw new ArgumentException("裁块必须为BGR图像。", nameof(crop));
@@ -92,12 +98,33 @@ public sealed class SpriteMatcher : IDisposable
         var anchor = searchAnchor ?? new Point(90, _hasOrigins ? (bench ? 180 : 156) : (bench ? 176 : 180));
         int bottom = (int)(anchor.Y * _resolution);
         int radius = (int)((UsesPhysicalScale ? 3 : 16) * _resolution);
+        using var blocked = new Mat();
+        if (occlusion is { } && !occlusion.Empty())
+        {
+            Cv2.Resize(occlusion, blocked, half.Size(), interpolation: InterpolationFlags.Nearest);
+            // 搜索窗口内所有位移都排除前景，避免平移后把遮挡边缘重新算入。
+            using var kernel = Cv2.GetStructuringElement(MorphShapes.Rect, new Size(radius * 4 + 1, radius * 4 + 1));
+            Cv2.Dilate(blocked, blocked, kernel);
+        }
         // 缩放缓存仍由扫描线程构建；各候选只读模板，并行时独占临时 Mat。
-        var work = candidates.Distinct(StringComparer.Ordinal).Select(name => (Name: name, Templates: Templates(name, screenPixelsPerUnit), Skin: skins?.GetValueOrDefault(name))).ToArray();
+        using var neighbor = fieldPatch?.NeighborMask is { } bytes
+            ? Cv2.ImDecode(bytes, ImreadModes.Grayscale) : new Mat();
+        var work = candidates.Distinct(StringComparer.Ordinal).Select(name => (Name: name,
+            Templates: Templates(name, screenPixelsPerUnit), Skin: skins?.GetValueOrDefault(name),
+            Excluded: neighbor.Empty() ? new Mat() : NeighborExclusion(fieldPatch!, neighbor, tier, [name], skins))).ToArray();
         var ranked = new SpriteCandidate?[work.Length];
         Parallel.For(0, work.Length, new ParallelOptions { MaxDegreeOfParallelism = 4 }, index =>
         {
-            var (name, templates, skin) = work[index];
+            var (name, templates, skin, excludedNeighbor) = work[index];
+            using var candidateBlocked = excludedNeighbor;
+            if (!candidateBlocked.Empty())
+            {
+                Cv2.Resize(candidateBlocked, candidateBlocked, half.Size(), interpolation: InterpolationFlags.Nearest);
+                using var kernel = Cv2.GetStructuringElement(MorphShapes.Rect, new Size(radius * 4 + 1, radius * 4 + 1));
+                Cv2.Dilate(candidateBlocked, candidateBlocked, kernel);
+                if (!blocked.Empty()) Cv2.BitwiseOr(candidateBlocked, blocked, candidateBlocked);
+            }
+            var exclusion = candidateBlocked.Empty() ? blocked : candidateBlocked;
             using var scores = new Mat(); using var difference = new Mat();
             var values = new float[(radius * 2 + 1) * (radius * 2 + 1)];
             double best = -2;
@@ -112,6 +139,15 @@ public sealed class SpriteMatcher : IDisposable
                 int x0 = Math.Max(0, center - radius), x1 = Math.Min(half.Width, center + radius + w);
                 int y0 = Math.Max(0, top - radius), y1 = Math.Min(half.Height, top + h + radius);
                 if (x1 - x0 < w || y1 - y0 < h) continue;
+                using var visible = new Mat();
+                if (!exclusion.Empty())
+                {
+                    using var excluded = new Mat(exclusion, new Rect(x0, y0, w, h));
+                    Cv2.BitwiseNot(excluded, visible);
+                    Cv2.BitwiseAnd(mask, visible, visible);
+                    if (Cv2.CountNonZero(visible) < 16) continue;
+                    mask = visible;
+                }
                 using var roi = new Mat(half, new Rect(x0, y0, x1 - x0, y1 - y0));
                 Cv2.MatchTemplate(roi, a, scores, TemplateMatchModes.CCoeffNormed, mask);
                 // 与Python的nan_to_num一致，非有限值不能成为最佳位置。

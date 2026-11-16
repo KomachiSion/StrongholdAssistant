@@ -1,6 +1,5 @@
 ﻿using ASPAssistant.Core.Interop;
 using MaaFramework.Binding;
-using MaaFramework.Binding.Buffers;
 
 namespace ASPAssistant.Core.Services;
 
@@ -17,10 +16,9 @@ public sealed class RosterGameControl : IDisposable
         if (User32.IsIconic(_start.Window)) throw new IOException("游戏窗口已最小化，请先恢复窗口。");
         if (!connection.IsAdb)
         {
-            _controller = new(new DesktopWindowInfo(_start.Window, "", "", Win32ScreencapMethod.FramePool,
+            _controller = new(new DesktopWindowInfo(_start.Window, "", "", Win32ScreencapMethod.None,
                 Win32InputMethod.SendMessageWithCursorPos, Win32InputMethod.SendMessageWithCursorPos), LinkOption.None, CheckStatusOption.None);
             Check(_controller.LinkStart().Wait());
-            _controller.SetOption_ScreenshotUseRawSize(true);
         }
     }
     public bool Lost => _connection.State.Window != _start.Window || !User32.IsWindow(_start.Window) || User32.IsIconic(_start.Window);
@@ -28,11 +26,12 @@ public sealed class RosterGameControl : IDisposable
     {
         if (Lost) throw new IOException("游戏窗口丢失或已最小化。");
         if (_controller is null) return _connection.CaptureAdbScreen(1920) ?? throw new IOException("模拟器截图失败。");
-        Check(_controller.Screencap().Wait());
-        using var image = new MaaImageBuffer();
-        if (!_controller.GetCachedImage(image) || !image.TryGetEncodedData(out byte[]? bytes) || bytes is null)
-            throw new IOException("物资调配页截图失败。");
-        return bytes;
+        // 物资页允许静止画面，沿用原有读取行为；原生截图控制器与扫描共用。
+        using var image = _connection.WindowCapture.Capture(_start.Window, requireFresh: false)
+            ?? throw new IOException("物资调配页截图失败。");
+        using var stream = new MemoryStream();
+        image.Save(stream, System.Drawing.Imaging.ImageFormat.Png);
+        return stream.ToArray();
     }
     public async Task SelectTierSortAsync(RosterSort sort, CancellationToken token)
     {

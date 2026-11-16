@@ -27,13 +27,30 @@ public class ScreenCaptureService
     private Action<Bitmap>? RequestedNativeFrame => NativeFrameRequested?.Invoke() != false ? NativeFrame : null;
 
     /// <summary>
-    /// Captures the Arknights game window by reading pixels directly from the screen
-    /// via BitBlt (Graphics.CopyFromScreen). This works with hardware-accelerated
-    /// renderers (DirectX/Vulkan) that do not honour PrintWindow/GDI capture.
-    /// Requires the window to be visible and not fully occluded.
-    /// Returns PNG bytes, or null if the window is not found.
+    /// 优先捕获游戏客户区；失败时沿用前台 BitBlt，缩放和编码保持一致。
     /// </summary>
     public byte[]? CaptureScreen(IntPtr allowedForeground = default, Action<Bitmap>? inspect = null)
+    {
+        if (Connection.IsAdb) return Connection.CaptureAdbScreen(MaxCaptureWidth, RequestedNativeFrame);
+        using var window = CaptureWindowFrame();
+        return window is not null ? EncodeCapture(window, inspect) : CaptureBitBltScreen(allowedForeground, inspect);
+    }
+
+    // 信息识别先尝试本路径，失败后由宿主隐藏侧栏，再调用 BitBlt。
+    public byte[]? CaptureWindowScreen()
+    {
+        using var window = CaptureWindowFrame();
+        return window is null ? null : EncodeCapture(window);
+    }
+
+    private Bitmap? CaptureWindowFrame()
+    {
+        if (Connection.IsAdb) return null;
+        var hwnd = Connection.FindGameWindow();
+        return Connection.IsAdb ? null : Connection.WindowCapture.Capture(hwnd);
+    }
+
+    public byte[]? CaptureBitBltScreen(IntPtr allowedForeground = default, Action<Bitmap>? inspect = null)
     {
         if (Connection.IsAdb) return Connection.CaptureAdbScreen(MaxCaptureWidth, RequestedNativeFrame);
         var hwnd = Connection.FindGameWindow();
@@ -113,15 +130,22 @@ public class ScreenCaptureService
         }
     }
     /// <summary>
-    /// 安静地截游戏客户区里的一块（PC），给敌人面板探针用：不编码、不记日志、不重试。
+    /// 截游戏客户区里的一块（PC），给敌人面板探针用，不编码。
     /// region 按客户区宽高给出要截的范围；guard 是不能被盖住的范围（默认就是 region），blocked 收到它在屏幕上的位置，
-    /// 返回 true（如侧栏盖着）就不截。
-    /// 游戏不在前台、截的时候窗口挪了或切走了，都返回 null。返回截图和相对 1920×1080 的缩放；模拟器返回 null。
+    /// WGC 不受遮挡影响；仅 BitBlt 后备在 blocked 返回 true 时跳过，并检查前台和窗口位置。
+    /// 返回截图和相对 1920×1080 的缩放；模拟器返回 null。
     /// </summary>
     public (Bitmap Image, double Scale)? CaptureRegion(Func<int, int, Rectangle> region,
         Func<Rectangle, bool>? blocked = null, Func<int, int, Rectangle>? guard = null)
     {
         if (Connection.IsAdb) return null;
+        using var window = CaptureWindowFrame();
+        if (window is not null)
+        {
+            var crop = Rectangle.Intersect(region(window.Width, window.Height), new(0, 0, window.Width, window.Height));
+            if (crop.Width <= 0 || crop.Height <= 0) return null;
+            return (window.Clone(crop, PixelFormat.Format32bppArgb), Math.Min(window.Width / 1920d, window.Height / 1080d));
+        }
         var hwnd = Connection.FindGameWindow();
         if (hwnd == IntPtr.Zero || User32.IsIconic(hwnd) || User32.GetForegroundWindow() != hwnd) return null;
         if (User32.GetClientRectScreen(hwnd) is not { } rect || rect.Width <= 0 || rect.Height <= 0) return null;

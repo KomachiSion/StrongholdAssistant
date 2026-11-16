@@ -63,7 +63,12 @@ public sealed partial class HostApi
         {
             var skins = ReadRoster().Operators.ToDictionary(o => o.Name, o => o.Skin, StringComparer.Ordinal);
             return _fieldSprites.MatchCellWidth(patch, tier, names, skins);
-        }, _fieldSpriteModel);
+        }, _fieldSpriteModel, (patch, foreground) =>
+        {
+            var skins = ReadRoster().Operators.ToDictionary(o => o.Name, o => o.Skin, StringComparer.Ordinal);
+            return _fieldSprites.WithNeighbors(_fieldSprites.WithOcclusion(patch, foreground, skins), foreground, skins);
+        }, (patch, tier, names) => _fieldSprites.MaskNeighbors(patch, tier, names,
+            ReadRoster().Operators.ToDictionary(o => o.Name, o => o.Skin, StringComparer.Ordinal)));
         _shopReader!.ReadUntracked = true;
     }
 

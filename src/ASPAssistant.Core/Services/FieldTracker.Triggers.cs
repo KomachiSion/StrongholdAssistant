@@ -85,6 +85,8 @@ public sealed partial class FieldTracker
         foreach (var cell in added.Where(c => c.Zone == "bench").ToArray())
         {
             var unit = _units[cell];
+            // 购买记录沿用原有推断，独立于场上视觉身份。
+            var purchaseRecord = unit;
             var names = purchase.Names.Where(n => _identityOperators.Count == 0 || HasTier(n, unit.Tier)).Distinct().ToArray();
             if (names.Length == 0) continue;
             consumed = true;
@@ -98,7 +100,7 @@ public sealed partial class FieldTracker
                 var bought = visual.FirstOrDefault(c => c.Name == names[0]);
                 bool unsupported = bought is not null && !visual.Take(3).Any(c => c.Name == names[0])
                     && visual[0].Score - bought.Score >= .05;
-                _units[cell] = unit with { Operator = names[0], Source = "purchase", Status = unsupported ? "pending" : "sure",
+                purchaseRecord = unit with { Operator = names[0], Source = "purchase", Status = unsupported ? "pending" : "sure",
                     Candidates = unsupported ? new[] { new FieldCandidate(names[0], bought!.Score) }
                         .Concat(visual.Take(2).Select(c => new FieldCandidate(c.Name, c.Score))).ToArray() : [] };
             }
@@ -110,11 +112,11 @@ public sealed partial class FieldTracker
                     && !FieldConfusionRules.NeedsConfirmation(ranked);
                 var candidates = ranked.Select(c => new FieldCandidate(c.Name, c.Score))
                     .Concat(names.Where(n => !ranked.Any(c => c.Name == n)).Select(n => new FieldCandidate(n, 0))).ToArray();
-                _units[cell] = unit with { Operator = candidates[0].Operator, Source = "sprite",
+                purchaseRecord = unit with { Operator = candidates[0].Operator, Source = "sprite",
                     Status = automatic ? "auto" : "pending", Candidates = candidates };
             }
-            var identified = _units[cell];
-            _gainContexts[cell] = new("purchase", names);
+            var identified = purchaseRecord;
+            _gainContexts[cell] = new("purchase", null);
             _gainSources[cell] = "purchase";
             _untrackedGains.Remove(cell);
             _gains.RemoveAll(g => g.Cell == cell);

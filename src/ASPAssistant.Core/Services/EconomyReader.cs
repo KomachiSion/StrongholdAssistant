@@ -19,6 +19,9 @@ public sealed class EconomyReader(IOcrEngine ocr, GameShopTheme theme = GameShop
     private OcrTextResult? _levelLabel;
     private Rectangle? _upgradeLabelRegion;
     private (int Width, int Height, double Scale) _layout;
+    // 「回合」标签的右边界：取本布局下见过的最大值。换回合的动画里标签框偶尔量窄几个像素，
+    // 数字框跟着左移会把「合」字最右一竖读成 1，第 2 回合读成 12（v1.0.4 玩家诊断包）
+    private int? _roundDigitsX;
 
     public async Task<EconomyReading> ReadAsync(byte[] png, int width, int height, double? uiScale = null)
     {
@@ -31,6 +34,7 @@ public sealed class EconomyReader(IOcrEngine ocr, GameShopTheme theme = GameShop
             _regions.Clear();
             _levelLabel = null;
             _upgradeLabelRegion = null;
+            _roundDigitsX = null;
             _layout = layout;
         }
         Task<IReadOnlyList<OcrTextResult>> Read(int x, int y, int w, int h, bool line = false)
@@ -43,8 +47,8 @@ public sealed class EconomyReader(IOcrEngine ocr, GameShopTheme theme = GameShop
         string roundText = combinedRound?.Groups[1].Value ?? "";
         if (roundLabel is not null)
         {
-            var digits = await Read(roundLabel.Box.X + roundLabel.Box.W + 5,
-                roundLabel.Box.Y, (int)(52 * scale), roundLabel.Box.H, true);
+            _roundDigitsX = Math.Max(_roundDigitsX ?? 0, roundLabel.Box.X + roundLabel.Box.W + 5);
+            var digits = await Read(_roundDigitsX.Value, roundLabel.Box.Y, (int)(52 * scale), roundLabel.Box.H, true);
             roundText = string.Join("", digits.Select(t => t.Text));
         }
         int? round = Number(roundText);

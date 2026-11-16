@@ -27,7 +27,6 @@ public sealed partial class FieldTracker
     public void Reset()
     {
         ResetIdentity();
-        _votes.Clear(); _voteCells.Clear();
         State = null; _knownMap = null; _units.Clear(); _log.Clear(); _shop = null;
         _gains.Clear(); _drag = null; _dragEquipment = null; _beforeDrag = null;
         ResetTriggers();
@@ -48,7 +47,6 @@ public sealed partial class FieldTracker
 
     public bool Observe(FieldObservation o, bool recognize = true, bool force = false)
     {
-        ObserveVotes(o);
         if (!o.IsRest) { _battle = true; _drag = null; _dragEquipment = null; _beforeDrag = null; _shop = null; ResetTriggers(); _gains.Clear(); _tierChanges.Clear(); return false; }
         _knownMap = o.MapId ?? _knownMap;
         bool pruned = false;
@@ -60,7 +58,6 @@ public sealed partial class FieldTracker
             {
                 pruned |= _units.Remove(cell);
                 _missing.Remove(cell); _history.Remove(cell); _pictures.Remove(cell); _anchors.Remove(cell);
-                ClearVotes(cell);
                 _beforeDrag?.Remove(cell); _purchaseCandidates.Remove(cell);
                 _gains.RemoveAll(g => g.Cell == cell);
             }
@@ -69,8 +66,6 @@ public sealed partial class FieldTracker
         if (pruned) Publish(_knownMap, o.Round, o.At);
         var preDragCells = new Dictionary<FieldCell, int>(_lastCells);
         bool triggered = ObserveTriggers(o) | force | pruned;
-        if (_purchase is {} purchase)
-            foreach (string purchaseName in purchase.Names) _purchaseEvidence.Add(purchaseName);
         if (!recognize)
         {
             ObservePurchasesOnly(o, triggered);
@@ -239,11 +234,6 @@ public sealed partial class FieldTracker
 
     private void Add(DateTimeOffset at, string kind, string? name, FieldCell? from, FieldCell? to)
     {
-        if (kind is "move" or "buy" or "sell" or "merge")
-        {
-            if (from is not null) ClearVotes(from);
-            if (to is not null) ClearVotes(to);
-        }
         if (from is not null && kind is "move" or "sell") _missing.Remove(from);
         TrackRosterEvent(at, kind, name, to);
         _log.Add(new(at.ToString("O"), kind, name, from, to));

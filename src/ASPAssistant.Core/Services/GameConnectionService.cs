@@ -13,6 +13,7 @@ public sealed record GameConnectionState(string? Source = null, IntPtr Window = 
 
 public sealed class GameConnectionService : IDisposable
 {
+    public PcWindowCapture WindowCapture { get; } = new();
     private readonly object _gate = new();
     private readonly EmulatorCapture _capture = new();
     private (string Serial, int Display)? _loggedCapture;
@@ -34,6 +35,7 @@ public sealed class GameConnectionService : IDisposable
             if (_source == source && _serial == serial) return false;
             _source = source;
             _serial = serial;
+            WindowCapture.Dispose();
             _controller?.Dispose();
             _controller = null;
             _device = null;
@@ -94,6 +96,7 @@ public sealed class GameConnectionService : IDisposable
             var previous = State;
             if (_device != selected.Device || previous.Source != selected.Source || previous.Window != selected.Window)
             {
+                WindowCapture.Dispose();
                 _controller?.Dispose();
                 _controller = null;
                 _device = selected.Device;
@@ -291,6 +294,7 @@ public sealed class GameConnectionService : IDisposable
         lock (_gate)
         {
             _disposed = true;
+            WindowCapture.Dispose();
             _controller?.Dispose();
             _controller = null;
         }

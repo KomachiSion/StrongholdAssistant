@@ -41,6 +41,7 @@ public sealed class DiagnosticsTests : IDisposable
             new { version = "0.7.2", windows = Path.Combine(@"C:\", "Users", "示例 用户", "data"), dpi = 144,
                 monitors = new[] { new { left = -1080, top = 0, width = 1080, height = 1920, dpiX = 120, dpiY = 120, primary = false } },
                 dpiAwareness = "PerMonitorV2", windowSnapshot = new { sidebar = new { dpi = 120, visible = true } },
+                capture = new { method = "bitblt", lastFallbackReason = "窗口捕获画面连续两秒未更新" },
                 gameWindows = new[] {
                     new { handle = 1L, className = "SdkWindow", visible = false, minimized = false, clientWidth = 234, clientHeight = 126, processName = "GameSdk" },
                     new { handle = 2L, className = "UnityWndClass", visible = true, minimized = true, clientWidth = 1920, clientHeight = 1080, processName = "Arknights" } },
@@ -71,6 +72,8 @@ public sealed class DiagnosticsTests : IDisposable
         Assert.False(system.RootElement.TryGetProperty("chinesePath", out _));
         Assert.Equal(Path.Combine(@"C:\", "Users", "[用户]", "data"), system.RootElement.GetProperty("windows").GetString());
         Assert.Equal("PerMonitorV2", system.RootElement.GetProperty("dpiAwareness").GetString());
+        Assert.Equal("bitblt", system.RootElement.GetProperty("capture").GetProperty("method").GetString());
+        Assert.Equal("窗口捕获画面连续两秒未更新", system.RootElement.GetProperty("capture").GetProperty("lastFallbackReason").GetString());
         Assert.Equal(-1080, system.RootElement.GetProperty("monitors")[0].GetProperty("left").GetInt32());
         Assert.Equal(120, system.RootElement.GetProperty("windowSnapshot").GetProperty("sidebar").GetProperty("dpi").GetInt32());
         var windows = system.RootElement.GetProperty("gameWindows");

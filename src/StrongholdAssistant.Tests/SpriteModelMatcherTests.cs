@@ -41,6 +41,27 @@ public sealed class SpriteModelMatcherTests
         Assert.Equal(model.Fuse(crop, templates), model.Fuse(logits, templates));
     }
 
+    [Theory]
+    [InlineData(.1999)]
+    [InlineData(.2)]
+    [InlineData(.4)]
+    public void OccludedCellsKeepAllCandidatesOnlyAtTwentyPercent(double ratio)
+    {
+        using var model = Model(); using var crop = Crop();
+        var classes = JsonSerializer.Deserialize<string[]>(File.ReadAllText(Data("sprite-model-classes.json")))!;
+        var names = model.Shortlist(model.Predict(crop), classes, 6);
+        string[] matched = [];
+        var tracker = new FieldTracker();
+        tracker.ConfigureIdentity(names.Select(n => new Operator { Name = n, Tier = 2 }).ToArray(),
+            (_, _, pool) => { matched = pool; return new(pool.Select(n => new SpriteCandidate(n, .5)).ToArray(), 0); }, model);
+        var patch = FieldReader.CropSprite(crop, 90, 156, false)! with { OcclusionRatio = ratio };
+        var rank = typeof(FieldTracker).GetMethod("Rank", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic,
+            [typeof(FieldSpritePatch), typeof(int), typeof(bool), typeof(string[])])!;
+        rank.Invoke(tracker, [patch, 2, true, names]);
+        using var actualCrop = Cv2.ImDecode(patch.Image, ImreadModes.Color);
+        Assert.Equal(ratio >= .2 ? names : model.Shortlist(model.Predict(actualCrop), names, 4), matched);
+    }
+
     [Fact]
     public void DnnMatchesOnnxRuntimeWithTrainingPreprocessing()
     {

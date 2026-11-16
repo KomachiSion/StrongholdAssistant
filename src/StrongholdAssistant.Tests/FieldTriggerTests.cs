@@ -11,18 +11,18 @@ public sealed class FieldTriggerTests
         => new(Start.AddSeconds(second), true, "m01", 1, new Dictionary<FieldCell, int> { [Bench] = tier }, shop, money);
 
     [Theory]
-    [InlineData(.04, "sure")]
-    [InlineData(.06, "pending")]
-    public void WholeRowPurchaseNeedsConfirmationWhenVisualEvidenceContradictsIt(double gap, string status)
+    [InlineData(.1, "auto")]
+    [InlineData(.03, "pending")]
+    public void WholeRowPurchaseIsOnlyAHintForVisualIdentity(double gap, string status)
     {
         var t = new FieldTracker();
         t.ConfigureIdentity([new() { Name = "甲", Tier = 1 }, new() { Name = "乙", Tier = 1 },
             new() { Name = "丙", Tier = 1 }, new() { Name = "丁", Tier = 1 }, new() { Name = "戊", Tier = 2 }],
-            (_, _, names) => new(names.Select(n => new SpriteCandidate(n, n == "甲" ? .8 - gap : .8)).ToArray(), 0));
+            (_, _, names) => new(names.Select(n => new SpriteCandidate(n, n == "乙" ? .8 : n == "甲" ? .8 - gap : .3)).ToArray(), 0));
         Dictionary<int, string> shop = new() { [1] = "甲", [2] = "戊" };
         t.Observe(Frame(0, 0, shop: shop));
         t.Observe(Frame(1, 1, 9, shop) with { Sprites = new Dictionary<FieldCell, FieldSpritePatch> { [Bench] = new([], [1, 2, 3], true) } });
-        Assert.Equal("甲", Assert.Single(t.State!.Units).Operator);
+        Assert.Equal("乙", Assert.Single(t.State!.Units).Operator);
         Assert.Equal(status, t.State.Units[0].Status);
     }
 
@@ -49,7 +49,7 @@ public sealed class FieldTriggerTests
     [Theory]
     [InlineData(.1, "auto")]
     [InlineData(.01, "pending")]
-    public void PurchaseRanksOnlyPreviousRowAtObservedTier(double gap, string status)
+    public void PurchaseRanksAllOperatorsAtObservedTier(double gap, string status)
     {
         string[] matched = [];
         var t = new FieldTracker();
@@ -59,10 +59,10 @@ public sealed class FieldTriggerTests
         Dictionary<int, string> shop = new() { [1] = "甲", [2] = "乙", [3] = "丙" };
         t.Observe(Frame(0, 0, shop: shop));
         t.Observe(Frame(1, 1, 9, shop) with { Sprites = new Dictionary<FieldCell, FieldSpritePatch> { [Bench] = new([], [1, 2, 3], true) } });
-        Assert.Equal(new[] { "甲", "乙" }, matched);
+        Assert.Equal(new[] { "甲", "乙", "丁" }, matched);
         var unit = Assert.Single(t.State!.Units);
         Assert.Equal(status, unit.Status);
-        Assert.Equal(new[] { "甲", "乙" }, unit.Candidates.Select(c => c.Operator));
+        Assert.Equal(new[] { "甲", "乙", "丁" }, unit.Candidates.Select(c => c.Operator));
         Assert.DoesNotContain(t.State.Roster, r => r.Operator == "乙");
     }
 
@@ -97,16 +97,17 @@ public sealed class FieldTriggerTests
     }
 
     [Fact]
-    public void FreeThreeChoiceUsesPreviousCardsAndUniqueTierIsSure()
+    public void FreeThreeChoiceRecordsPurchaseWithoutLockingIdentity()
     {
         var t = new FieldTracker();
         t.ConfigureIdentity([new() { Name = "甲", Tier = 1 }, new() { Name = "乙", Tier = 2 }, new() { Name = "丙", Tier = 3 }],
-            (_, _, _) => throw new Exception("同阶唯一时不比对小人"));
+            (_, _, _) => throw new Exception("没有小人图块时不调用匹配"));
         t.Observe(Frame(0, 0, shop: new() { [1] = "甲", [2] = "乙", [3] = "丙" }));
         t.Observe(Frame(1, 1, shop: new()));
         t.Observe(Frame(2, 1, shop: new()));
         var unit = Assert.Single(t.State!.Units);
-        Assert.Equal("甲", unit.Operator); Assert.Equal("sure", unit.Status);
+        Assert.Null(unit.Operator); Assert.Equal("unknown", unit.Status);
+        Assert.Contains(t.State.Roster, r => r.Operator == "甲" && r.Source == "purchase");
         Assert.Equal("buy", Assert.Single(t.State.Log).Kind);
     }
 }

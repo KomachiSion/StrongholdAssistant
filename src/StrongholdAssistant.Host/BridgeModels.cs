@@ -70,6 +70,12 @@ public sealed record SettingsDto(string GameTheme, bool ShopMarkers, bool AutoCh
     public string UpdateSource { get; init; } = "github";
     public string UpdateProxy { get; init; } = "";
     public string MirrorChyanCdk { get; init; } = "";
+    /// <summary>GitHub Token（可选，2026-11-16 加，对位 MAA 的 GitHubToken）。落盘加密，不进备份和诊断包</summary>
+    [JsonPropertyName("githubToken")]
+    public string GitHubToken { get; init; } = "";
+    /// <summary>上次校验拿到的 Token 到期时间（ISO 8601）；空 = 永不过期或还没校验过</summary>
+    [JsonPropertyName("githubTokenExpiresAt")]
+    public string GitHubTokenExpiresAt { get; init; } = "";
     public Dictionary<string, OperatorDefaults> OperatorDefaults { get; init; } = [];
     public string GameSource { get; init; } = "auto";
     public string EmulatorSerial { get; init; } = "";

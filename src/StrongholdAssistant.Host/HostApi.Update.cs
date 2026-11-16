@@ -24,6 +24,7 @@ public sealed partial class HostApi
         if (Volatile.Read(ref _downloadStatus) is { } downloading) return downloading;
         if (UpdatePrepared && _availableUpdate is { } prepared) return ReportUpdate(new { state = "ready", version = prepared.Version });
         Updater.GetUpdateProxy = () => Settings.UpdateProxy;
+        Updater.GetGithubToken = () => Settings.GitHubToken;
         if (Updater.IsDevBuild) return new { state = "latest" };
         ReportUpdate(new { state = "checking" });
         _availableUpdate = Settings.UpdateSource == "mirrorchyan"
@@ -32,12 +33,35 @@ public sealed partial class HostApi
         if (Updater.LastError is { } message) return ReportUpdate(UpdateFailure(message));
         var status = new Dictionary<string, object> { ["state"] = _availableUpdate is null ? "latest" : "available" };
         if (Updater.CdkExpiresAt is { } expires) status["cdkExpiresAt"] = expires;
+        SetGitHubTokenExpiry(Updater.TokenExpiresAt);
+        if (Settings.GitHubTokenExpiresAt is { Length: > 0 } tokenExpiry) status["githubTokenExpiresAt"] = tokenExpiry;
         if (_availableUpdate is not { } info) return ReportUpdate(status);
         status["version"] = info.Version;
         status["notesUrl"] = info.NotesUrl;
         status["source"] = info.Source;
         if (info.Notes is { } notes) status["notes"] = notes;
         return ReportUpdate(status);
+    }
+
+    /// <summary>
+    /// 记下 GitHub 给的 Token 到期时间：下次启动直接显示，不用再问一次。
+    /// GitHub 只在响应的 Token 永不过期、或这次校验没带 Token 时不发这个头，两种情况都按「永不过期」记。
+    /// </summary>
+    private void SetGitHubTokenExpiry(string? expiresAt)
+    {
+        var expiry = expiresAt ?? "";
+        if (Settings.GitHubTokenExpiresAt == expiry) return;
+        SettingsStore.SaveGitHubTokenExpiry(expiry);
+        lock (_fieldGate) Settings = Settings with { GitHubTokenExpiresAt = expiry };
+    }
+
+    /// <summary>校验用户填的 GitHub Token：有效时返回到期时间，无效时给出原因。</summary>
+    public async Task<object> ValidateGithubTokenAsync(string token)
+    {
+        Updater.GetUpdateProxy = () => Settings.UpdateProxy;
+        var check = await Updater.CheckGitHubTokenAsync(token);
+        if (check.Valid) SetGitHubTokenExpiry(check.ExpiresAt);
+        return new { valid = check.Valid, expiresAt = check.ExpiresAt, message = check.Message };
     }
 
     /// <summary>玩家点「更新」：没下就下、在下就等，下好了马上安装并重启。</summary>
@@ -113,6 +137,8 @@ public sealed partial class HostApi
     {
         var status = new Dictionary<string, object> { ["state"] = "failed", ["message"] = message };
         if (Updater.CdkProblem) status["cdkProblem"] = true;
+        if (Updater.TokenProblem) status["githubTokenProblem"] = true;
+        if (Updater.RateLimited) status["githubRateLimited"] = true;
         return status;
     }
 

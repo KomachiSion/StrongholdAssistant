@@ -752,6 +752,15 @@ export interface Settings {
   /** Mirror酱 CDK（v0.7.2，默认 ''）。宿主不写日志、不进诊断包；导出备份时置空，导入时保留本机的 */
   mirrorChyanCdk: string
   /**
+   * GitHub Token（v1.0.2，默认 ''，参考 MAA 的 GitHubToken）。'' = 匿名：GitHub 按 IP 每小时只给 60 次 API 额度，
+   * 反复检查更新容易用完。填了之后检查更新的请求带 Authorization，按 Token 计额度（每小时 5000 次）。
+   * 只发给 api.github.com，下载包（github.com）不带这个头。宿主加密存在设置文件里、不写日志、不进诊断包；
+   * 导出备份时置空，导入时保留本机的
+   */
+  githubToken: string
+  /** GitHub Token 的到期时间（v1.0.2，ISO 8601，默认 ''）。宿主从响应头 GitHub-Authentication-Token-Expiration 拿到；'' = 永不过期或还没校验 */
+  githubTokenExpiresAt: string
+  /**
    * 更新用的代理（v0.7.6，默认 ''）。'' 跟随系统代理；否则是 'http://主机:端口' 或 'socks5://主机:端口'（不带账号密码）。
    * 只作用于检查和下载更新（GitHub、Mirror酱），改了立即生效。宿主存之前校验格式；导出备份时置空，导入时保留本机的
    */
@@ -941,6 +950,24 @@ export interface UpdateStatus {
   cdkExpiresAt?: string
   /** failed 时：是 CDK 的问题（过期、填错、今日次数用完、类型不对、被封），界面在旁边给「改用 GitHub」 */
   cdkProblem?: boolean
+  /** 带 Token 检查、且 GitHub 在响应头里给了到期时间时：Token 到期时间（ISO）。latest、available 都可能带 */
+  githubTokenExpiresAt?: string
+  /** failed 时：Token 无效或已过期（GitHub 返回 401），界面在 Token 输入框旁边提示换一个 */
+  githubTokenProblem?: boolean
+  /**
+   * failed 时：GitHub 请求额度用完了（v1.0.2）。没填 Token 是每小时 60 次、带 Token 是 5000 次，
+   * 界面提示等一会儿或在设置里填 Token
+   */
+  githubRateLimited?: boolean
+}
+
+/** GitHub Token 校验结果（v1.0.2） */
+export interface GitHubTokenCheck {
+  valid: boolean
+  /** 有效且 GitHub 给了到期时间时：ISO 8601；null = 永不过期 */
+  expiresAt: string | null
+  /** valid 为 false 时给用户看的原因 */
+  message: string
 }
 
 /** 本局进行中的状态，界面改动后整体回写 */
@@ -1416,6 +1443,11 @@ export interface Api {
   appInfo(): Promise<AppInfo>
   /** 立即检查新版本，返回检查结果；过程中也会推送 update */
   checkUpdate(): Promise<UpdateStatus>
+  /**
+   * 校验填的 GitHub Token（v1.0.2）：有效时返回到期时间（永不过期时 expiresAt 为 null），
+   * 无效时 message 直接给用户看。检查更新本身也会顺带校验，这里给用户在输入框旁边即时反馈
+   */
+  validateGithubToken(token: string): Promise<GitHubTokenCheck>
   /** 玩家点「更新」：没下载就下载并校验，已经下好就直接装；装的时候宿主退出、替换文件、重新启动。失败时推送 failed */
   applyUpdate(): Promise<void>
   /** 后台下载并校验新版本（v1.0.4，开着自动检查更新时发现新版就调）：下好推送 ready，不重启，等玩家点 applyUpdate */

@@ -80,6 +80,7 @@ export const bridgeApi: Api = {
   saveSettings: call('saveSettings'),
   appInfo: call('appInfo'),
   checkUpdate: call('checkUpdate'),
+  validateGithubToken: call('validateGithubToken'),
   applyUpdate: call('applyUpdate'),
   downloadUpdate: call('downloadUpdate'),
   openUrl: call('openUrl'),

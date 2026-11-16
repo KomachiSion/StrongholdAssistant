@@ -34,7 +34,7 @@ public sealed class DiagnosticsTests : IDisposable
         {
             CloudSync = new(true, "private-cloud", null, null, []),
             EmulatorSerial = "private-device", ShareIncome = true,
-            UpdateSource = "mirrorchyan", MirrorChyanCdk = "private-cdk", ShopScanSpeed = "fast"
+            UpdateSource = "mirrorchyan", MirrorChyanCdk = "private-cdk", GitHubToken = "private-token-gh", ShopScanSpeed = "fast"
         };
         var path = Path.Combine(_directory, "diagnostics.zip");
         store.Export(path, settings, new("connected", "2400×1200", Source: "pc"),
@@ -61,6 +61,7 @@ public sealed class DiagnosticsTests : IDisposable
         Assert.False(json.RootElement.TryGetProperty("shareIncome", out _));
         Assert.False(json.RootElement.TryGetProperty("emulatorSerial", out _));
         Assert.False(json.RootElement.TryGetProperty("mirrorChyanCdk", out _));
+        Assert.False(json.RootElement.TryGetProperty("githubToken", out _));
         Assert.Equal("mirrorchyan", json.RootElement.GetProperty("updateSource").GetString());
         Assert.Equal("fast", json.RootElement.GetProperty("shopScanSpeed").GetString());
         Assert.Equal("remember", json.RootElement.GetProperty("startupMode").GetString());

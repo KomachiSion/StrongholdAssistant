@@ -248,6 +248,8 @@ let settings: Settings = {
   autoCheckUpdate: !location.search.includes('demo'),
   updateSource: 'github',
   mirrorChyanCdk: '',
+  githubToken: '',
+  githubTokenExpiresAt: '',
   updateProxy: '',
   uiScale: 'auto',
   alwaysOnTop: false,
@@ -737,10 +739,20 @@ export const mockApi: Api = {
       pushUpdate(f)
       return f
     }
+    // GitHub Token 的假数据：填 bad 算无效；填别的算有效（假数据按默认 Token 到期时间算两周后）
+    const token = mirror ? '' : settings.githubToken.trim()
+    if (token.toLowerCase() === 'bad') {
+      await new Promise((r) => setTimeout(r, 500))
+      const f: UpdateStatus = { state: 'failed', message: 'GitHub Token 无效或已过期，请检查设置里填的 Token。', githubTokenProblem: true }
+      pushUpdate(f)
+      return f
+    }
+    const tokenExpiry = token ? new Date(Date.now() + 14 * 86400_000).toISOString() : undefined
     const u: UpdateStatus = {
       state: 'available',
       source: cdk ? 'mirrorchyan' : 'github',
       ...(cdk ? { cdkExpiresAt: new Date(Date.now() + 87 * 86400_000).toISOString() } : {}),
+      ...(tokenExpiry ? { githubTokenExpiresAt: tokenExpiry } : {}),
       version: '0.4.3',
       notesUrl: 'https://github.com/LBEILC/StrongholdAssistant/releases',
       notes: {
@@ -756,6 +768,14 @@ export const mockApi: Api = {
     await new Promise((r) => setTimeout(r, 700))
     pushUpdate(u)
     return u
+  },
+  // 假数据：填 bad 算无效，填别的算有效、按 30 天后到期
+  validateGithubToken: async (token) => {
+    await new Promise((r) => setTimeout(r, 400))
+    const t = token.trim()
+    if (t.length === 0) return { valid: false, expiresAt: null, message: '先填 Token 再验证。' }
+    if (t.toLowerCase() === 'bad') return { valid: false, expiresAt: null, message: 'Token 无效，请检查输入是否正确。' }
+    return { valid: true, expiresAt: new Date(Date.now() + 30 * 86400_000).toISOString(), message: '' }
   },
   // 假数据：下载 1.5 秒；点过更新的下完就「重启」（原型里只停在 ready）
   applyUpdate: async () => {

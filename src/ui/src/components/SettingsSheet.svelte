@@ -5,7 +5,7 @@
   import Seg from './Seg.svelte'
   import { fontStack } from '../lib/fonts'
   import { ACCENTS } from '../lib/accent'
-  import { api, type BackupSummary, type CollectionMatch, type GameTheme, type ImportMode, type EmulatorInstance, type Settings, type UiSkin, type MarkerStyle } from '../lib/api'
+  import { api, type BackupSummary, type CollectionMatch, type GameTheme, type ImportMode, type EmulatorInstance, type Settings, type UiSkin, type MarkerStyle, type GitHubTokenCheck } from '../lib/api'
   import Icon from './Icon.svelte'
   import NotesList from './NotesList.svelte'
   import { plaza, PLAZA } from '../lib/plaza.svelte'
@@ -88,6 +88,56 @@
     app.checkUpdate()
   }
   const toGithub = () => setUpdateSource('github')
+
+  // GitHub Token（v1.0.2，参考 MAA）：GitHub 对匿名请求按 IP 每小时只给 60 次 API 额度，反复检查更新容易用完。
+  // 填完（失焦或回车）先校验一次拿到到期时间，再重新检查更新——和 MAA 的交互一样
+  const TOKEN_URL = 'https://github.com/settings/tokens/new?description=StrongholdAssistant'
+  let tokenDraft = $state('')
+  let showToken = $state(false)
+  let tokenChecking = $state(false)
+  let tokenCheck = $state<GitHubTokenCheck | null>(null)
+  // 设置是启动后异步读进来的，导入备份也可能换掉：跟着设置走
+  $effect(() => {
+    tokenDraft = app.settings.githubToken
+  })
+  const commitToken = async () => {
+    const v = tokenDraft.trim()
+    tokenDraft = v
+    if (v !== app.settings.githubToken) {
+      app.settings.githubToken = v
+      app.settings.githubTokenExpiresAt = ''
+      await app.saveSettings()
+    }
+    tokenCheck = null
+    if (v === '') {
+      app.checkUpdate()
+      return
+    }
+    tokenChecking = true
+    try {
+      tokenCheck = await api.validateGithubToken(v)
+      if (tokenCheck.valid) app.settings.githubTokenExpiresAt = tokenCheck.expiresAt ?? ''
+    } finally {
+      tokenChecking = false
+    }
+    app.checkUpdate()
+  }
+  const tokenBad = $derived(
+    !!tokenCheck && !tokenCheck.valid || (u.state === 'failed' && !!u.githubTokenProblem) || (u.state === 'failed' && !!u.githubRateLimited),
+  )
+  // 到期日优先用刚校验的结果，其次用宿主上次记下的
+  const tokenExpiry = $derived.by(() => {
+    const iso = (tokenCheck?.valid ? tokenCheck.expiresAt : null) ?? app.settings.githubTokenExpiresAt ?? u.githubTokenExpiresAt ?? ''
+    if (!iso) return null
+    const d = new Date(iso)
+    if (Number.isNaN(d.getTime())) return null
+    const days = Math.ceil((d.getTime() - Date.now()) / 86400_000)
+    return {
+      date: d.toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' }).replaceAll('/', '-'),
+      soon: days <= 7,
+      days,
+    }
+  })
 
   // 更新代理：'' 跟随系统；手动填 http:// 或 socks5:// 地址，填好（失焦或回车）立刻检查一次，顺便试通代理
   const validProxy = (v: string) => {
@@ -963,6 +1013,41 @@
             国内下载更快，需要 CDK；不填也能检查更新，下载走 GitHub。
           {/if}
           <button class="link" onclick={() => api.openUrl(MIRROR)}>{expiry ? '续费 CDK' : '获取 CDK'}</button>
+        </p>
+      {/if}
+      {#if !mirror}
+        <div class="cdk">
+          <input
+            class:bad={tokenBad}
+            type={showToken ? 'text' : 'password'}
+            bind:value={tokenDraft}
+            placeholder="GitHub Token（选填）"
+            spellcheck="false"
+            autocomplete="off"
+            onblur={commitToken}
+            onkeydown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+          />
+          <button class="btn icon" title={showToken ? '隐藏' : '显示'} aria-label={showToken ? '隐藏 Token' : '显示 Token'} onclick={() => (showToken = !showToken)}>
+            <Icon name={showToken ? 'eyeOff' : 'eye'} size={14} />
+          </button>
+        </div>
+        <p class="note" class:bad={tokenBad}>
+          {#if tokenChecking}
+            正在验证 Token……
+          {:else if u.state === 'failed' && u.githubTokenProblem}
+            Token 无效或已过期，请检查输入是否正确。
+          {:else if u.state === 'failed' && u.githubRateLimited}
+            {u.message}
+          {:else if tokenCheck && !tokenCheck.valid}
+            {tokenCheck.message}
+          {:else if tokenExpiry}
+            <span class:ok={!tokenExpiry.soon} class:warn={tokenExpiry.soon}>Token 有效至 {tokenExpiry.date}{tokenExpiry.soon ? `，还剩 ${Math.max(tokenExpiry.days, 0)} 天` : ''}</span>
+          {:else if app.settings.githubToken}
+            Token 已填。
+          {:else}
+            不填也能用：GitHub 按 IP 每小时只给 60 次检查额度，反复检查容易被限流；填了自己的 Token 按每小时 5000 次算。
+          {/if}
+          <button class="link" onclick={() => api.openUrl(TOKEN_URL)}>生成 Token</button>
         </p>
       {/if}
       <div class="usrc">

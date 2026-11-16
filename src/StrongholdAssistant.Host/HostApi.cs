@@ -447,6 +447,7 @@ public sealed partial class HostApi
             case "importData": await ImportDataAsync(Read<string>(0), Read<string>(1)); return null;
             case "openUrl": OpenUrl(Read<string>(0)); return null;
             case "checkUpdate": return await CheckUpdateAsync();
+            case "validateGithubToken": return await ValidateGithubTokenAsync(Read<string>(0) ?? "");
             case "applyUpdate": await ApplyUpdateAsync(); return null;
             case "downloadUpdate": await DownloadUpdateAsync(); return null;
             case "connection": return Connection;

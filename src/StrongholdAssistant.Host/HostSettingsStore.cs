@@ -1,4 +1,6 @@
 using ASPAssistant.Core.Data;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using ASPAssistant.Core.Models;
@@ -67,6 +69,8 @@ public sealed class HostSettingsStore(string path)
             UpdateSource = json["updateSource"]?.GetValue<string>() ?? "github",
             UpdateProxy = json["updateProxy"]?.GetValue<string>() ?? "",
             MirrorChyanCdk = json["mirrorChyanCdk"]?.GetValue<string>() ?? "",
+            GitHubToken = UnprotectSecret(json["githubToken"]?.GetValue<string>()),
+            GitHubTokenExpiresAt = json["githubTokenExpiresAt"]?.GetValue<string>() ?? "",
             UiScale = JsonSerializer.SerializeToElement(json["uiScale"] ?? JsonValue.Create("auto")),
             AlwaysOnTop = json["alwaysOnTop"]?.GetValue<bool>() ?? false,
             GameSource = json["gameSource"]?.GetValue<string>() ?? "auto",
@@ -124,12 +128,47 @@ public sealed class HostSettingsStore(string path)
             || !Uri.TryCreate(proxy, UriKind.Absolute, out var uri)
             || uri.Host.Length == 0 || uri.Port is < 1 or > 65535))
             throw new ArgumentException("代理地址格式不对。");
-        Merge(settings with { RunAsAdmin = Read()["runAsAdmin"]?.GetValue<bool>() ?? true });
+        var token = (settings.GitHubToken ?? "").Trim();
+        if (token != "" && (token.Length is < 20 or > 255 || !System.Text.RegularExpressions.Regex.IsMatch(token, @"\A[A-Za-z0-9_-]+\z")))
+            throw new ArgumentException("GitHub Token 格式不对，应该是一串字母和数字。");
+        // Token 只加密落盘：文件被拷走或同步到别处时拿不到原文，换电脑也解不开（DPAPI 按用户加密）。
+        // 值没变就沿用原来的密文，免得改任何一个设置都把 Token 重新加密一遍、文件每次都变。
+        var storedToken = Read()["githubToken"]?.GetValue<string>();
+        var persistToken = token.Length == 0 ? ""
+            : storedToken is not null && string.Equals(UnprotectSecret(storedToken), token, StringComparison.Ordinal) ? storedToken
+            : ProtectSecret(token);
+        Merge(settings with
+        {
+            RunAsAdmin = Read()["runAsAdmin"]?.GetValue<bool>() ?? true,
+            GitHubToken = persistToken
+        });
+    }
+
+    /// <summary>加密凭据（DPAPI 当前用户）；解不开就当作没填，不让设置读失败。</summary>
+    private static string ProtectSecret(string value)
+        => "dpapi:" + Convert.ToBase64String(ProtectedData.Protect(
+            Encoding.UTF8.GetBytes(value), null, DataProtectionScope.CurrentUser));
+
+    private static string UnprotectSecret(string? stored)
+    {
+        if (string.IsNullOrEmpty(stored)) return "";
+        if (!stored.StartsWith("dpapi:", StringComparison.Ordinal)) return stored; // 手改过的旧文件按原文读
+        try
+        {
+            return Encoding.UTF8.GetString(ProtectedData.Unprotect(
+                Convert.FromBase64String(stored["dpapi:".Length..]), null, DataProtectionScope.CurrentUser));
+        }
+        catch (Exception ex) when (ex is CryptographicException or FormatException or ArgumentException)
+        {
+            return "";
+        }
     }
     private static bool ValidAccent(string? accent) => accent is not null && (accent == ""
         || System.Text.RegularExpressions.Regex.IsMatch(accent, @"\A#[0-9a-fA-F]{6}\z"));
 
     public void SaveRunAsAdmin(bool on) => Merge(new { runAsAdmin = on });
+    /// <summary>只记 Token 到期时间，不动其他设置（检查更新拿到响应头时顺手存）。</summary>
+    public void SaveGitHubTokenExpiry(string expiresAt) => Merge(new { githubTokenExpiresAt = expiresAt ?? "" });
     public void SaveDock(DockSettings dock) => Merge(dock);
 
     private void Merge<T>(T value)

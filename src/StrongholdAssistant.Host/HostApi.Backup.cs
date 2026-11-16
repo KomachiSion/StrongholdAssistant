@@ -26,7 +26,7 @@ public sealed partial class HostApi
         var version = typeof(HostApi).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()!
             .InformationalVersion.Split('+')[0];
         var backup = new BackupDocument(BackupFormat, 1, version, DateTime.UtcNow, Settings with
-        { MirrorChyanCdk = "", UpdateProxy = "", CloudSync = new(false, null, null, null, []) }, await LineupsAsync())
+        { MirrorChyanCdk = "", GitHubToken = "", GitHubTokenExpiresAt = "", UpdateProxy = "", CloudSync = new(false, null, null, null, []) }, await LineupsAsync())
         { History = History(), DeletedSklandIds = DeletedSklandIds() };
         await File.WriteAllTextAsync(path, JsonSerializer.Serialize(backup, JsonOptions));
     }
@@ -84,7 +84,7 @@ public sealed partial class HostApi
             await SaveSessionAsync(session with { TargetLineupId = null });
         else
             await RefreshTrackingAsync();
-        SaveSettings(mode == "replace" ? backup.Settings with { MirrorChyanCdk = Settings.MirrorChyanCdk, UpdateProxy = Settings.UpdateProxy, CloudSync = Settings.CloudSync } : Settings with
+        SaveSettings(mode == "replace" ? backup.Settings with { MirrorChyanCdk = Settings.MirrorChyanCdk, GitHubToken = Settings.GitHubToken, GitHubTokenExpiresAt = Settings.GitHubTokenExpiresAt, UpdateProxy = Settings.UpdateProxy, CloudSync = Settings.CloudSync } : Settings with
         {
             FocusCovenants = Settings.FocusCovenants.Union(backup.Settings.FocusCovenants).ToArray(),
             FocusOperators = Settings.FocusOperators.Union(backup.Settings.FocusOperators).ToArray()

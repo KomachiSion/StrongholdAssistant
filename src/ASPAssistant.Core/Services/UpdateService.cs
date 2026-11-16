@@ -34,7 +34,7 @@ public class UpdateIntegrityException(string message) : Exception(message);
 
 public partial class UpdateService(Version? currentVersion = null, string? appDirectory = null,
     string? feedUrl = null, string? mirrorChyanUrl = null, HttpClient? httpClient = null,
-    TimeSpan? readTimeout = null)
+    TimeSpan? readTimeout = null, string? githubApiUrl = null)
 {
     private readonly string _appDirectory = Path.GetFullPath(appDirectory ?? AppContext.BaseDirectory).TrimEnd('\\', '/');
     public bool IsInstalled => File.Exists(Path.Combine(_appDirectory, "installed.json"));
@@ -93,11 +93,14 @@ public partial class UpdateService(Version? currentVersion = null, string? appDi
     /// <summary>本次更新的暂存目录（唯一），便于失败时提示用户手动处理。</summary>
     public string? PendingStagingDir { get; private set; }
 
-    public string FeedUrl => ResolveFeedUrl(feedUrl ?? Environment.GetEnvironmentVariable(FeedOverrideVariable));
+    public string FeedUrl => ResolveFeedUrl(feedUrl ?? Environment.GetEnvironmentVariable(FeedOverrideVariable), GitHubApi);
 
-    /// <summary>返回生效的更新源地址：环境变量优先，其次 GitHub。</summary>
-    public static string ResolveFeedUrl(string? overrideUrl)
-        => string.IsNullOrWhiteSpace(overrideUrl) ? DefaultFeedUrl : overrideUrl.Trim();
+    /// <summary>返回生效的更新源地址：环境变量优先，其次 GitHub API（换过 API 地址时跟着换）。</summary>
+    public static string ResolveFeedUrl(string? overrideUrl, string? githubApi = null)
+        => string.IsNullOrWhiteSpace(overrideUrl)
+            ? string.IsNullOrWhiteSpace(githubApi) ? DefaultFeedUrl
+                : githubApi.TrimEnd('/') + "/repos/LBEILC/StrongholdAssistant/releases/latest"
+            : overrideUrl.Trim();
 
     public async Task<UpdateInfo?> CheckForUpdateAsync(CancellationToken ct = default)
     {
@@ -107,9 +110,13 @@ public partial class UpdateService(Version? currentVersion = null, string? appDi
         LastError = null;
         CdkExpiresAt = null;
         CdkProblem = false;
+        ResetGitHubState();
         try
         {
-            using var response = await _http.GetAsync(FeedUrl, HttpCompletionOption.ResponseHeadersRead, ct);
+            using var response = await SendAsync(FeedUrl, HttpCompletionOption.ResponseHeadersRead, ct);
+            // 额度和到期时间都在响应头里，失败时也要读：限流提示要说清楚什么时候能再试。
+            ReadGitHubHeaders(response);
+            if (!response.IsSuccessStatusCode && DescribeGitHubProblem(response)) return null;
             response.EnsureSuccessStatusCode();
             var release = JsonSerializer.Deserialize<GitHubRelease>(await ReadBodyAsync(response.Content, ct));
             if (release is null || string.IsNullOrEmpty(release.TagName))
@@ -216,7 +223,7 @@ public partial class UpdateService(Version? currentVersion = null, string? appDi
         {
             if (string.IsNullOrWhiteSpace(info.ChecksumsUrl))
                 throw IntegrityFailure($"发布 {info.TagName} 缺少 {ChecksumsAssetName}，已停止更新");
-            using var response = await _http.GetAsync(info.ChecksumsUrl, HttpCompletionOption.ResponseHeadersRead, ct);
+            using var response = await SendAsync(info.ChecksumsUrl, HttpCompletionOption.ResponseHeadersRead, ct);
             response.EnsureSuccessStatusCode();
             var checksumsText = Encoding.UTF8.GetString(await ReadBodyAsync(response.Content, ct));
             expectedHash = ParseChecksum(checksumsText, info.AssetName)

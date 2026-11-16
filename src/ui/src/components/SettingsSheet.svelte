@@ -874,8 +874,11 @@
         {:else if u.state === 'downloading'}
           <span class="msg">正在下载 v{u.version}</span>
           <span class="bar"><i style:width="{(u.progress ?? 0) * 100}%"></i></span>
+        {:else if u.state === 'ready' && !app.updateTried}
+          <span class="msg new">v{u.version} 已下好</span>
+          <button class="btn main" onclick={() => app.applyUpdate()}>安装并重启</button>
         {:else if u.state === 'ready'}
-          <span class="msg new">下载完成，即将重启完成更新</span>
+          <span class="msg new">正在安装，马上重启</span>
         {:else}
           <span class="msg" class:bad={u.state === 'failed'}>
             {u.state === 'checking' ? '正在检查…' : u.state === 'latest' ? '已是最新版本' : u.state === 'failed' ? u.message : ''}
@@ -889,7 +892,7 @@
           {/if}
         {/if}
       </div>
-      {#if u.state === 'available'}
+      {#if u.state === 'available' || u.state === 'downloading' || u.state === 'ready'}
         <div class="newnotes">
           {#if u.notes}
             <p class="nh">v{u.version} 更新了这些 <span>{u.notes.date}</span></p>
@@ -957,7 +960,7 @@
         <Icon name="arrowRight" size={16} />
       </button>
       <label class="row">
-        <span class="lbl"><b>自动检查更新</b><small>启动时检查一次，从{mirror ? ' Mirror酱 ' : ' GitHub '}获取</small></span>
+        <span class="lbl"><b>自动检查更新</b><small>启动时和开着时每两小时查一次，从{mirror ? ' Mirror酱 ' : ' GitHub '}获取；有新版就在后台下好，点一下安装</small></span>
         <input type="checkbox" class="sw" checked={app.settings.autoCheckUpdate} onchange={(e) => set('autoCheckUpdate', e.currentTarget.checked)} />
       </label>
     </section>

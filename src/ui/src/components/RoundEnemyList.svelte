@@ -208,7 +208,7 @@
   <!-- 这回合还没读到：提醒玩家在游戏里点一下（用户 2026-11-15：每回合提醒点「看怪物」） -->
   <div class="rhint">
     <Icon name="search" size={14} />
-    <span>第 {round} 回合：点游戏里<b>回合数右边的放大镜</b>打开敌人列表，助手会读下来；也可以<button class="link" onclick={() => (editing = true)}>手动补选</button></span>
+    <span>第 {round} 回合：把鼠标停在<b>回合数右边的放大镜</b>上一两秒，敌人名单就会读进来；也可以<button class="link" onclick={() => (editing = true)}>手动补选</button></span>
   </div>
 {/if}
 

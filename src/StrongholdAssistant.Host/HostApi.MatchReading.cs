@@ -1,3 +1,4 @@
+using ASPAssistant.Core;
 using ASPAssistant.Core.Models;
 using ASPAssistant.Core.Services;
 
@@ -12,6 +13,19 @@ public sealed partial class HostApi
     private DateTimeOffset _covenantReadAt = DateTimeOffset.MinValue;
     private (string? Match, int? Round) _enemyReadKey;
     private int _matchReadingGeneration;
+    // 诊断包用：本局敌人面板弹出几次、其中读到名字几次
+    private int _enemyPanelSeen, _enemyPanelRead;
+    private bool _enemyPanelCounted;
+
+    /// <summary>扫描看到敌人面板新弹出一次：清掉读取器的画面缓存，这一次一定重读。</summary>
+    public void CountEnemyPanel()
+    {
+        _enemyPanelSeen++;
+        _enemyPanelCounted = false;
+        _roundEnemyReader.Reset();
+    }
+
+    internal object EnemyPanelStats => new { seen = _enemyPanelSeen, read = _enemyPanelRead };
 
     public void InitializeMatchReading(string data, IOcrEngine ocr)
     {
@@ -65,6 +79,11 @@ public sealed partial class HostApi
         var key = (match, (int?)economy.Round);
         if (_enemyReadKey != key) { _roundEnemyReader.Reset(); _enemyReadKey = key; }
         var names = await _roundEnemyReader.ReadAsync(frame);
+        if (names is not null)
+        {
+            AppLogger.Info("RoundEnemy", $"敌人名单读到 {names.Length} 个：{string.Join("、", names)}");
+            if (names.Length > 0 && !_enemyPanelCounted) { _enemyPanelRead++; _enemyPanelCounted = true; }
+        }
         if (generation == _matchReadingGeneration && match == _activeRecord && Match.Economy?.Round == economy.Round && names is { Length: > 0 })
             ApplyRoundEnemies(economy.Round, names);
     }
@@ -75,6 +94,7 @@ public sealed partial class HostApi
         _enemyReadKey = default;
         _roundEnemyOrder.Clear();
         _covenantReadAt = DateTimeOffset.MinValue;
+        _enemyPanelSeen = _enemyPanelRead = 0;
         Match = Match with { CovenantBar = [] };
     }
 

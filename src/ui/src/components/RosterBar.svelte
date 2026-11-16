@@ -28,14 +28,14 @@
       <button class="act stop" onclick={() => roster.stop()}><Icon name="stop" size={13} />停止</button>
     </div>
     <div class="bar"><i></i></div>
-    <p class="rtip">助手在游戏里左右滑动列表，别动鼠标；动了就停，读到的会留下。</p>
+    <p class="rtip">助手在游戏里左右滑动列表，这时别点鼠标、别按键、别大幅挪鼠标，不然会停下，读到的会留下。</p>
   {:else if !r.readAt}
     <div class="row">
       <span class="ic"><Icon name="scan" size={16} /></span>
       <b>读取我的干员</b>
       <button class="act go" disabled={roster.starting} onclick={() => roster.start()}>{roster.starting ? '认页面…' : '读取'}</button>
     </div>
-    <p class="rtip">在游戏里打开卫戍协议的「物资调配」页，点读取。助手会自己把排序切到「按等阶」、滑动列表，读出每名干员的皮肤、技能、模组、潜能，技能和模组同时设为我的默认。读的时候别动鼠标。</p>
+    <p class="rtip">在游戏里打开卫戍协议的「物资调配」页，点读取。助手会自己把排序切到「按等阶」、滑动列表，读出每名干员的皮肤、技能、模组、潜能，技能和模组同时设为我的默认。读的时候别点鼠标、别按键。</p>
     {@render admin()}
   {:else}
     <div class="row">

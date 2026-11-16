@@ -151,6 +151,11 @@ public partial class MainWindow
         _api.InitializeField(data, scanOcr);
         _api.InitializeMatchReading(data, scanOcr);
         _scanner.ObserveMatchFrameAsync = _api.ObserveMatchFrameAsync;
+        _scanner.EnemyPanelSeen += _api.CountEnemyPanel;
+        // 敌人面板探针：侧栏盖着面板那一块时不截
+        var sidebar = new WindowInteropHelper(this).EnsureHandle();
+        _scanner.ProbeBlocked = screen => User32.IsWindowVisible(sidebar) && User32.ReadWindowRect(sidebar) is var r
+            && r.Left < screen.Right && r.Right > screen.Left && r.Top < screen.Bottom && r.Bottom > screen.Top;
         _api.FieldCursorRegion = () =>
         {
             if (_tracker.CurrentViewport is not { } viewport || !User32.GetCursorPos(out var point)) return null;

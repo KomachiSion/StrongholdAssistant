@@ -2,10 +2,11 @@
   import { app } from '../lib/state.svelte'
 
   // 更新横幅：点一下直接下载更新，不再跳到设置；想先看更新内容点右边。
-  // 从这里点过更新又失败了，横幅留着说原因，点开设置的「关于」看详情、换更新源
+  // 开着自动检查更新时发现新版会在后台下好（v1.0.4），横幅显示进度，下好了点一下安装并重启；
+  // 下载中点一下就是「下完直接装」。点过更新或后台下载失败了，横幅留着说原因，点开设置的「关于」看详情、换更新源
   let { rail = false }: { rail?: boolean } = $props()
   const u = $derived(app.update)
-  const failed = $derived(u.state === 'failed' && app.updateTried)
+  const failed = $derived(u.state === 'failed' && (app.updateTried || app.updateAuto))
 </script>
 
 {#if u.state === 'available' || u.state === 'downloading' || u.state === 'ready' || failed}
@@ -16,10 +17,23 @@
       </button>
       <button class="side" onclick={() => app.openSettings('about')}>更新了什么</button>
     {:else if u.state === 'downloading'}
-      <span class="main"><b class="term">Update</b><span>正在下载 v{u.version}… <em class="term">{Math.round((u.progress ?? 0) * 100)}%</em></span></span>
+      {#if app.updateTried}
+        <span class="main"><b class="term">Update</b><span>正在下载 v{u.version}… <em class="term">{Math.round((u.progress ?? 0) * 100)}%</em>，下完自动重启</span></span>
+      {:else}
+        <button class="main" onclick={() => app.applyUpdate()} title="下完直接安装并重启">
+          <b class="term">Update</b><span>正在后台下载 v{u.version}… <em class="term">{Math.round((u.progress ?? 0) * 100)}%</em></span>
+        </button>
+      {/if}
       <i class="prog" style:width="{(u.progress ?? 0) * 100}%"></i>
     {:else if u.state === 'ready'}
-      <span class="main"><b class="term">Update</b><span>下载完成，即将重启</span></span>
+      {#if app.updateTried}
+        <span class="main"><b class="term">Update</b><span>正在安装 v{u.version}，马上重启</span></span>
+      {:else}
+        <button class="main" onclick={() => app.applyUpdate()} title="关掉助手，换成新版本后重新打开">
+          <b class="term">Update</b><span>v{u.version} 已下好，点一下安装并重启</span>
+        </button>
+        <button class="side" onclick={() => app.openSettings('about')}>更新了什么</button>
+      {/if}
     {:else}
       <button class="main" onclick={() => app.openSettings('about')}>
         <b class="term">Update</b><span>更新失败：{u.message}，点这里看看</span>

@@ -3,6 +3,7 @@
 using System.Threading.Channels;
 // 2026-11-13：先发布商店，按名称指纹复用结果，辅助识别降频并支持热切换扫描速度。
 using System.Diagnostics;
+using System.Drawing;
 // 2026-11-12：刷新键清空商店状态并过滤旧截图；收集失败现场和 OCR 步骤。
 using System.Timers;
 using ASPAssistant.Core.GameModes;
@@ -135,6 +136,7 @@ public class OcrScannerService : IDisposable
         _scanTimer = new Timer(intervalMs);
         _configuredInterval = intervalMs;
         _scanTimer.Elapsed += OnScanTick;
+        _probeTimer.Elapsed += (_, _) => ProbeEnemyPanel();
 
         // Start the background consumer for button-triggered manual scans.
         _ = Task.Run(ProcessManualScansAsync);
@@ -150,6 +152,18 @@ public class OcrScannerService : IDisposable
     public bool BoardDetailVisible { get; private set; }
     public Func<byte[], DateTimeOffset, EconomyReading?, bool, bool, IReadOnlyList<ShopItem>, Task>? ObserveFieldAsync { get; set; }
     public Func<byte[], int, int, EconomyReading?, double, Task>? ObserveMatchFrameAsync { get; set; }
+
+    // 敌人面板是悬停弹出的，只停 1～2 秒，而一轮扫描要 2～3 秒：主扫描忙时探针每 300 ms 只截面板那一小块看一眼，
+    // 在就截整图存着（最多一张，下一轮读一次就丢）；本轮截图本身是面板时只读敌人，并很快再截一张。
+    private readonly Timer _probeTimer = new(300);
+    private byte[]? _pendingEnemyFrame;
+    private int _probing;
+    private bool? _framePanel;
+    private bool _enemyPanelOpen, _enemyPanelFast;
+    /// <summary>面板新弹出一次（上一次看到的截图里还没有）时触发，在扫描线程上。</summary>
+    public event Action? EnemyPanelSeen;
+    /// <summary>宿主给：屏幕上这块被助手自己的窗口（侧栏）盖着时返回 true，探针就不截。</summary>
+    public Func<Rectangle, bool>? ProbeBlocked { get; set; }
 
     // 与定时扫描共用占用标志，当前帧的商店、资金和棋盘判定不会与扫描交错。
     // capture：宿主给的截图方法（点助手里的「识别」时前台是助手，要和开局识别一样允许并在需要时先藏起侧栏）
@@ -189,7 +203,11 @@ public class OcrScannerService : IDisposable
         return await recognize(frame, at, economy, main, _shopReader.HasVisibleCards, _shopReader.AllItems);
     }
 
-    public void Start() => _scanTimer.Start();
+    public void Start()
+    {
+        _scanTimer.Start();
+        _probeTimer.Start();
+    }
 
     // 2026-11-11：StrongholdAssistant 录入及关闭前等待检测释放 OCR。
     public async Task WaitForIdleAsync()
@@ -240,6 +258,7 @@ public class OcrScannerService : IDisposable
                 var comparison = Stopwatch.StartNew();
                 fingerprint = ShopFrameFingerprint.Read(bitmap, theme);
                 fingerprintMs = comparison.Elapsed.TotalMilliseconds;
+                _framePanel = RoundEnemyReader.PanelVisible(bitmap);
             });
             double captureMs = clock.Elapsed.TotalMilliseconds - fingerprintMs;
             if (screenshot == null)
@@ -283,6 +302,7 @@ public class OcrScannerService : IDisposable
     {
         lock (_shopGate)
             if (!_refreshWindow.Accept(capturedAt)) return;
+        if (await ReadEnemyPanelAsync(screenshot, width, height)) return;
         // 开局页也有大片纯色，不能先套用棋盘遮挡判断；完整页可能只停留一帧。
         var informationClock = Stopwatch.StartNew();
         bool informationChanged = fingerprint is null || _informationContext is null
@@ -412,6 +432,60 @@ public class OcrScannerService : IDisposable
             static string Ms(double? value) => value is { } ms ? $"{ms:F1}ms" : "skip";
             AppLogger.Info("ShopTiming", $"capture={Ms(captureMs)} fingerprint={Ms(fingerprintMs)} shop={Ms(shopMs)} publish={Ms(publishMs)} economy={Ms(economyMs)} information={Ms(informationMs)} captureToPublish={captureMs + fingerprintMs + (shopMs ?? 0) + publishMs:F1}ms");
         }
+    }
+
+    private void ProbeEnemyPanel()
+    {
+        // 只在主扫描忙、休整期（已开局）、PC 截图时；截不到就跳过这一次，不重试也不记日志
+        if (Volatile.Read(ref _scanning) == 0 || _pauseBanScreenDetection || _lastEconomy is not { IsRest: true }
+            || ObserveMatchFrameAsync is null) return;
+        if (Interlocked.Exchange(ref _probing, 1) != 0) return;
+        try
+        {
+            // 侧栏盖着敌人面板那一块就不截
+            if (_captureService.CaptureRegion(RoundEnemyReader.PanelStrip, ProbeBlocked, RoundEnemyReader.PanelArea) is not { } strip)
+                return;
+            bool visible;
+            using (strip.Image) visible = RoundEnemyReader.PanelVisible(strip.Image, strip.Scale);
+            if (!visible || _captureService.CaptureRegion((w, h) => new(0, 0, w, h)) is not { } full) return;
+            using (full.Image) Volatile.Write(ref _pendingEnemyFrame, _captureService.EncodeCapture(full.Image));
+        }
+        finally { Interlocked.Exchange(ref _probing, 0); }
+    }
+
+    private void ObserveEnemyPanel(bool visible)
+    {
+        bool appeared = visible && !_enemyPanelOpen;
+        _enemyPanelOpen = visible;
+        if (!appeared) return;
+        AppLogger.Info("RoundEnemy", "看到敌人面板");
+        EnemyPanelSeen?.Invoke();
+    }
+
+    /// <summary>先读探针存下的面板整图；本帧是面板时只读敌人（棋盘被挡着，跳过开局页、商店和场上认人），返回 true。</summary>
+    private async Task<bool> ReadEnemyPanelAsync(byte[] screenshot, int width, int height)
+    {
+        bool panel = _framePanel ?? RoundEnemyReader.PanelVisible(screenshot);
+        _framePanel = null;
+        var observe = ObserveMatchFrameAsync;
+        bool rest = !_pauseBanScreenDetection && _lastEconomy is { IsRest: true } && observe is not null;
+        if (Interlocked.Exchange(ref _pendingEnemyFrame, null) is { } pending && rest && !panel)
+        {
+            ObserveEnemyPanel(true);
+            var (w, h) = GetPngDimensions(pending);
+            await observe!(pending, w, h, _lastEconomy, _shopReader.UiScale ?? 1);
+        }
+        if (!rest || !panel)
+        {
+            ObserveEnemyPanel(false);
+            if (_enemyPanelFast) { _enemyPanelFast = false; UpdateScanInterval(_visibleRest); }
+            return false;
+        }
+        ObserveEnemyPanel(true);
+        await observe!(screenshot, width, height, _lastEconomy, _shopReader.UiScale ?? 1);
+        _enemyPanelFast = true;
+        _scanTimer.Interval = 150;
+        return true;
     }
 
     public DateTimeOffset ChangedShopCapturedAt { get; private set; }
@@ -652,6 +726,8 @@ public class OcrScannerService : IDisposable
     {
         _scanTimer.Stop();
         _scanTimer.Dispose();
+        _probeTimer.Stop();
+        _probeTimer.Dispose();
         _manualScanChannel.Writer.TryComplete();
     }
 }

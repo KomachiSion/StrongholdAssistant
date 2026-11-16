@@ -49,6 +49,7 @@ public sealed partial class HostApi
             dpiAwareness = User32.DescribeDpiAwareness(User32.GetDpiAwarenessContextForProcess(
                 System.Diagnostics.Process.GetCurrentProcess().Handle)),
             windowSnapshot = (DialogOwner as MainWindow)?.ReadDiagnosticWindows(),
+            roundEnemyPanel = EnemyPanelStats,
             gameWindows = User32.EnumerateArknightsWindows().Select(window => new
             {
                 handle = window.Handle.ToInt64(),

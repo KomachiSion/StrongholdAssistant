@@ -19,6 +19,7 @@ internal sealed class KeyboardHook : IDisposable
             var dispatcher = Dispatcher.CurrentDispatcher;
             using var source = new HwndSource(new HwndSourceParameters("KeyboardInput") { ParentWindow = new nint(-3) });
             var pressed = new HashSet<uint>();
+            var nudge = new MouseNudge();
             void Observe(uint key, bool down)
             {
                 if (!(down ? pressed.Add(key) : pressed.Remove(key))) return;
@@ -34,11 +35,15 @@ internal sealed class KeyboardHook : IDisposable
                 uint read = GetRawInputData(lparam, 0x10000003, out var input, ref size, (uint)Marshal.SizeOf<RawHeader>());
                 if (read == uint.MaxValue || read < Marshal.SizeOf<RawHeader>()) return 0;
                 // Raw Input 记录硬件输入；控制器的窗口消息和 SetCursorPos 不作为用户操作。
-                if (input.Header.Device != 0) physicalInput?.Invoke();
+                // 只把按键、点击、滚轮和明显的移动算作玩家在操作：手抖、碰到桌子、有的鼠标不动也在发报告，
+                // 原来这些都会让物资调配读取停下（v1.0.3 玩家反馈）
+                bool device = input.Header.Device != 0;
                 if (input.Header.Type == 0)
                 {
                     if (read < Marshal.SizeOf<RawHeader>() + 24) return 0;
                     var flags = input.Data.MouseButtonFlags;
+                    if (device && (flags != 0 || (input.Data.MouseFlags & 1) == 0
+                        && nudge.Add(input.Data.LastX, input.Data.LastY, Environment.TickCount64))) physicalInput?.Invoke();
                     if ((flags & 0x40) != 0) Observe(0x05, true);
                     if ((flags & 0x80) != 0) Observe(0x05, false);
                     if ((flags & 0x100) != 0) Observe(0x06, true);
@@ -47,6 +52,7 @@ internal sealed class KeyboardHook : IDisposable
                 else if (input.Header.Type == 1)
                 {
                     if (read < Marshal.SizeOf<RawHeader>() + 16 || input.Data.Key == 255) return 0;
+                    if (device && (input.Data.KeyboardFlags & 1) == 0) physicalInput?.Invoke();
                     uint key = input.Data.Key switch
                     {
                         0x10 => input.Data.ScanCode == 0x36 ? 0xA1u : 0xA0u,
@@ -103,6 +109,9 @@ internal sealed class KeyboardHook : IDisposable
     private struct RawData
     {
         [FieldOffset(0)] public ushort ScanCode;
+        [FieldOffset(0)] public ushort MouseFlags;
+        [FieldOffset(12)] public int LastX;
+        [FieldOffset(16)] public int LastY;
         [FieldOffset(2)] public ushort KeyboardFlags;
         [FieldOffset(6)] public ushort Key;
         [FieldOffset(4)] public ushort MouseButtonFlags;
@@ -111,4 +120,20 @@ internal sealed class KeyboardHook : IDisposable
     private static extern bool RegisterRawInputDevices(RawDevice[] devices, uint count, uint size);
     [DllImport("user32.dll")]
     private static extern uint GetRawInputData(nint raw, uint command, out RawInput data, ref uint size, uint headerSize);
+}
+
+// 鼠标在半秒内累计移动超过阈值才算有意移动；单位是鼠标原始计数，默认指针速度下约等于像素。
+internal sealed class MouseNudge
+{
+    public const int Threshold = 200;
+    private const long Window = 500;
+    private long _start;
+    private int _moved;
+
+    public bool Add(int dx, int dy, long now)
+    {
+        if (now - _start > Window) { _start = now; _moved = 0; }
+        _moved += Math.Abs(dx) + Math.Abs(dy);
+        return _moved > Threshold;
+    }
 }

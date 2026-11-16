@@ -109,6 +109,44 @@ public class ScreenCaptureService
             return null;
         }
     }
+    /// <summary>
+    /// 安静地截游戏客户区里的一块（PC），给敌人面板探针用：不编码、不记日志、不重试。
+    /// region 按客户区宽高给出要截的范围；guard 是不能被盖住的范围（默认就是 region），blocked 收到它在屏幕上的位置，
+    /// 返回 true（如侧栏盖着）就不截。
+    /// 游戏不在前台、截的时候窗口挪了或切走了，都返回 null。返回截图和相对 1920×1080 的缩放；模拟器返回 null。
+    /// </summary>
+    public (Bitmap Image, double Scale)? CaptureRegion(Func<int, int, Rectangle> region,
+        Func<Rectangle, bool>? blocked = null, Func<int, int, Rectangle>? guard = null)
+    {
+        if (Connection.IsAdb) return null;
+        var hwnd = Connection.FindGameWindow();
+        if (hwnd == IntPtr.Zero || User32.IsIconic(hwnd) || User32.GetForegroundWindow() != hwnd) return null;
+        if (User32.GetClientRectScreen(hwnd) is not { } rect || rect.Width <= 0 || rect.Height <= 0) return null;
+        var area = Rectangle.Intersect(region(rect.Width, rect.Height), new(0, 0, rect.Width, rect.Height));
+        if (area.Width <= 0 || area.Height <= 0) return null;
+        var screen = new Rectangle(rect.Left + area.X, rect.Top + area.Y, area.Width, area.Height);
+        var covered = guard?.Invoke(rect.Width, rect.Height) ?? area;
+        if (blocked?.Invoke(new(rect.Left + covered.X, rect.Top + covered.Y, covered.Width, covered.Height)) == true) return null;
+        var image = new Bitmap(area.Width, area.Height, PixelFormat.Format32bppArgb);
+        try
+        {
+            using (var g = Graphics.FromImage(image)) g.CopyFromScreen(screen.Left, screen.Top, 0, 0, area.Size);
+        }
+        catch (System.ComponentModel.Win32Exception)
+        {
+            image.Dispose();
+            return null;
+        }
+        // 截的时候切走了或窗口动了，这张不要
+        if (User32.GetForegroundWindow() != hwnd || User32.GetClientRectScreen(hwnd) is not { } after
+            || after.Left != rect.Left || after.Top != rect.Top || after.Width != rect.Width || after.Height != rect.Height)
+        {
+            image.Dispose();
+            return null;
+        }
+        return (image, Math.Min(rect.Width / 1920d, rect.Height / 1080d));
+    }
+
     // 合成图验收与真实截屏共享缩小、编码路径。
     public byte[] EncodeCapture(Bitmap raw, Action<Bitmap>? inspect = null)
     {

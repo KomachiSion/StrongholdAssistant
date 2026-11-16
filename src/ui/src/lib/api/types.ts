@@ -738,7 +738,7 @@ export interface Settings {
    * 按下时宿主推送 fieldHotkey，界面调 recognizeField，和点「识别」按钮完全一样。自动识别开着关着都能用
    */
   fieldHotkey: string
-  autoCheckUpdate: boolean // 启动时检查新版本
+  autoCheckUpdate: boolean // 启动时和开着时每两小时检查新版本，发现了就在后台下载好（v1.0.4）
   /**
    * 更新源（v0.7.2，默认 'github'）。mirrorchyan：检查走 Mirror酱；填了有效 CDK 时从 Mirror酱 下载，
    * 没填就从 GitHub 下载（UpdateStatus.source 告诉界面实际从哪下）
@@ -915,6 +915,7 @@ export interface UpdateStatus {
   /** available 时：新版本 Release 附件里的 release-notes.json；没有这个附件或下载失败就不带，界面只给发版页链接 */
   notes?: ReleaseNotes
   progress?: number // downloading 时 0–1
+  // ready：下好了。v1.0.4 起后台下载的不自动重启，等玩家点 applyUpdate
   message?: string // failed 时给用户看的原因
   /** available 时：这次实际从哪下载。updateSource 是 mirrorchyan 但没填 CDK 时为 'github' */
   source?: 'github' | 'mirrorchyan'
@@ -1382,8 +1383,10 @@ export interface Api {
   appInfo(): Promise<AppInfo>
   /** 立即检查新版本，返回检查结果；过程中也会推送 update */
   checkUpdate(): Promise<UpdateStatus>
-  /** 下载并校验新版本，完成后宿主退出并替换文件、重新启动；失败时推送 failed */
+  /** 玩家点「更新」：没下载就下载并校验，已经下好就直接装；装的时候宿主退出、替换文件、重新启动。失败时推送 failed */
   applyUpdate(): Promise<void>
+  /** 后台下载并校验新版本（v1.0.4，开着自动检查更新时发现新版就调）：下好推送 ready，不重启，等玩家点 applyUpdate */
+  downloadUpdate(): Promise<void>
   /** 用资源管理器打开数据文件夹 */
   openDataFolder(): Promise<void>
   /** 列出正在运行的模拟器实例（MuMu 和雷电，v0.9.4 前叫 mumuInstances），设置里多开时让用户选；没有就是空数组 */

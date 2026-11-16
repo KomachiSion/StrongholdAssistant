@@ -447,6 +447,7 @@ public sealed partial class HostApi
             case "openUrl": OpenUrl(Read<string>(0)); return null;
             case "checkUpdate": return await CheckUpdateAsync();
             case "applyUpdate": await ApplyUpdateAsync(); return null;
+            case "downloadUpdate": await DownloadUpdateAsync(); return null;
             case "connection": return Connection;
             case "emulatorInstances": return await Task.Run(() => ASPAssistant.Core.Services.GameConnectionService.DiscoverEmulatorDevices()
                 .Select(d => new EmulatorInstance(d.Kind, d.Serial, d.Name)).ToArray());

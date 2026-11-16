@@ -9,6 +9,8 @@ public sealed partial class HostApi
     private UpdateInfo? _availableUpdate;
     public bool UpdatePrepared { get; private set; }
     private object? _downloadStatus;
+    // 玩家点过「更新」「安装并重启」：下完就装。自动下载的（v1.0.4）下完等玩家点
+    private bool _installWhenReady;
     public event Action? UpdateReady;
 
     private object ReportUpdate(object status)
@@ -20,6 +22,7 @@ public sealed partial class HostApi
     public async Task<object> CheckUpdateAsync()
     {
         if (Volatile.Read(ref _downloadStatus) is { } downloading) return downloading;
+        if (UpdatePrepared && _availableUpdate is { } prepared) return ReportUpdate(new { state = "ready", version = prepared.Version });
         Updater.GetUpdateProxy = () => Settings.UpdateProxy;
         if (Updater.IsDevBuild) return new { state = "latest" };
         ReportUpdate(new { state = "checking" });
@@ -37,9 +40,18 @@ public sealed partial class HostApi
         return ReportUpdate(status);
     }
 
+    /// <summary>玩家点「更新」：没下就下、在下就等，下好了马上安装并重启。</summary>
     public Task ApplyUpdateAsync()
     {
-        if (_availableUpdate is not { } info) return Task.CompletedTask;
+        _installWhenReady = true;
+        if (UpdatePrepared) { UpdateReady?.Invoke(); return Task.CompletedTask; }
+        return DownloadUpdateAsync();
+    }
+
+    /// <summary>后台下载新版本，下好推送 ready，等玩家点安装（v1.0.4）。</summary>
+    public Task DownloadUpdateAsync()
+    {
+        if (_availableUpdate is not { } info || UpdatePrepared) return Task.CompletedTask;
         var status = new { state = "downloading", version = info.Version, progress = 0d };
         if (Interlocked.CompareExchange(ref _downloadStatus, status, null) is not null) return Task.CompletedTask;
         Updater.GetUpdateProxy = () => Settings.UpdateProxy;
@@ -85,7 +97,7 @@ public sealed partial class HostApi
             }));
             UpdatePrepared = true;
             ReportUpdate(new { state = "ready", version = info.Version });
-            UpdateReady?.Invoke();
+            if (_installWhenReady) UpdateReady?.Invoke();
         }
         catch (Exception ex) when (ex is UpdateIntegrityException or IOException or HttpRequestException or TaskCanceledException
                                    or UnauthorizedAccessException or InvalidDataException)

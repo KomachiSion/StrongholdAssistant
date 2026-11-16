@@ -310,6 +310,17 @@ let history: MatchRecord[] = [0.2, 2.5].map((h, i) => {
 })
 const updateListeners = new Set<(u: UpdateStatus) => void>()
 const pushUpdate = (u: UpdateStatus) => updateListeners.forEach((cb) => cb(u))
+let mockUpdateReady = false
+let mockDownloading: Promise<void> | null = null
+const mockDownload = () =>
+  (mockDownloading ??= (async () => {
+    for (let i = 1; i <= 10; i++) {
+      await new Promise((r) => setTimeout(r, 150))
+      pushUpdate({ state: 'downloading', version: '0.4.3', progress: i / 10 })
+    }
+    mockUpdateReady = true
+    pushUpdate({ state: 'ready', version: '0.4.3' })
+  })())
 
 const scanListeners = new Set<(s: ScanStatus) => void>()
 const windowListeners = new Set<(e: 'closing') => void>()
@@ -729,13 +740,12 @@ export const mockApi: Api = {
     pushUpdate(u)
     return u
   },
+  // 假数据：下载 1.5 秒；点过更新的下完就「重启」（原型里只停在 ready）
   applyUpdate: async () => {
-    for (let i = 1; i <= 10; i++) {
-      await new Promise((r) => setTimeout(r, 150))
-      pushUpdate({ state: 'downloading', version: '0.4.3', progress: i / 10 })
-    }
-    pushUpdate({ state: 'ready', version: '0.4.3' })
+    if (mockUpdateReady) return
+    await mockDownload()
   },
+  downloadUpdate: () => mockDownload(),
   openUrl: async (url) => void window.open(url, '_blank'),
   // 原型里拿不到本机字体列表，给几种 Windows 常见的
   listFonts: () => wait(['Arial', 'Bahnschrift', 'Consolas', 'Segoe UI', '等线', '仿宋', '黑体', '楷体', '宋体', '微软雅黑', '微软雅黑 Light', '新宋体', '幼圆', '华文中宋', '思源黑体', '霞鹜文楷'].sort((a, b) => a.localeCompare(b, 'zh-CN'))),

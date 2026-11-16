@@ -92,8 +92,10 @@ export class AppState {
   settingsOpen = $state(false)
   /** 设置分页；从更新横幅打开时直接到「关于」 */
   settingsTab = $state<SettingsTab>('game')
-  /** 从横幅点过更新：失败时横幅继续显示原因 */
+  /** 点过「更新」「安装并重启」：下好就装；失败时横幅继续显示原因 */
   updateTried = $state(false)
+  /** 自动检查发现新版后在后台下载过（v1.0.4）：下载失败时横幅也说原因 */
+  updateAuto = $state(false)
   /** 「导入分享码」面板 */
   importOpen = $state(false)
   /** 打开导入面板时预先填进去的文字（从网站「在助手里打开」带过来的分享码） */
@@ -181,7 +183,8 @@ export class AppState {
       if (this.continuous && !s.continuous) this.endContinuous()
       this.continuous = !!s.continuous
     })
-    api.onUpdate((u) => (this.update = u))
+    // 下载中、下好了的推送不带更新内容，沿用发现新版时拿到的，横幅「更新了什么」还能看
+    api.onUpdate((u) => (this.update = u.version && u.version === this.update.version ? { notes: this.update.notes, notesUrl: this.update.notesUrl, ...u } : u))
     api.onWindow(() => (this.phase = 'out'))
     api.onMaximized((m) => (this.maximized = m))
     // 收起 / 展开快捷键：工作台里最小化（再按由宿主恢复），侧栏里收起和展开来回切
@@ -190,7 +193,10 @@ export class AppState {
       else if (this.collapsed) this.setCollapsed(false)
       else this.collapse()
     })
-    if (this.settings.autoCheckUpdate) this.checkUpdate()
+    // 自动检查更新：启动时查一次，开着时每两小时再查；启动那次失败了过十分钟再试一次（v1.0.4：原来只在启动时查，
+    // 一直开着的人发现不了新版，失败也不提示）
+    this.autoCheckUpdate()
+    setInterval(() => this.autoCheckUpdate(), 60_000)
     cloud.init(this)
   }
 
@@ -198,8 +204,25 @@ export class AppState {
     cloud.beforeSaveSettings()
     return api.saveSettings($state.snapshot(this.settings))
   }
+  private lastUpdateCheck = 0
+  private updateRetried = false
   async checkUpdate() {
+    this.lastUpdateCheck = Date.now()
     this.update = await api.checkUpdate()
+  }
+  private async autoCheckUpdate() {
+    const s = this.update.state
+    // 已经有新版、正在查、在下载或已下好、下载失败了（横幅在说原因）就不动
+    if (!this.settings.autoCheckUpdate || this.updateTried || this.updateAuto || !['idle', 'latest', 'failed'].includes(s)) return
+    const retry = s === 'failed' && !this.updateRetried
+    if (Date.now() - this.lastUpdateCheck < (retry ? 10 * 60_000 : 2 * 3600_000)) return
+    if (retry) this.updateRetried = true
+    await this.checkUpdate()
+    // 发现新版就在后台下好，下好了横幅上点一下安装并重启（v1.0.4）
+    if (this.update.state === 'available' && !this.updateTried) {
+      this.updateAuto = true
+      api.downloadUpdate()
+    }
   }
   applyUpdate() {
     this.updateTried = true

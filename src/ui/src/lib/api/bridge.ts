@@ -77,6 +77,7 @@ export const bridgeApi: Api = {
   appInfo: call('appInfo'),
   checkUpdate: call('checkUpdate'),
   applyUpdate: call('applyUpdate'),
+  downloadUpdate: call('downloadUpdate'),
   openUrl: call('openUrl'),
   listFonts: call('listFonts'),
   copyText: call('copyText'),

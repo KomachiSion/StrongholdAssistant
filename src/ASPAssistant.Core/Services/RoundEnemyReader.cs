@@ -1,5 +1,6 @@
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.Runtime.InteropServices;
 
 namespace ASPAssistant.Core.Services;
 
@@ -20,6 +21,71 @@ public sealed class RoundEnemyReader(IOcrEngine ocr)
         return result;
     }
 
+    /// <summary>判断面板要看的那一块（1920×1080 下 x 1110～1260、y 105～240）在截图里的位置；探针只截这一块。</summary>
+    public static Rectangle PanelStrip(int width, int height)
+    {
+        double s = Math.Min(width / 1920d, height / 1080d);
+        return new((int)(1110 * s), (int)(105 * s), (int)(150 * s), (int)(135 * s));
+    }
+
+    /// <summary>敌人面板最大能占的范围（1920×1080 下 x 1110～1670、y 95～855）。</summary>
+    public static Rectangle PanelArea(int width, int height)
+    {
+        double s = Math.Min(width / 1920d, height / 1080d);
+        return new((int)(1110 * s), (int)(95 * s), (int)(560 * s), (int)(760 * s));
+    }
+
+    /// <summary>
+    /// 不用 OCR 判断敌人面板在不在：标题框里「敌人」两个白字占的比例很固定（约 3.7%），
+    /// 面板左边缘内侧是均匀的深色。商店、大厅、编队页的白字更多或底色不匀，靠这两项分开。
+    /// strip 是 PanelStrip 那一块，s 是截图相对 1920×1080 的缩放。
+    /// </summary>
+    public static bool PanelVisible(Bitmap strip, double s)
+    {
+        var data = strip.LockBits(new(0, 0, strip.Width, strip.Height), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+        var px = new byte[data.Stride * data.Height];
+        Marshal.Copy(data.Scan0, px, 0, px.Length);
+        strip.UnlockBits(data);
+        int stride = data.Stride;
+        // 坐标相对 PanelStrip 左上角（1110, 105）
+        (double Mean, double Std, double White) Scan(int x, int y, int w, int h)
+        {
+            double sum = 0, square = 0; int white = 0, count = 0;
+            for (int row = (int)(y * s); row < Math.Min(strip.Height, (int)((y + h) * s)); row++)
+            for (int col = (int)(x * s); col < Math.Min(strip.Width, (int)((x + w) * s)); col++)
+            {
+                int i = row * stride + col * 4;
+                byte b = px[i], g = px[i + 1], r = px[i + 2];
+                sum += b + g + r;
+                square += b * b + g * g + r * r;
+                if (Math.Min(r, Math.Min(g, b)) > 185) white++;
+                count++;
+            }
+            if (count == 0) return (255, 255, 0);
+            double mean = sum / (3 * count);
+            return (mean, Math.Sqrt(Math.Max(0, square / (3 * count) - mean * mean)), (double)white / count);
+        }
+        var title = Scan(58, 0, 90, 40);
+        var edge = Scan(2, 55, 10, 80);
+        return title.White > .025 && title.White < .06 && edge.Mean < 25 && edge.Std < 12;
+    }
+
+    /// <summary>整张截图（PNG）上判断，样图和模拟器截图走这里。</summary>
+    public static bool PanelVisible(byte[] png)
+    {
+        using var stream = new MemoryStream(png);
+        using var image = new Bitmap(stream);
+        return PanelVisible(image);
+    }
+
+    public static bool PanelVisible(Bitmap image)
+    {
+        var area = Rectangle.Intersect(PanelStrip(image.Width, image.Height), new(0, 0, image.Width, image.Height));
+        if (area.Width <= 0 || area.Height <= 0) return false;
+        using var strip = image.Clone(area, PixelFormat.Format32bppArgb);
+        return PanelVisible(strip, Math.Min(image.Width / 1920d, image.Height / 1080d));
+    }
+
     private static bool Same(byte[]? previous, byte[] current) => previous is not null
         && previous.Zip(current, (a, b) => Math.Abs(a - b)).Average() < 2;
 
@@ -36,6 +102,7 @@ public sealed class RoundEnemyReader(IOcrEngine ocr)
             _titlePixels = titlePixels;
             var heading = await ocr.RecognizeRegionAsync(frame, title.X, title.Y, title.Width, title.Height);
             _visible = heading.Any(t => t.Text.Replace(" ", "") == "敌人");
+            if (_visible) AppLogger.Info("RoundEnemy", "敌人面板标题读出");
             if (!_visible) _listPixels = null;
         }
         if (!_visible) return null;

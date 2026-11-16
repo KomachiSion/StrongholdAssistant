@@ -1,5 +1,5 @@
-﻿using ASPAssistant.Core.Interop;
-using MaaFramework.Binding;
+using System.ComponentModel;
+using ASPAssistant.Core.Interop;
 
 namespace ASPAssistant.Core.Services;
 
@@ -8,7 +8,6 @@ public sealed class RosterGameControl : IDisposable
 {
     private readonly GameConnectionService _connection;
     private readonly GameConnectionState _start;
-    private readonly MaaWin32Controller? _controller;
     public RosterGameControl(GameConnectionService connection)
     {
         _connection = connection; _start = connection.State;
@@ -16,11 +15,7 @@ public sealed class RosterGameControl : IDisposable
         if (User32.IsIconic(_start.Window)) throw new IOException("游戏窗口已最小化，请先恢复窗口。");
         if (!connection.IsAdb)
         {
-            _controller = new(new DesktopWindowInfo(_start.Window, "", "", Win32ScreencapMethod.None,
-                Win32InputMethod.SendMessageWithCursorPos, Win32InputMethod.SendMessageWithCursorPos), LinkOption.None, CheckStatusOption.None);
-            Check(_controller.LinkStart().Wait());
-            // 全屏的游戏不在前台时会停止刷新、不处理拖动：点完助手的「读取」焦点在助手上，
-            // 列表一下都拖不动，读两屏没变化就当成到头（v1.2.1 玩家诊断包，几位全屏玩家都这样）
+            // 全屏的游戏不在前台时会停止刷新、不处理拖动：点完助手的「读取」焦点在助手上（v1.2.1 玩家诊断包）
             User32.SetForegroundWindow(_start.Window);
             Thread.Sleep(500);
         }
@@ -29,7 +24,7 @@ public sealed class RosterGameControl : IDisposable
     public byte[] Capture()
     {
         if (Lost) throw new IOException("游戏窗口丢失或已最小化。");
-        if (_controller is null) return _connection.CaptureAdbScreen(1920) ?? throw new IOException("模拟器截图失败。");
+        if (_connection.IsAdb) return _connection.CaptureAdbScreen(1920) ?? throw new IOException("模拟器截图失败。");
         // 物资页允许静止画面，沿用原有读取行为；原生截图控制器与扫描共用。
         using var image = _connection.WindowCapture.Capture(_start.Window, requireFresh: false)
             ?? throw new IOException("物资调配页截图失败。");
@@ -41,41 +36,68 @@ public sealed class RosterGameControl : IDisposable
     {
         if (Lost) throw new IOException("游戏窗口丢失或已最小化。");
         token.ThrowIfCancellationRequested();
-        if (_controller is null) await Task.Run(() => _connection.SelectRosterTierAdb(sort.X, sort.Y), token);
+        if (_connection.IsAdb) await Task.Run(() => _connection.SelectRosterTierAdb(sort.X, sort.Y), token);
         else
         {
             var rect = User32.GetClientRectScreen(_start.Window) ?? throw new IOException("无法读取游戏客户区。");
             var point = RosterCoordinates.ToScreen(sort.X, sort.Y, rect.Width, rect.Height);
-            Check(_controller.Click(point.X, point.Y).Wait());
+            Mouse(() =>
+            {
+                MoveTo(rect.Left + point.X, rect.Top + point.Y);
+                User32.SendMouse(User32.MOUSEEVENTF_LEFTDOWN);
+                Thread.Sleep(60);
+                User32.SendMouse(User32.MOUSEEVENTF_LEFTUP);
+            });
         }
         await Task.Delay(1000, token);
     }
 
+    // 点击和拖动都用像真鼠标一样的相对位移输入：发给窗口的消息、MaaFramework 的绝对坐标输入（Seize），
+    // 全屏的游戏都不认，点排序、拖列表没反应（2026-11-16 实机：只有相对位移能拖动）。
     public async Task DragAsync(bool left, int distance, CancellationToken token)
     {
         if (Lost) throw new IOException("游戏窗口丢失或已最小化。");
         token.ThrowIfCancellationRequested();
-        if (_controller is null) await Task.Run(() => _connection.DragRosterAdb(left, distance), token);
+        if (_connection.IsAdb) await Task.Run(() => _connection.DragRosterAdb(left, distance), token);
         else
         {
             var rect = User32.GetClientRectScreen(_start.Window) ?? throw new IOException("无法读取游戏客户区。");
             var (start, end) = RosterCoordinates.Drag(left, distance, rect.Width, rect.Height);
-            int x1 = start.X, x2 = end.X, y = start.Y;
-            Check(_controller.TouchDown(0, x1, y, 0).Wait());
-            try
+            int steps = 40, dx = end.X - start.X;
+            Mouse(() =>
             {
-                for (int i = 1; i <= 50; i++)
+                MoveTo(rect.Left + start.X, rect.Top + start.Y);
+                User32.SendMouse(User32.MOUSEEVENTF_LEFTDOWN);
+                Thread.Sleep(100);
+                for (int i = 0; i < steps; i++)
                 {
-                    await Task.Delay(16, token);
-                    Check(_controller.TouchMove(0, x1 + (x2 - x1) * i / 50, y, 0).Wait());
+                    User32.SendMouse(User32.MOUSEEVENTF_MOVE, dx * (i + 1) / steps - dx * i / steps, 0);
+                    Thread.Sleep(16);
                 }
-                await Task.Delay(300, token);
-            }
-            finally { Check(_controller.TouchUp(0).Wait()); }
+                Thread.Sleep(300);
+                User32.SendMouse(User32.MOUSEEVENTF_LEFTUP);
+            });
         }
         await Task.Delay(1000, token);
     }
-    private static void Check(MaaJobStatus status)
-    { if (status != MaaJobStatus.Succeeded) throw new IOException($"物资页控制器失败：{status}"); }
-    public void Dispose() => _controller?.Dispose();
+
+    // 先把光标放到起点，再补一下相对位移，让游戏收到一次真实的移动事件
+    private static void MoveTo(int x, int y)
+    {
+        User32.SetCursorPos(x, y);
+        User32.SendMouse(User32.MOUSEEVENTF_MOVE, 1, 0);
+        User32.SendMouse(User32.MOUSEEVENTF_MOVE, -1, 0);
+        Thread.Sleep(50);
+    }
+
+    // 操作完把光标放回原处
+    private static void Mouse(Action input)
+    {
+        User32.GetCursorPos(out var origin);
+        try { input(); }
+        catch (Win32Exception ex) { throw new IOException($"物资页鼠标操作失败：{ex.Message}", ex); }
+        finally { User32.SetCursorPos(origin.X, origin.Y); }
+    }
+
+    public void Dispose() { }
 }

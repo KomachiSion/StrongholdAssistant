@@ -189,6 +189,24 @@ public static class User32
 
     public const uint WM_MOUSEWHEEL = 0x020A;
 
+    [DllImport("user32.dll")]
+    public static extern bool SetCursorPos(int x, int y);
+
+    // 物资调配页的点击和拖动：全屏游戏只认像真鼠标一样的相对位移输入（2026-11-16 实机）。
+    public const uint MOUSEEVENTF_MOVE = 0x0001, MOUSEEVENTF_LEFTDOWN = 0x0002, MOUSEEVENTF_LEFTUP = 0x0004;
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MOUSEINPUT { public int Dx, Dy; public uint Data, Flags, Time; public IntPtr Extra; }
+    [StructLayout(LayoutKind.Sequential)]
+    private struct INPUT { public uint Type; public MOUSEINPUT Mouse; }
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern uint SendInput(uint count, INPUT[] inputs, int size);
+
+    public static void SendMouse(uint flags, int dx = 0, int dy = 0)
+    {
+        if (SendInput(1, [new INPUT { Mouse = new MOUSEINPUT { Dx = dx, Dy = dy, Flags = flags } }], Marshal.SizeOf<INPUT>()) != 1)
+            throw new Win32Exception(Marshal.GetLastWin32Error());
+    }
+
     public static IntPtr FindArknightsWindow()
     {
         return SelectArknightsWindow(EnumerateArknightsWindows());

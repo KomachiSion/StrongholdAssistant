@@ -9,6 +9,8 @@ public sealed partial class FieldReader
     public bool BossRound { get; set; }
     public string? KnownMap { get; set; }
     private readonly Dictionary<FieldCell, (double X, double Y)> _spriteFeet = [];
+    private readonly Dictionary<FieldCell, FieldSpriteGeometry> _cellGeometry = [];
+    private FieldFrameGeometry? _frameGeometry;
     private Dictionary<FieldCell, FieldSpritePatch> ReadSprites(byte[] frame,
         IReadOnlyDictionary<FieldCell, int> cells)
     {
@@ -22,9 +24,32 @@ public sealed partial class FieldReader
             bool bench = cell.Zone == "bench";
             var foot = _spriteFeet[cell];
             var patch = CropSprite(image, foot.X, foot.Y, bench);
-            if (patch is not null) result[cell] = patch;
+            if (patch is not null)
+            {
+                patch = patch with { Geometry = _cellGeometry[cell] with { BadgeFootX = foot.X, BadgeFootY = foot.Y } };
+                result[cell] = patch with { TemplateRegion = CropTemplateSprite(image, patch) };
+            }
         }
         return result;
+    }
+
+    // 包中最大范围（含镜像/103%尺度）为横向1.53格、上方1.98格、下方0.58格。
+    // 加上标定偏移和搜索余量；偶数扩边保持半尺寸采样与旧裁块一致。
+    public static FieldSpriteRegion CropTemplateSprite(Mat image, FieldSpritePatch patch)
+    {
+        var g = patch.Geometry!;
+        int left = 2 * (int)Math.Ceiling(Math.Max(0, 2 * g.CellWidth - 90) / 2);
+        int top = 2 * (int)Math.Ceiling(Math.Max(0, 2.25 * g.CellWidth - 180) / 2);
+        int bottom = 2 * (int)Math.Ceiling(Math.Max(0, g.CellWidth - 24) / 2);
+        var rect = new Rect((int)Math.Round(g.BadgeFootX) - 90 - left,
+            (int)Math.Round(g.BadgeFootY) + (patch.Bench ? 0 : 24) - 180 - top,
+            180 + left * 2, 204 + top + bottom);
+        var visible = rect & new Rect(0, 0, image.Width, image.Height);
+        using var crop = new Mat(image, visible);
+        using var padded = new Mat();
+        Cv2.CopyMakeBorder(crop, padded, visible.Top - rect.Top, rect.Bottom - visible.Bottom,
+            visible.Left - rect.Left, rect.Right - visible.Right, BorderTypes.Constant, Scalar.All(0));
+        return new(padded.ImEncode(".png"), left, top);
     }
 
     // 与冻结比对器相同的裁块；脚点坐标以1920×1080计。

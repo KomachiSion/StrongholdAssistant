@@ -4,7 +4,7 @@
   import { app } from '../lib/state.svelte'
   import { field, cellKey, sameCell, placeable, terrainOf } from '../lib/field.svelte'
   import { asset, ROMAN } from '../lib/assets'
-  import type { FieldCell, FieldUnit, PlacementGoal, PlacementMove } from '../lib/api'
+  import { api, type FieldCell, type FieldUnit, type PlacementGoal, type PlacementMove } from '../lib/api'
   import SectionHeader from './SectionHeader.svelte'
   import Icon from './Icon.svelte'
 
@@ -223,6 +223,20 @@
 
   const open = $derived(!app.folded['match.field'])
   const sl = { duration: 200, easing: cubicOut }
+
+  // 帮助改进识别（v1.0.5，任务 235）：开着采集时，先把认错的格子改对，再点「都对了」，这一刻整盘名单记成答案
+  let confirming = $state(false)
+  async function confirmAll() {
+    confirming = true
+    try {
+      await api.confirmField()
+      app.showToast('记下了，谢谢帮忙')
+    } catch (e) {
+      app.showToast((e as Error).message, true)
+    } finally {
+      confirming = false
+    }
+  }
 </script>
 
 {#snippet unitFace(u: FieldUnit)}
@@ -293,6 +307,9 @@
               <button class:on={!both} onclick={() => (wantBoth = false)}>我的</button>
               <button class:on={both} onclick={() => (wantBoth = true)}>两边</button>
             </span>
+          {/if}
+          {#if app.settings.collect && st}
+            <button class="ok" disabled={confirming} onclick={confirmAll} title="帮助改进识别：先把认错的格子点开改对，再点这里，把这一刻场上和整备区的名单记成答案"><Icon name="check" size={12} />{confirming ? '记录中' : '都对了'}</button>
           {/if}
         </div>
         {#if field.pending.length}
@@ -521,6 +538,23 @@
   }
   .lg.fly {
     background: repeating-linear-gradient(90deg, var(--fb-fly) 0 3px, transparent 3px 5px);
+  }
+  /* 「都对了」：只在开着采集时出现，薄荷色描边，和「识别」手动态一个调子 */
+  .ok {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 1px 7px;
+    font-size: var(--fs-xs);
+    color: var(--mint);
+    box-shadow: inset 0 0 0 1px rgb(var(--mint-rgb) / 0.45);
+  }
+  .ok:hover:not(:disabled) {
+    background: var(--mint-tint);
+  }
+  .ok:disabled {
+    opacity: 0.5;
+    cursor: default;
   }
   .seg {
     display: inline-flex;

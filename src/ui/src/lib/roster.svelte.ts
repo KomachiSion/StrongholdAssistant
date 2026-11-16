@@ -55,7 +55,8 @@ class RosterState {
     if (this.autoCollapsed && app.collapsed) app.setCollapsed(false)
     this.autoCollapsed = false
     const n = this.mergeDefaults(this.data.operators.filter((o) => o.readAt >= this.startedAt))
-    const msg = (s.message ?? '').split('\n')[0]
+    // 失败时第二行是原因，接在后面一起显示（原来只显示「读取失败。」，看不出为什么）
+    const msg = (s.message ?? '').split('\n').filter(Boolean).join(' ')
     app.showToast(n ? `${msg}；我的默认更新了 ${n} 名` : msg, s.reason === 'failed')
   }
 

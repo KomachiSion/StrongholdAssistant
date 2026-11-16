@@ -111,6 +111,7 @@ public sealed partial class HostApi
         api._modes = extra["modes"]!.Deserialize<GameModeInfo[]>(JsonOptions)!;
         api.SettingsStore = new HostSettingsStore(Path.Combine(userDirectory, "settings.json"));
         api.Settings = api.SettingsStore.LoadSettings();
+        api.InitializeCollections(dataDirectory);
         api._boardRouteStore = new BoardRouteStore(dataDirectory);
         api.Changed += (name, _) => { if (name is "field" or "match") api.PublishBoardView(); };
         api.BoardRoutesEnabled = api.Settings.Routes.Enabled;
@@ -453,6 +454,10 @@ public sealed partial class HostApi
                 .Select(d => new EmulatorInstance(d.Kind, d.Serial, d.Name)).ToArray());
             case "match": return Match;
             case "field": return Field;
+            case "confirmField": ConfirmField(); return null;
+            case "collections": return await CollectionsAsync();
+            case "exportCollection": return await ExportCollectionAsync(Read<string>(0));
+            case "clearCollections": await ClearCollectionsAsync(); return null;
             case "recognizeField": return await RecognizeFieldAsync();
             case "placement": return Placement;
             case "board": return Board();

@@ -24,6 +24,7 @@ public sealed partial class FieldReader
     private readonly Dictionary<bool, BoardProjection> _projections;
     private readonly Dictionary<bool, BoardProjection> _bossProjections;
     private int? _round;
+    private string? _lastMap;
     private Dictionary<int, ShopItem> _shopCards = new();
     private (int, int, bool)? _frameKey;
     public GameShopTheme Theme { get; set; }
@@ -70,7 +71,7 @@ public sealed partial class FieldReader
         }
     }
 
-    public void Reset() { _boards.Clear(); _round = null; _shopCards.Clear(); }
+    public void Reset() { _boards.Clear(); _round = null; _lastMap = null; KnownMap = null; _shopCards.Clear(); }
 
     // 就绪控件可能露在外部窗口旁；棋盘中大面积连续的中性纯色不是地形纹理。
     internal static (bool Obscured, bool Detail, bool ConfirmationCandidate) InspectSurface(byte[] frame)
@@ -110,6 +111,7 @@ public sealed partial class FieldReader
         bool mainScreen, bool shopVisible, IReadOnlyList<ShopItem> shop, RectangleF? cursorRegion = null)
     {
         OverlayGeometry = null;
+        _frameGeometry = null;
         if (economy is not { IsRest: true }) return new(at, false, null, economy?.Round, new Dictionary<FieldCell, int>());
         if (_round != economy.Round) { _boards.Clear(); _round = economy.Round; }
         using var stream = new MemoryStream(frame);
@@ -138,15 +140,17 @@ public sealed partial class FieldReader
                 { PanelOperator = drag, Equipment = equipment };
         var key = (bitmap.Width, bitmap.Height, shopVisible);
         if (_frameKey != key) { _boards.Clear(); _frameKey = key; }
+        KnownMap = _lastMap ?? KnownMap;
         _boards.TryGetValue(key, out var board);
         if (BossRound && KnownMap is not null)
             board = _board.RecognizeDetailed(frame, KnownMap, bossRound: true).Match;
         else if (board is null)
         {
             // 空卡较多时商店长边会漏检；镜头由棋盘本身判定，不能直接把“没检测到卡”当收店。
-            board = _board.Recognize(frame);
+            board = _board.Recognize(frame, KnownMap, null);
             if (board is not null) _boards[key] = board;
         }
+        _lastMap = board?.MapId ?? KnownMap;
         var hidden = shop.Select(i => new RectangleF((float)i.CardRegion.X, (float)i.CardRegion.Y,
             (float)i.CardRegion.Width, (float)i.CardRegion.Height)).ToList();
         if (panel) hidden.Add(new(0, .17f, .33f, .75f));
@@ -163,9 +167,9 @@ public sealed partial class FieldReader
             cards = current.Where(p => _names.Contains(p.Value.Name)).ToDictionary(p => p.Key, p => p.Value.Name);
         }
         else _shopCards.Clear();
-        return new(at, true, board?.MapId, economy.Round, cells,
+        return new(at, true, _lastMap, economy.Round, cells,
             cards, economy.Money) { PanelOperator = drag, Equipment = equipment,
-                Sprites = ReadSprites(frame, cells) };
+                Sprites = ReadSprites(frame, cells), Geometry = _frameGeometry };
     }
 
     private static bool HasDetailPanel(Bitmap bitmap, double scale)
@@ -232,12 +236,14 @@ public sealed partial class FieldReader
     {
         var px = new Pixels(bitmap);
         _spriteFeet.Clear();
+        _cellGeometry.Clear();
         var cells = new Dictionary<FieldCell, int>();
         bool expanded = board?.Camera == BoardCamera.Expanded || board is null && shopVisible;
-        // 就绪主画面的镜头可确定格坐标；地图颜色不明确时 mapId 仍保持未知。
+        // 就绪主画面的镜头可确定格坐标；本帧颜色不明确时仍用本局已知地图过滤。
         var projection = board?.Projection ?? _projections[expanded];
         var anchors = new Dictionary<FieldCell, (double X, double Y)>();
-        var map = board is null ? null : _maps.Find(board.MapId);
+        var mapId = board?.MapId ?? _lastMap ?? KnownMap;
+        var map = mapId is null ? null : _maps.Find(mapId);
         double width = bitmap.Width, height = bitmap.Height;
         // 最下面的第 4 行只放装备，不生成干员观测或身份裁块。
         for (int row = 0; row < 4; row++)
@@ -248,6 +254,10 @@ public sealed partial class FieldReader
                 var p2 = projection.Project(col + 1.5, row + .5);
                 // 棋盘坐标会镜像，角色阶数角标仍在角色左上方。
                 double tile = Math.Abs(p2.X - p.X) * width;
+                var left = projection.Project(col, row + .5);
+                var right = projection.Project(col + 1, row + .5);
+                _cellGeometry[new("board", col, row)] = new(Math.Abs(right.X - left.X) * 1920,
+                    p.X * 1920, p.Y * 1080, 0, 0);
                 double offsetX = expanded ? board?.PlayerSide switch
                 {
                     "left" => 7 * width / 1920,
@@ -273,7 +283,16 @@ public sealed partial class FieldReader
             double y = expanded ? 609 : 798;
             anchors[new("bench", col, 0)] = (origin.X * width + (x / 1920 - baseline.X) * width * zoom,
                 origin.Y * height + (y / 1080 - baseline.Y) * height * zoom);
+            var anchor = anchors[new("bench", col, 0)];
+            // anchors与ReadBadge的输出均为角标中心，沿用中心到脚点的固定偏移。
+            _cellGeometry[new("bench", col, 0)] = new((expanded ? 121.2 : 149.5) * zoom,
+                anchor.X * 1920 / width + 35, anchor.Y * 1080 / height + 132, 0, 0);
         }
+        _frameGeometry = new(expanded ? BoardCamera.Expanded : BoardCamera.Collapsed,
+            board?.PlayerSide, BossRound, board is not null,
+            new[] { (0d, 0d), (7d, 0d), (7d, 5d), (0d, 5d) }.Select(c =>
+            { var p = projection.Project(c.Item1, c.Item2); return new FieldScreenPoint(p.X * 1920, p.Y * 1080); }).ToArray(),
+            _cellGeometry.Where(p => p.Key.Zone == "bench").ToDictionary(p => p.Key, p => new FieldScreenPoint(p.Value.FootX, p.Value.FootY)));
         foreach (var (cell, p) in anchors)
         {
             // 商店和屏幕外格子没有观测，保留追踪器中的旧值。

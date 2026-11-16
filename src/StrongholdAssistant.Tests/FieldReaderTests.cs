@@ -71,6 +71,20 @@ public sealed class FieldReaderTests(EnemyRecognitionFixture fixture)
         Assert.NotEmpty(observation.Cells);
         Assert.DoesNotContain(observation.Cells.Keys, c => c.Zone == "board" && c.Row == 4);
         Assert.DoesNotContain(observation.Sprites!.Keys, c => c.Zone == "board" && c.Row == 4);
+        Assert.NotNull(observation.Geometry);
+        Assert.Equal(4, observation.Geometry.Corners.Length);
+        Assert.Equal(10, observation.Geometry.BenchFeet.Count);
+        Assert.All(observation.Sprites.Values, patch => Assert.True(patch.Geometry?.CellWidth > 0));
+        var geometry = observation.Geometry;
+        var corners = new[] { (0d, 0d), (7d, 0d), (7d, 5d), (0d, 5d) };
+        var restored = new BoardProjection(corners.Select((p, i) =>
+            (p, (geometry.Corners[i].X / 1920, geometry.Corners[i].Y / 1080))).ToArray());
+        foreach (var (cell, patch) in observation.Sprites.Where(p => !p.Value.Bench))
+        {
+            var center = restored.Project(cell.Col + .5, cell.Row + .5);
+            Assert.Equal(center.X * 1920, patch.Geometry!.FootX, 6);
+            Assert.Equal(center.Y * 1080, patch.Geometry.FootY, 6);
+        }
     }
 
     [Theory]

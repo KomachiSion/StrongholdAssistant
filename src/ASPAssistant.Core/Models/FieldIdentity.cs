@@ -16,10 +16,24 @@ public sealed partial record FieldState
 }
 
 // 图块只在本局内存中使用，不是消息桥接口的一部分。
-public sealed record FieldSpritePatch(byte[] Image, byte[] Pixels, bool Bench);
+public sealed record FieldSpritePatch(byte[] Image, byte[] Pixels, bool Bench)
+{
+    public FieldSpriteGeometry? Geometry { get; init; }
+    public FieldSpriteRegion? TemplateRegion { get; init; }
+}
+
+public sealed record FieldSpriteRegion(byte[] Image, int OffsetX, int OffsetY);
+
+// 内部识别证据，坐标统一为1920×1080，不进入消息桥。
+public sealed record FieldScreenPoint(double X, double Y);
+public sealed record FieldSpriteGeometry(double CellWidth, double FootX, double FootY,
+    double BadgeFootX, double BadgeFootY);
+public sealed record FieldFrameGeometry(BoardCamera Camera, string? PlayerSide, bool BossRound,
+    bool BoardMatched, FieldScreenPoint[] Corners, IReadOnlyDictionary<FieldCell, FieldScreenPoint> BenchFeet);
 
 public sealed partial record FieldObservation
 {
     public IReadOnlyDictionary<FieldCell, FieldSpritePatch>? Sprites { get; init; }
     public string? GainSource { get; init; }
+    public FieldFrameGeometry? Geometry { get; init; }
 }

@@ -444,7 +444,7 @@
         <StrategyPicker bind:value={d.strategyId} />
 
         <div class="lbl">简介<em>{[...d.description].length} / 500</em></div>
-        <textarea bind:value={d.description} rows="4" maxlength="500" placeholder="这套阵容的思路、运营要点、适合打哪个首领……可以不写"></textarea>
+        <textarea class="ugc" bind:value={d.description} rows="4" maxlength="500" placeholder="这套阵容的思路、运营要点、适合打哪个首领……可以不写"></textarea>
 
         {#if err}<p class="err">{err}</p>{/if}
         {#if post}

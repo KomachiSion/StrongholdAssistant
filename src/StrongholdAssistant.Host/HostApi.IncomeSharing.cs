@@ -52,6 +52,7 @@ public sealed partial class HostApi
     private void CompleteHistory()
     {
         var local = _history.SingleOrDefault(r => r.Id == _activeRecord)?.Local;
+        _collections?.End(_activeRecord);
         _activeRecord = null;
         if (local?.Mode is null || EconomyRule(local.StrategyId) is not null) return;
         var samples = _roundSamples.Where(p => p.Key is >= 1 and <= 15 && p.Value >= 0).OrderBy(p => p.Key)

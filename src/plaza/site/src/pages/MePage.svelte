@@ -217,7 +217,7 @@
                 {#if l.members.length > 14}<span class="muted small">+{l.members.length - 14}</span>{/if}
                 {#if !l.members.length}<span class="muted small">没有干员</span>{/if}
               </div>
-              {#if l.description}<p class="mld">{l.description}</p>{/if}
+              {#if l.description}<p class="mld ugc">{l.description}</p>{/if}
               <div class="mla">
                 <a class="btn sm" href="/new?edit={encodeURIComponent(c.id)}" use:link><Icon name="pencil" size={13} />编辑</a>
                 <button class="btn ghost sm" onclick={() => copyMine(c)}><Icon name="copy" size={13} />分享码</button>

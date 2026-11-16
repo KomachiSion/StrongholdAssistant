@@ -5,7 +5,7 @@
   import Seg from './Seg.svelte'
   import { fontStack } from '../lib/fonts'
   import { ACCENTS } from '../lib/accent'
-  import { api, type BackupSummary, type GameTheme, type ImportMode, type EmulatorInstance, type Settings, type UiSkin, type MarkerStyle } from '../lib/api'
+  import { api, type BackupSummary, type CollectionMatch, type GameTheme, type ImportMode, type EmulatorInstance, type Settings, type UiSkin, type MarkerStyle } from '../lib/api'
   import Icon from './Icon.svelte'
   import NotesList from './NotesList.svelte'
   import { plaza, PLAZA } from '../lib/plaza.svelte'
@@ -314,6 +314,39 @@
     } finally {
       diagBusy = false
     }
+  }
+
+  // 帮助改进识别（v1.0.5，任务 235）：开着时宿主存下对局截图和记录，最近 3 局；在这里一局一局导出 zip 发给我们
+  let colls = $state<CollectionMatch[]>([])
+  let collBusy = $state('')
+  let collMsg = $state<{ text: string; bad?: boolean } | null>(null)
+  let clearAsk = $state(false)
+  $effect(() => {
+    if (tab === 'about') api.collections().then((c) => (colls = c))
+  })
+  async function exportColl(id: string) {
+    collBusy = id
+    collMsg = null
+    try {
+      const path = await api.exportCollection(id)
+      if (path) collMsg = { text: `已保存到 ${path}，发到 QQ 群就行` }
+    } catch (e) {
+      collMsg = { text: (e as Error).message, bad: true }
+    } finally {
+      collBusy = ''
+    }
+  }
+  async function clearColls() {
+    if (!clearAsk) return void (clearAsk = true)
+    clearAsk = false
+    await api.clearCollections()
+    colls = await api.collections()
+    collMsg = { text: '已清空' }
+  }
+  const mb = (b: number) => `${(b / 1e6).toFixed(b < 1e7 ? 1 : 0)} MB`
+  const collWhen = (iso: string) => {
+    const d = new Date(iso)
+    return `${d.getMonth() + 1}-${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
   }
 
   // 数据：导出备份、选文件预览后按合并 / 替换导入
@@ -774,7 +807,7 @@
     <!-- 以管理员身份运行（v0.9.1）：游戏是管理员身份时，单独按的键要助手也是管理员才收得到 -->
     <section>
       <label class="row">
-        <span class="lbl"><b>以管理员身份运行</b><small>游戏是以管理员身份运行的，助手也是管理员才收得到单独按的键：路线的 Alt、「按住才显示」、商店刷新键 D。打开后每次启动助手会弹一次系统确认</small></span>
+        <span class="lbl"><b>以管理员身份运行</b><small>游戏是以管理员身份运行的，助手也是管理员才收得到单独按的键：路线的 Alt、「按住才显示」、商店刷新键 D。默认打开，每次启动助手会弹一次系统确认，点「否」就按普通身份运行；游戏不是管理员身份的可以关掉</small></span>
         <input type="checkbox" class="sw" checked={app.settings.runAsAdmin} disabled={adminBusy} onchange={(e) => setAdmin(e.currentTarget.checked)} />
       </label>
       {#if adminMsg}
@@ -1008,6 +1041,33 @@
       </div>
       <p class="note">把日志、最近几次识别失败的截图和原因打成一个 zip，发到 QQ 群或 GitHub Issues。截图是识别失败时的游戏画面，联机时可能带着队友昵称；不含账号、登录凭据和 CDK。</p>
       {#if diagMsg}<p class="dmsg" class:bad={diagMsg.bad}>{diagMsg.text}</p>{/if}
+    </section>
+
+    <section>
+      <label class="row">
+        <span class="lbl"><b>帮助改进识别</b><small>打开后，打对局时助手会存下认人用的游戏截图和识别记录，最近 3 局，每局约 40 MB，只存在这台电脑上。打完一局在下面导出，发到 QQ 群，我们拿来提高认人的准确率</small></span>
+        <input type="checkbox" class="sw" checked={app.settings.collect} onchange={(e) => set('collect', e.currentTarget.checked)} />
+      </label>
+      {#if app.settings.collect}
+        <p class="note">认错的格子在本局页「场上」点开改对，再点「都对了」，这一刻整盘的名字就成了答案，比改几格更有用。截图是游戏画面，联机时可能带着队友昵称；不含账号和登录信息。</p>
+      {/if}
+      {#if colls.length}
+        <ul class="colls">
+          {#each colls as c (c.id)}
+            <li>
+              <span class="cw">
+                <b>{collWhen(c.startedAt)}{#if c.ongoing}<em>正在打</em>{/if}</b>
+                <small>{c.mode ?? '模式没读到'} · 第 {c.rounds} 回合 · {c.frames} 张图 · {c.answers} 格答案 · {mb(c.bytes)}</small>
+              </span>
+              <button class="btn" disabled={!!collBusy} onclick={() => exportColl(c.id)}><Icon name="download" size={14} />{collBusy === c.id ? '正在打包…' : '导出'}</button>
+            </li>
+          {/each}
+        </ul>
+        <div class="dataops">
+          <button class="btn" class:danger={clearAsk} disabled={!!collBusy} onclick={clearColls} onblur={() => (clearAsk = false)}><Icon name="trash" size={14} />{clearAsk ? '再点一次，全部删掉' : '清空已存的'}</button>
+        </div>
+      {/if}
+      {#if collMsg}<p class="dmsg" class:bad={collMsg.bad}>{collMsg.text}</p>{/if}
     </section>
 
     <section class="about">
@@ -1748,6 +1808,47 @@
     min-width: 10em;
     font-size: var(--fs-sm);
     color: var(--fg-4);
+  }
+  /* 帮助改进识别：已存的对局，一行一局，右边导出 */
+  .colls {
+    list-style: none;
+    margin: 8px 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .colls li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    background: var(--bg-2);
+  }
+  .cw {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+  .cw b {
+    font-size: var(--fs-md);
+    font-weight: 500;
+    color: var(--fg-1);
+  }
+  .cw em {
+    margin-left: 6px;
+    font-style: normal;
+    font-size: var(--fs-xs);
+    color: var(--mint);
+  }
+  .cw small {
+    font-size: var(--fs-sm);
+    color: var(--fg-4);
+  }
+  .btn.danger {
+    color: var(--red-fg);
   }
   .dmsg {
     margin: 8px 0 0;

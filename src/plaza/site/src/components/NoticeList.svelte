@@ -66,7 +66,7 @@
           <span class="ni"><Icon name={ICON[n.kind]} size={16} /></span>
           <span class="nb">
             <span class="ns">{says(n)}<span class="np">「{n.post.name}」</span></span>
-            {#if n.comment}<span class="nc">{n.comment.body}</span>{/if}
+            {#if n.comment}<span class="nc ugc">{n.comment.body}</span>{/if}
           </span>
           <span class="nt">{ago(n.createdAt)}</span>
         </a>

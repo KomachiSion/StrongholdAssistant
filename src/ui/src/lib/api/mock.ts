@@ -1,6 +1,6 @@
 // 原型用的假后端：数据取自参考项目的当期数据表，本局信息仿照 TestData/info-ingame-1920x1080.png。
 // 禁用推算是粗略的假实现，只为让界面能走通；真实逻辑在参考项目的 BanScreenAnalyzer。
-import type { Api, BanGroup, BoardView, Catalog, CovenantGoal, Economy, EmulatorInstance, FieldState, PlacementPlan, Income, Lineup, MatchInfo, MatchRecord, Roster, RosterOperator, RosterScanStatus, RoundEnemies, RoundEnemy, RoundEnemyOptions, ScanStatus, Session, Settings, UpdateStatus } from './types'
+import type { Api, BanGroup, BoardView, Catalog, CollectionMatch, CovenantGoal, Economy, EmulatorInstance, FieldState, PlacementPlan, Income, Lineup, MatchInfo, MatchRecord, Roster, RosterOperator, RosterScanStatus, RoundEnemies, RoundEnemy, RoundEnemyOptions, ScanStatus, Session, Settings, UpdateStatus } from './types'
 import raw from '../mock/catalog.json'
 import boardData from '../mock/board.json'
 import intel from '../mock/enemy-intel.json'
@@ -243,6 +243,7 @@ let settings: Settings = {
   placementGoal: 'balanced',
   fieldAuto: true,
   fieldHotkey: 'Alt+F',
+  collect: location.search.includes('collect'),
   // 官网上的侧栏演示（/demo/?demo）不弹「发现新版本」
   autoCheckUpdate: !location.search.includes('demo'),
   updateSource: 'github',
@@ -260,7 +261,7 @@ let settings: Settings = {
   focusOperators: autoBanned().slice(0, 2),
   toggleHotkey: 'Alt+S',
   refreshKey: 'D',
-  runAsAdmin: false,
+  runAsAdmin: true,
   startupMode: 'remember',
   shareIncome: false,
   cloudSync: { enabled: false, since: null, pushedAt: null, prefsAt: null, deleted: [] },
@@ -309,6 +310,10 @@ let history: MatchRecord[] = [0.2, 2.5].map((h, i) => {
   }
 })
 const updateListeners = new Set<(u: UpdateStatus) => void>()
+let collections: CollectionMatch[] = [
+  { id: 'c2', startedAt: '2026-11-16T20:31:00+08:00', ongoing: true, mode: '终极模拟', rounds: 9, frames: 31, answers: 4, bytes: 11_800_000 },
+  { id: 'c1', startedAt: '2026-11-16T19:42:00+08:00', ongoing: false, mode: '终极模拟', rounds: 25, frames: 84, answers: 37, bytes: 27_300_000 },
+]
 const pushUpdate = (u: UpdateStatus) => updateListeners.forEach((cb) => cb(u))
 let mockUpdateReady = false
 let mockDownloading: Promise<void> | null = null
@@ -510,6 +515,18 @@ export const mockApi: Api = {
     fieldListeners.forEach((cb) => cb(structuredClone(field)))
     setTimeout(() => placementListeners.forEach((cb) => cb(placement())), 600)
     return wait(field, 700)
+  },
+  // 假数据：?collect 时采集开着、有两局；「场上都对了」不在棋盘画面时报错用 ?notRest
+  confirmField: async () => {
+    await new Promise((r) => setTimeout(r, 300))
+    if (!settings.collect) throw new Error('先打开设置里的「帮助改进识别」')
+    if (location.search.includes('notRest')) throw new Error('现在不在休整期的棋盘画面，切到棋盘再点')
+    collections[0] = { ...collections[0], answers: collections[0].answers + field.units.filter((u) => u.operator).length }
+  },
+  collections: () => wait(structuredClone(collections)),
+  exportCollection: (id) => wait(String.raw`C:\Users\你\Desktop\高效雅雅-采集-${collections.find((c) => c.id === id)!.startedAt.slice(0, 16).replace(/[-:]/g, '').replace('T', '-')}.zip`, 800),
+  clearCollections: async () => {
+    collections = collections.filter((c) => c.ongoing).map((c) => ({ ...c, rounds: 0, frames: 0, answers: 0, bytes: 0 }))
   },
   setFieldOperator: (cell, operator) => {
     field = {

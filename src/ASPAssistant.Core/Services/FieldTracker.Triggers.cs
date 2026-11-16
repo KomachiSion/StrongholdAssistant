@@ -27,12 +27,15 @@ public sealed partial class FieldTracker
         if (decrease && !refreshed && _shop is { Count: > 0 }
             && (o.At - _shopAt).TotalSeconds <= PurchaseWindowSeconds)
             _purchase = (o.At, _shop.Values.Distinct().ToArray());
-        // TODO(design): 观测尚无零费选择标志；暂以三张卡退出且资金未变识别三选一。
-        if (!moneyChanged && _shop is { Count: 3 } && (o.At - _shopAt).TotalSeconds <= PurchaseWindowSeconds
-            && (o.Shop is null || o.Shop.Count < 3 && o.Shop.All(p => _shop.GetValueOrDefault(p.Key) == p.Value)))
+        // TODO(design): 观测尚无零费选择标志；暂以主画面读到三张卡减少且资金未变识别三选一。
+        // 拖动或商店未读到不能作为卡片退出的证据。
+        if (!moneyChanged && o.MainScreen && o.DragOperator is null && _shop is { Count: 3 } && (o.At - _shopAt).TotalSeconds <= PurchaseWindowSeconds
+            && o.Shop is { Count: < 3 } && o.Shop.All(p => _shop.GetValueOrDefault(p.Key) == p.Value))
             _purchase = (o.At, _shop.Values.Distinct().ToArray());
         if (_purchase is { } purchase && (o.At - purchase.At).TotalSeconds > PurchaseWindowSeconds)
             _purchase = null;
+        // 拖动之后的新占用不能再配给拖动之前尚未落格的扣款。
+        if (o.DragOperator is not null) _purchase = null;
         _observedMoney = o.Money ?? _observedMoney;
         _pendingTrigger |= moneyChanged || o.PanelOperator is not null || o.DragOperator is not null;
         if (!o.MainScreen || o.DragOperator is not null) { _lastCells.Clear(); return false; }
@@ -87,12 +90,24 @@ public sealed partial class FieldTracker
             consumed = true;
             _purchaseCandidates[cell] = names;
             if (names.Length == 1)
-                _units[cell] = unit with { Operator = names[0], Source = "purchase", Status = "sure", Candidates = [] };
+            {
+                // 商店整排只有一个同阶名字也可能配错格，强视觉反证时保留待确认。
+                var visual = purchase.Names.Length > 1 && o.Sprites?.TryGetValue(cell, out var picture) == true && _matchSprite is not null
+                    ? Rank(picture, unit.Tier, false, MatchCandidates().Where(n => HasTier(n, unit.Tier)).Distinct().ToArray(), names)
+                        .OrderByDescending(c => c.Score).ToArray() : [];
+                var bought = visual.FirstOrDefault(c => c.Name == names[0]);
+                bool unsupported = bought is not null && !visual.Take(3).Any(c => c.Name == names[0])
+                    && visual[0].Score - bought.Score >= .05;
+                _units[cell] = unit with { Operator = names[0], Source = "purchase", Status = unsupported ? "pending" : "sure",
+                    Candidates = unsupported ? new[] { new FieldCandidate(names[0], bought!.Score) }
+                        .Concat(visual.Take(2).Select(c => new FieldCandidate(c.Name, c.Score))).ToArray() : [] };
+            }
             else
             {
                 var ranked = o.Sprites?.TryGetValue(cell, out var patch) == true && _matchSprite is not null
-                    ? Rank(patch, unit.Tier, names).OrderByDescending(c => c.Score).ToArray() : [];
-                bool automatic = ranked.Length > 1 && ranked[0].Score - ranked[1].Score >= SpriteMatcher.AutoFillGap;
+                    ? Rank(patch, unit.Tier, false, names, names).OrderByDescending(c => c.Score).ToArray() : [];
+                bool automatic = ranked.Length > 1 && ranked[0].Score - ranked[1].Score >= IdentityAutoFillGap
+                    && !FieldConfusionRules.NeedsConfirmation(ranked);
                 var candidates = ranked.Select(c => new FieldCandidate(c.Name, c.Score))
                     .Concat(names.Where(n => !ranked.Any(c => c.Name == n)).Select(n => new FieldCandidate(n, 0))).ToArray();
                 _units[cell] = unit with { Operator = candidates[0].Operator, Source = "sprite",

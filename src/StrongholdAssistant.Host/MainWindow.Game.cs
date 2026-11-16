@@ -163,6 +163,25 @@ public partial class MainWindow
                 (point.Y - viewport.Top - 8f) / viewport.Height, 48f / viewport.Width, 64f / viewport.Height);
         };
         _scanner.ObserveFieldAsync = _api.ObserveFieldAsync;
+        void ConfigureCollection()
+        {
+            _scanner.CollectionFrame = _api.Settings.Collect ? _api.ObserveCollectionFrame : null;
+            _scanner.CollectionScanCompleted = _api.Settings.Collect ? _api.CompleteCollectionScan : null;
+            _capture.NativeFrame = _api.Settings.Collect ? _api.ObserveCollectionNative : null;
+            _capture.NativeFrameRequested = () => _api.NeedsCollectionRaw;
+        }
+        _api.CollectionEnabledChanged += ConfigureCollection;
+        ConfigureCollection();
+        _api.CollectionEnvironment = () =>
+        {
+            var state = _capture.Connection.State;
+            var rect = state.Window == 0 ? null : User32.GetClientRectScreen(state.Window);
+            return new { source = state.Source, capture = _capture.Connection.IsAdb ? _capture.Connection.CaptureMethod : "BitBlt",
+                rawWidth = state.Width > 0 ? state.Width : rect?.Width,
+                rawHeight = state.Height > 0 ? state.Height : rect?.Height,
+                windowWidth = rect?.Width, windowHeight = rect?.Height,
+                dpi = state.Window == 0 ? 96 : User32.GetWindowDpiScale(state.Window) * 96 };
+        };
         // 和开局识别同一个截图方法：点助手里的「识别」时前台是助手，也能截；侧栏挡着游戏时先藏一下（v1.0.2 玩家反馈）
         _api.ReadCurrentField = () => _scanner.ReadCurrentFieldAsync(CaptureInformationScreenAsync, _api.RecognizeFieldFrameAsync);
         _scanner.BoardRoutesRequested = () => _api.BoardRoutesEnabled;
@@ -176,7 +195,11 @@ public partial class MainWindow
                 _upgradeButton = upgradeButton;
                 RefreshShopOverlay();
             });
-            if (frame is null || !_scanner.BoardMainScreenVisible || reading is { IsRest: false }) _api.HideFieldOverlay();
+            if (frame is null || !_scanner.BoardMainScreenVisible || reading is { IsRest: false })
+            {
+                _api.HideFieldOverlay();
+                _api.InvalidateCollectionFrame();
+            }
             _api.ObserveBoardFrame(frame, reading, _scanner.BoardShopVisible, _scanner.BoardMainScreenVisible);
         };
         _api.FieldOverlayChanged += (field, geometry) => Dispatcher.BeginInvoke(() =>
@@ -587,6 +610,7 @@ public partial class MainWindow
         await _scanner.WaitForIdleAsync();
         await _automaticScan;
         await _api!.WaitForRecordingAsync();
+        await _api.FinishCollectionsAsync();
         _routeSystemHotkey.Dispose(() => User32.UnregisterHotKey(new WindowInteropHelper(this).Handle, 3));
         _fieldSystemHotkey.Dispose(() => User32.UnregisterHotKey(new WindowInteropHelper(this).Handle, 4));
         UnregisterHotkey();

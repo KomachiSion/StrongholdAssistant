@@ -46,9 +46,10 @@ public sealed class HostSettingsStore(string path)
         {
             PlacementGoal = json["placementGoal"]?.GetValue<string>() is "leak" or "layers" ? json["placementGoal"]!.GetValue<string>() : "balanced",
             GameThemeAuto = json["gameThemeAuto"]?.GetValue<bool>() ?? true,
+            Collect = json["collect"]?.GetValue<bool>() ?? false,
             FieldAuto = json["fieldAuto"]?.GetValue<bool>() ?? true,
             FieldHotkey = json["fieldHotkey"]?.GetValue<string>() ?? "Alt+F",
-            RunAsAdmin = json["runAsAdmin"]?.GetValue<bool>() ?? false,
+            RunAsAdmin = json["runAsAdmin"]?.GetValue<bool>() ?? true, // v1.0.5 起默认打开：玩家的游戏多是管理员身份，不同意授权就按普通身份运行
             UiSkin = uiSkin,
             UiScheme = json["uiScheme"] is JsonValue schemeValue && schemeValue.TryGetValue<string>(out var scheme)
                 && scheme is ("system" or "dark" or "light") ? scheme : "system",
@@ -123,7 +124,7 @@ public sealed class HostSettingsStore(string path)
             || !Uri.TryCreate(proxy, UriKind.Absolute, out var uri)
             || uri.Host.Length == 0 || uri.Port is < 1 or > 65535))
             throw new ArgumentException("代理地址格式不对。");
-        Merge(settings with { RunAsAdmin = Read()["runAsAdmin"]?.GetValue<bool>() ?? false });
+        Merge(settings with { RunAsAdmin = Read()["runAsAdmin"]?.GetValue<bool>() ?? true });
     }
     private static bool ValidAccent(string? accent) => accent is not null && (accent == ""
         || System.Text.RegularExpressions.Regex.IsMatch(accent, @"\A#[0-9a-fA-F]{6}\z"));

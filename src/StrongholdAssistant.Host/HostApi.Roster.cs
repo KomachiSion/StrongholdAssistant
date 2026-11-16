@@ -204,7 +204,12 @@ public sealed partial class HostApi
             }
         }
         catch (OperationCanceledException) { reason = _rosterReason; }
-        catch (Exception ex) { reason = control.Lost ? "lost" : "failed"; error = ex.Message; }
+        catch (Exception ex)
+        {
+            reason = control.Lost ? "lost" : "failed"; error = ex.Message;
+            // 原来不记，玩家只看到「读取失败。」，诊断包里也查不到原因（v1.0.4 玩家诊断包）
+            ASPAssistant.Core.AppLogger.Error("Roster", "物资调配读取失败", ex);
+        }
         finally
         {
             control.Dispose();

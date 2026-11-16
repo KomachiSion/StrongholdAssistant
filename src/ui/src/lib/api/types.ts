@@ -738,6 +738,11 @@ export interface Settings {
    * 按下时宿主推送 fieldHotkey，界面调 recognizeField，和点「识别」按钮完全一样。自动识别开着关着都能用
    */
   fieldHotkey: string
+  /**
+   * 帮助改进识别（v1.0.5，默认 false）：打开后宿主在对局里存下认人用的截图和记录（任务 235），最近 3 局，
+   * 一局约 40 MB，存在本机数据文件夹的 collect/ 下；玩家在设置里把某一局导出成 zip 发给我们。关掉时不删已存的
+   */
+  collect: boolean
   autoCheckUpdate: boolean // 启动时和开着时每两小时检查新版本，发现了就在后台下载好（v1.0.4）
   /**
    * 更新源（v0.7.2，默认 'github'）。mirrorchyan：检查走 Mirror酱；填了有效 CDK 时从 Mirror酱 下载，
@@ -802,7 +807,7 @@ export interface Settings {
    */
   refreshKey: string
   /**
-   * 以管理员身份运行（v0.9.1，默认 false）：游戏是管理员身份运行时，助手也要是管理员才收得到单独按的键（路线的 Alt、商店刷新键 D、单键的收起键）。
+   * 以管理员身份运行（v0.9.1；v1.0.5 起默认 true，启动时弹系统确认，玩家不同意就按普通身份运行）：游戏是管理员身份运行时，助手也要是管理员才收得到单独按的键（路线的 Alt、商店刷新键 D、单键的收起键）。
    * 打开后每次启动弹一次系统确认。只能经 setRunAsAdmin 改，saveSettings 里改了这一项宿主忽略
    */
   runAsAdmin: boolean
@@ -905,6 +910,19 @@ export interface MarkerStyles {
   pickable: MarkerStyle // 目标盟约里还能抓的（次级标记，虚线框）
   /** 框上方的「★ 关键」「★ 追踪」「可抓」文字标签 */
   labels: boolean
+}
+
+/** 一局采集（v1.0.5，任务 235） */
+export interface CollectionMatch {
+  id: string
+  startedAt: string // 这局开始的时间，ISO
+  ongoing: boolean // 正在打的这局
+  mode: string | null // 本局模式名，如「终极模拟」；没读到为 null
+  rounds: number // 存到了第几回合
+  frames: number // 存了几张画面
+  /** 有答案的格子数：玩家改过的、确认过的、详情面板读到的，加「场上都对了」记下的 */
+  answers: number
+  bytes: number // 占用的磁盘大小
 }
 
 /** 自动更新的状态（检查、下载、校验都在宿主里做） */
@@ -1324,6 +1342,21 @@ export interface Api {
    * 如「现在不在休整期的棋盘画面，切到棋盘再点」
    */
   recognizeField(): Promise<FieldState>
+  /**
+   * 「场上都对了」（v1.0.5，任务 235）：把现在的场上和整备区名单连同这一帧记成这局的答案（玩家先改掉认错的再点）。
+   * 要开着 collect、在休整期的棋盘主画面；不满足时以错误返回，错误文字直接给用户看，如「先打开设置里的「帮助改进识别」」
+   * 「现在不在休整期的棋盘画面，切到棋盘再点」。待确认的格子也按现在显示的名字记
+   */
+  confirmField(): Promise<void>
+  /** 已存的采集对局（v1.0.5），新的在前，最多 3 局；正在打的这局也在（ongoing: true） */
+  collections(): Promise<CollectionMatch[]>
+  /**
+   * 把一局采集导出成 zip（v1.0.5）：弹保存对话框，默认放桌面，文件名「高效雅雅-采集-yyyyMMdd-HHmm.zip」（这局开始的时间），
+   * 返回保存的完整路径；玩家取消返回 null。正在打的这局也能导出（导出到此刻为止的）
+   */
+  exportCollection(id: string): Promise<string | null>
+  /** 删掉全部已存的采集（v1.0.5）；正在打的这局从此刻重新开始存 */
+  clearCollections(): Promise<void>
   /** 小棋盘的地图和本回合路线（任务 169）；还没认出地图为 null */
   board(): Promise<BoardView | null>
   /** 站位推荐（任务 169 只定接口，还没接）：现在总是 null */

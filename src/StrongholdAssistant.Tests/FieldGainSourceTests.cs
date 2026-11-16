@@ -32,15 +32,15 @@ public sealed class FieldGainSourceTests
         t.Observe(Frame(2,(ethan,0)) with { Money=6 });
         t.Observe(Picture(Frame(3,(Bench,1))));
         t.Observe(Picture(Frame(4,(Bench,1))));
-        Assert.Equal(new[]{"甲","乙","丙"},candidates);
+        Assert.Equal(new[]{"甲","乙","丙"}.Order(),candidates.Order());
         t.SetOperator(Bench,"乙",Start.AddSeconds(3));
         Assert.Contains(t.State!.Roster,r=>r.Operator=="乙"&&r.Source=="ethan");
     }
 
     [Theory]
     [InlineData("黑白相易", "auto", "乙")]
-    [InlineData("人才盲盒", "pending", "丙")]
-    public void StrategyRestrictsTierAndCovenantAndConfirmationRecordsSource(string strategy,string status,string answer)
+    [InlineData("人才盲盒", "auto", "丙")]
+    public void StrategyExtendsAllowedPoolAndConfirmationRecordsSource(string strategy,string status,string answer)
     {
         string[] candidates=[];
         var t=new FieldTracker();
@@ -49,24 +49,45 @@ public sealed class FieldGainSourceTests
         t.Observe(Frame(-1));
         t.Observe(Picture(Frame(0,(Bench,1))));
         t.Observe(Picture(Frame(7,(Bench,1))));
-        Assert.Equal(strategy=="黑白相易" ? new[]{"甲","乙"} : new[]{"丙"},candidates);
+        Assert.Equal(new[]{"甲","乙","丙"},candidates);
         Assert.Equal(status,Assert.Single(t.State!.Units).Status);
         t.SetOperator(Bench,answer,Start);
         Assert.Contains(t.State.Roster,r=>r.Operator==answer&&r.Source=="strategy");
     }
 
-    [Fact]
-    public void UnknownGainRanksWholeTierBeyondRoster()
+    [Theory]
+    [InlineData(.4, "乙", 3)]
+    [InlineData(.2, "乙", 3)]
+    public void UnknownGainUsesAllowedTierRegardlessOfRosterScore(double rosterScore, string expected, int count)
     {
         var t=new FieldTracker();
-        t.ConfigureIdentity(Operators,(_,_,names)=>new(names.Select(n=>new SpriteCandidate(n,n=="乙"?.9:.4)).ToArray(),.5));
+        t.ConfigureIdentity(Operators,(_,_,names)=>new(names.Select(n=>new SpriteCandidate(n,n=="乙"?.9:rosterScore)).ToArray(),.5));
         t.AddRoster("甲","purchase",Start);
         t.Observe(Frame(-1));
         t.Observe(Picture(Frame(0,(Bench,1))));
         t.Observe(Picture(Frame(7,(Bench,1))));
-        Assert.Equal("乙",Assert.Single(t.State!.Units).Operator);
-        Assert.Equal(3,t.State.Units[0].Candidates.Length);
-        Assert.Equal("pending",t.State.Units[0].Status);
+        Assert.Equal(expected,Assert.Single(t.State!.Units).Operator);
+        Assert.Equal(count,t.State.Units[0].Candidates.Length);
+        Assert.Equal("auto",t.State.Units[0].Status);
+    }
+
+    [Fact]
+    public void StrategySourceDoesNotExcludeSessionCandidates()
+    {
+        string[] candidates = [];
+        var t = new FieldTracker();
+        t.ConfigureIdentity(Operators, (_, _, names) =>
+        {
+            candidates = names;
+            return new(names.Select(n => new SpriteCandidate(n, n == "乙" ? .9 : .5)).ToArray(), .4);
+        });
+        t.SeedRoster("人才盲盒", ["乙"], 3, Start);
+        t.Observe(Frame(-1));
+        t.Observe(Picture(Frame(0, (Bench, 1))));
+        t.Observe(Picture(Frame(7, (Bench, 1))));
+        Assert.Contains("乙", candidates);
+        Assert.Contains("丙", candidates);
+        Assert.Equal("乙", Assert.Single(t.State!.Units).Operator);
     }
 
     [Fact]
@@ -80,7 +101,7 @@ public sealed class FieldGainSourceTests
         t.Observe(Frame(2) with { MainScreen=false,PanelOperator="甲",Equipment=[] });
         t.Observe(Picture(Frame(3,(Bench,1))));
         t.Observe(Picture(Frame(10,(Bench,1))));
-        Assert.Equal(new[]{"甲","乙"},candidates);
+        Assert.Equal(new[]{"甲","乙","丙"},candidates);
         t.SetOperator(Bench,"乙",Start.AddSeconds(3));
         Assert.Contains(t.State!.Roster,r=>r.Operator=="乙"&&r.Source=="equipment");
     }

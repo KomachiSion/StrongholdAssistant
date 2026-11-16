@@ -1,0 +1,90 @@
+using System.Text.Json;
+using ASPAssistant.Core.Models;
+using ASPAssistant.Core.Services;
+using OpenCvSharp;
+
+namespace StrongholdAssistant.Tests;
+
+public sealed class SpriteModelMatcherTests
+{
+    private static string Data(string file) => Path.Combine(AppContext.BaseDirectory, "data", file);
+    private static SpriteModelMatcher Model() => new(Data("sprite-model.onnx"), Data("sprite-model-classes.json"));
+    private static Mat Crop()
+    {
+        using var original = Cv2.ImRead(Path.Combine(AppContext.BaseDirectory, "TestData", "sprite-N30.png"));
+        var crop = new Mat();
+        Cv2.Resize(original, crop, new Size(180, 204));
+        return crop;
+    }
+
+    [Fact]
+    public void ShortlistKeepsConfirmedPersonalTemplateOutsideTopFourAndReusesPrediction()
+    {
+        using var model = Model(); using var crop = Crop();
+        var logits = model.Predict(crop);
+        var classes = JsonSerializer.Deserialize<string[]>(File.ReadAllText(Data("sprite-model-classes.json")))!;
+        var names = model.Shortlist(logits, classes, 6);
+        string[] matched = [];
+        var tracker = new FieldTracker();
+        tracker.ConfigureIdentity(names.Select(n => new Operator { Name = n, Tier = 2 }).ToArray(),
+            (_, _, pool) => { matched = pool; return new(pool.Select(n => new SpriteCandidate(n, .5)).ToArray(), 0); }, model);
+        var patch = FieldReader.CropSprite(crop, 90, 156, false)!;
+        var cell = new FieldCell("board", 1, 1); var at = DateTimeOffset.UnixEpoch;
+        tracker.Observe(new(at, true, "m01", 1, new Dictionary<FieldCell, int> { [cell] = 2 })
+            { Sprites = new Dictionary<FieldCell, FieldSpritePatch> { [cell] = patch } });
+        tracker.SetOperator(cell, names[5], at);
+        var rank = typeof(FieldTracker).GetMethod("Rank", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic,
+            [typeof(FieldSpritePatch), typeof(int), typeof(bool), typeof(string[])])!;
+        rank.Invoke(tracker, [patch, 2, true, names]);
+        Assert.Contains(names[5], matched); Assert.InRange(matched.Length, 4, 5);
+        var templates = names.Select(n => new SpriteCandidate(n, .5)).ToArray();
+        Assert.Equal(model.Fuse(crop, templates), model.Fuse(logits, templates));
+    }
+
+    [Fact]
+    public void DnnMatchesOnnxRuntimeWithTrainingPreprocessing()
+    {
+        using var model = Model();
+        using var crop = Crop();
+        var logits = model.Predict(crop);
+        Assert.Equal(217, logits.Length);
+        // 由相同模型的 ONNX Runtime CPU 推理保存，覆盖通道、尺寸及归一化。
+        Assert.InRange(Math.Abs(logits[25] + 1.0640063285827637), 0, 1e-4);
+        Assert.InRange(Math.Abs(logits[93] - 0.5580694675445557), 0, 1e-4);
+        Assert.InRange(Math.Abs(logits[126] + 4.483623504638672), 0, 1e-4);
+    }
+
+    [Fact]
+    public void TrackerUsesFusedGapAndKeepsPersonalTemplate()
+    {
+        using var model = Model();
+        using var crop = Crop();
+        var names = JsonSerializer.Deserialize<string[]>(File.ReadAllText(Data("sprite-model-classes.json")))!;
+        string first = names[25], second = names[93];
+        var tracker = new FieldTracker();
+        tracker.ConfigureIdentity([new() { Name = first, Tier = 2 }, new() { Name = second, Tier = 2 }],
+            // 第三轮模型对本图更偏向second；模板仍让first领先，融合分差落在两个阈值之间。
+            (_, _, pool) => new(pool.Select(n => new SpriteCandidate(n, n == first ? .76 : .6)).ToArray(), .16), model);
+        var at = DateTimeOffset.Parse("2026-01-01T00:00:00Z");
+        tracker.AddRoster(first, "purchase", at);
+        tracker.AddRoster(second, "purchase", at);
+        var cell = new FieldCell("board", 1, 1);
+        var patch = FieldReader.CropSprite(crop, 90, 156, false)!;
+        var observation = new FieldObservation(at, true, "m01", 1, new Dictionary<FieldCell, int> { [cell] = 2 })
+            { Sprites = new Dictionary<FieldCell, FieldSpritePatch> { [cell] = patch } };
+        tracker.Observe(observation, force: true);
+        var unit = Assert.Single(tracker.State!.Units);
+        Assert.Equal(first, unit.Operator);
+        Assert.Equal("pending", unit.Status);
+        double gap = unit.Candidates[0].Score - unit.Candidates[1].Score;
+        Assert.True(gap > SpriteMatcher.AutoFillGap && gap < SpriteModelMatcher.AutoFillGap);
+
+        tracker.SetOperator(cell, second, at);
+        // 直接检查排名阶段，避免移动承接的 sure 优先级绕过模板比较。
+        var rank = typeof(FieldTracker).GetMethod("Rank", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic,
+            [typeof(FieldSpritePatch), typeof(int), typeof(bool), typeof(string[])])!;
+        var learned = (SpriteCandidate[])rank.Invoke(tracker, [patch, 2, true, new[] { first, second }])!;
+        Assert.Equal(second, learned[0].Name);
+        Assert.True(learned[0].Score > .9);
+    }
+}

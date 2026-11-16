@@ -40,7 +40,7 @@
       <span class="grp" title="这几个里任选 {g.need} 个"><em>任{g.need}</em>{#each g.members as m (m.name)}<OpAvatar name={m.name} size={38} isKey={m.key} elite={m.elite} priority={pri(m)} />{/each}</span>
     {/each}
   </div>
-  {#if post.description}<p class="desc">{post.description}</p>{/if}
+  {#if post.description}<p class="desc ugc">{post.description}</p>{/if}
   <div class="ft">
     {#if st}
       <span class="st"><img src={asset.strategy(st.id)} alt="" />{st.name}</span>

@@ -22,6 +22,9 @@ public class ScreenCaptureService
     /// downstream MAA decode/processing costs. Has no effect on windows narrower than this.
     /// </summary>
     public int MaxCaptureWidth { get; init; } = 1920;
+    public Action<Bitmap>? NativeFrame { get; set; }
+    public Func<bool>? NativeFrameRequested { get; set; }
+    private Action<Bitmap>? RequestedNativeFrame => NativeFrameRequested?.Invoke() != false ? NativeFrame : null;
 
     /// <summary>
     /// Captures the Arknights game window by reading pixels directly from the screen
@@ -32,9 +35,9 @@ public class ScreenCaptureService
     /// </summary>
     public byte[]? CaptureScreen(IntPtr allowedForeground = default, Action<Bitmap>? inspect = null)
     {
-        if (Connection.IsAdb) return Connection.CaptureAdbScreen(MaxCaptureWidth);
+        if (Connection.IsAdb) return Connection.CaptureAdbScreen(MaxCaptureWidth, RequestedNativeFrame);
         var hwnd = Connection.FindGameWindow();
-        if (Connection.IsAdb) return Connection.CaptureAdbScreen(MaxCaptureWidth);
+        if (Connection.IsAdb) return Connection.CaptureAdbScreen(MaxCaptureWidth, RequestedNativeFrame);
         if (hwnd == IntPtr.Zero)
         {
             if (!_windowMissing) AppLogger.Warn("ScreenCapture", "Arknights window not found");
@@ -150,6 +153,7 @@ public class ScreenCaptureService
     // 合成图验收与真实截屏共享缩小、编码路径。
     public byte[] EncodeCapture(Bitmap raw, Action<Bitmap>? inspect = null)
     {
+        RequestedNativeFrame?.Invoke(raw);
         using var resized = raw.Width > MaxCaptureWidth
             ? new Bitmap(MaxCaptureWidth, (int)(raw.Height * ((float)MaxCaptureWidth / raw.Width)), PixelFormat.Format32bppArgb)
             : null;

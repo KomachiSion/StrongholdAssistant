@@ -67,6 +67,7 @@ public sealed partial class HostApi
         var theme = Theme(settings.GameTheme);
         SettingsStore.SaveSettings(settings);
         lock (_fieldGate) Settings = settings;
+        ConfigureCollectionEnabled();
         if (!settings.FieldAuto)
             lock (_placementGate) { _placementStop?.Cancel(); _placementGeneration++; }
         SchedulePlacement();

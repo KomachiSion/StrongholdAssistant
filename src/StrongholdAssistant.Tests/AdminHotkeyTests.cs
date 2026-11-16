@@ -20,7 +20,7 @@ public sealed class AdminHotkeyTests
         try
         {
             var path = Path.Combine(directory, "settings.json");
-            File.WriteAllText(path, """{"routes":{"hotkey":"Alt"}}""");
+            File.WriteAllText(path, """{"routes":{"hotkey":"Alt"},"runAsAdmin":false}""");
             var api = await HostApi.CreateAsync(Path.Combine(AppContext.BaseDirectory, "data"), directory);
             Assert.Equal("Alt+R", api.Settings.Routes.Hotkey);
             api.SaveSettings(api.Settings with { RunAsAdmin = true });
@@ -31,6 +31,20 @@ public sealed class AdminHotkeyTests
             Assert.True(api.Settings.RunAsAdmin);
             Assert.True(api.SettingsStore.LoadSettings().RunAsAdmin);
             Assert.Equal("Alt", api.SettingsStore.LoadSettings().Routes.Hotkey);
+        }
+        finally { Directory.Delete(directory, true); }
+    }
+
+    [Fact]
+    public void RunAsAdminDefaultsOn()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var path = Path.Combine(directory, "settings.json");
+            File.WriteAllText(path, "{}");
+            Assert.True(new HostSettingsStore(path).LoadSettings().RunAsAdmin);
         }
         finally { Directory.Delete(directory, true); }
     }

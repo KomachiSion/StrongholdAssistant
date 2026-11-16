@@ -11,13 +11,21 @@ public sealed partial class HostApi
 
     public async Task<FieldState> RecognizeFieldAsync()
     {
-        if (Connection.State != "connected" || ReadCurrentField is null) throw new RecognitionException("还没连上游戏");
-        try { return await ReadCurrentField(); }
-        // 核心里「不在棋盘画面」「被面板挡住」这几句用 InvalidOperationException 抛出；转成界面会原样显示的提示，
-        // 否则玩家只看到「请求处理失败」（v1.0.1 玩家诊断包）
-        catch (InvalidOperationException e) when (e.Message is "还没连上游戏" || e.Message.EndsWith("再点"))
+        var clock = Settings.Collect ? System.Diagnostics.Stopwatch.StartNew() : null;
+        try
         {
-            throw new RecognitionException(e.Message);
+            if (Connection.State != "connected" || ReadCurrentField is null) throw new RecognitionException("还没连上游戏");
+            var result = await ReadCurrentField();
+            if (clock is not null) CollectRecognition(clock.Elapsed.TotalMilliseconds, result, null);
+            return result;
+        }
+        catch (Exception e)
+        {
+            if (clock is not null) CollectRecognition(clock.Elapsed.TotalMilliseconds, null, e.Message);
+            // 保留核心的画面校验提示；采集只旁观，不改变异常处理结果。
+            if (e is InvalidOperationException && (e.Message == "还没连上游戏" || e.Message.EndsWith("再点")))
+                throw new RecognitionException(e.Message);
+            throw;
         }
     }
 
@@ -28,6 +36,7 @@ public sealed partial class HostApi
     private int _fieldReaderGeneration;
     private Task _fieldIdentityWork = Task.CompletedTask;
     private SpriteMatcher? _fieldSprites;
+    private SpriteModelMatcher? _fieldSpriteModel;
     public event Action<FieldState?, FieldOverlayGeometry?>? FieldOverlayChanged;
     private FieldOverlayGeometry? _fieldOverlayGeometry;
 
@@ -44,13 +53,17 @@ public sealed partial class HostApi
     public void InitializeField(string directory, IOcrEngine ocr)
     {
         _fieldReader = new(directory, ocr, _operators.Select(o => o.Name));
+        using var maps = System.Text.Json.JsonDocument.Parse(File.ReadAllText(Path.Combine(directory, "garrison_maps.json")));
+        _fieldTracker.ConfigureMaps(ASPAssistant.Core.Placement.GarrisonBoardStore.Parse(maps.RootElement));
         _fieldSprites?.Dispose();
+        _fieldSpriteModel?.Dispose();
+        _fieldSpriteModel = new(Path.Combine(directory, "sprite-model.onnx"), Path.Combine(directory, "sprite-model-classes.json"));
         _fieldSprites = new(Path.Combine(directory, "sprite-templates.bin.gz"));
         _fieldTracker.ConfigureIdentity(_operators, (patch, tier, names) =>
         {
-            using var crop = OpenCvSharp.Cv2.ImDecode(patch.Image, OpenCvSharp.ImreadModes.Color);
-            return _fieldSprites.MatchCrop(crop, patch.Bench, tier, names);
-        });
+            var skins = ReadRoster().Operators.ToDictionary(o => o.Name, o => o.Skin, StringComparer.Ordinal);
+            return _fieldSprites.MatchCellWidth(patch, tier, names, skins);
+        }, _fieldSpriteModel);
         _shopReader!.ReadUntracked = true;
     }
 
@@ -79,12 +92,13 @@ public sealed partial class HostApi
     private async Task ReadFieldCoreAsync(byte[] frame, DateTimeOffset at, EconomyReading? economy,
         bool mainScreen, bool shopVisible, IReadOnlyList<ShopItem> shop, bool force)
     {
+        var collectionClock = Settings.Collect ? System.Diagnostics.Stopwatch.StartNew() : null;
         int generation;
         lock (_fieldGate) generation = _fieldGeneration;
         if (_fieldReaderGeneration != generation) { _fieldReader!.Reset(); _fieldReaderGeneration = generation; }
         _fieldReader!.Theme = Theme(Settings.GameTheme);
         _fieldReader.KnownMap = Field?.MapId;
-        _fieldReader.BossRound = economy?.Round is { } round
+        _fieldReader.BossRound = economy?.IsFinalRound == true || economy?.Round is { } round
             && _boardRouteStore?.IsBossRound(round, Match.Solo, Match.Mode?.Id) == true;
         var cursor = FieldCursorRegion();
         var observation = await _fieldReader!.ReadAsync(frame, at, economy, mainScreen, shopVisible, shop, cursor);
@@ -101,8 +115,15 @@ public sealed partial class HostApi
             lock (_fieldGate)
             {
                 if (generation != _fieldGeneration) return;
+                _fieldTracker.ConfigureCandidatePool(match.BannedOperators, match.CustomPicks is null ? null : custom);
                 _fieldTracker.SeedRoster(strategy, custom, observation.Round, at);
+                var before = Settings.Collect ? _fieldTracker.State : null;
+                _comparingObservation = observation;
+                _collectionComparisons = Settings.Collect ? [] : null;
                 if (_fieldTracker.Observe(observation, Settings.FieldAuto || force, force)) changed = _fieldTracker.State;
+                if (Settings.Collect) CollectObservation(frame, observation, before, _fieldTracker.State,
+                    _collectionComparisons?.ToArray() ?? [], force, collectionClock?.Elapsed.TotalMilliseconds ?? 0);
+                _collectionComparisons = null; _comparingObservation = null;
                 if (Settings.FieldAuto || force) _fieldOverlayGeometry = geometry;
             }
             if (Settings.FieldAuto || force) FieldOverlayChanged?.Invoke(Field, geometry);
@@ -128,7 +149,9 @@ public sealed partial class HostApi
         FieldState state; bool changed;
         lock (_fieldGate)
         {
+            var before = _fieldTracker.State?.Units.FirstOrDefault(u => u.Cell == cell)?.Operator;
             changed = _fieldTracker.SetOperator(cell, name, DateTimeOffset.UtcNow);
+            CollectAnswer("answer", cell, before, name, _fieldTracker.State);
             state = _fieldTracker.State!;
         }
         if (changed)
@@ -142,6 +165,7 @@ public sealed partial class HostApi
 
     private void ResetField()
     {
+        InvalidateCollectionFrame();
         ResetPlacement();
         bool hadState;
         lock (_fieldGate)

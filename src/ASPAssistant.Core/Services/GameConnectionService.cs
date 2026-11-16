@@ -121,7 +121,9 @@ public sealed class GameConnectionService : IDisposable
                 state.Height > 0 ? state.Height : 9) : null;
     }
 
-    public byte[]? CaptureAdbScreen(int maxWidth)
+    public string? CaptureMethod { get; private set; }
+
+    public byte[]? CaptureAdbScreen(int maxWidth, Action<System.Drawing.Bitmap>? nativeFrame = null)
     {
         lock (_gate)
         {
@@ -183,6 +185,13 @@ public sealed class GameConnectionService : IDisposable
                             ? $"雷电画面是 {width}×{height}，请在雷电设置 → 性能设置里把分辨率改成横屏 16:9（如 1920×1080）。"
                             : $"MuMu 画面是 {width}×{height}，请在模拟器设置里改成横屏 16:9（如 1920×1080）。" });
                     return null;
+                }
+                CaptureMethod = method;
+                if (nativeFrame is not null && image.TryGetEncodedData(out byte[]? raw) && raw is not null)
+                {
+                    using var stream = new MemoryStream(raw);
+                    using var bitmap = new System.Drawing.Bitmap(stream);
+                    nativeFrame(bitmap);
                 }
                 if (width > maxWidth)
                     image.TryResize(maxWidth, (int)Math.Round(height * (double)maxWidth / width));

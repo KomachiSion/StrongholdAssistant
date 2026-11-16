@@ -1,6 +1,6 @@
 import { defineConfig, normalizePath, type Plugin } from 'vite'
 import { svelte } from '@sveltejs/vite-plugin-svelte'
-import { cpSync, existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
+import { cpSync, existsSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 
@@ -36,7 +36,14 @@ function demo(): Plugin {
       })
     },
     closeBundle() {
-      cpSync(uiDist, here('./dist/demo'), { recursive: true })
+      const demoDir = here('./dist/demo')
+      cpSync(uiDist, demoDir, { recursive: true })
+      // 演示不带助手的整份 MiSans（2.6MB）：换成官网的切片字体（/assets/misans-*，和官网、广场共用缓存）
+      const css = (dir: string) => readdirSync(dir).filter((f) => f.endsWith('.css')).map((f) => path.join(dir, f))
+      const face = /@font-face\{font-family:["']?MiSans["']?;[^}]*\}/g
+      const subsets = css(here('./dist/assets')).map((f) => readFileSync(f, 'utf8').match(face)).find(Boolean)!.join('')
+      for (const f of css(path.join(demoDir, 'assets'))) writeFileSync(f, readFileSync(f, 'utf8').replace(face, () => subsets))
+      for (const f of readdirSync(path.join(demoDir, 'assets'))) if (/^MiSans-VF-.*\.woff2$/.test(f)) rmSync(path.join(demoDir, 'assets', f))
     },
   }
 }

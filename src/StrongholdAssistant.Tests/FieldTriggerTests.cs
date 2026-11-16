@@ -10,6 +10,22 @@ public sealed class FieldTriggerTests
     private static FieldObservation Frame(int second, int tier, int money = 10, Dictionary<int, string>? shop = null)
         => new(Start.AddSeconds(second), true, "m01", 1, new Dictionary<FieldCell, int> { [Bench] = tier }, shop, money);
 
+    [Theory]
+    [InlineData(.04, "sure")]
+    [InlineData(.06, "pending")]
+    public void WholeRowPurchaseNeedsConfirmationWhenVisualEvidenceContradictsIt(double gap, string status)
+    {
+        var t = new FieldTracker();
+        t.ConfigureIdentity([new() { Name = "甲", Tier = 1 }, new() { Name = "乙", Tier = 1 },
+            new() { Name = "丙", Tier = 1 }, new() { Name = "丁", Tier = 1 }, new() { Name = "戊", Tier = 2 }],
+            (_, _, names) => new(names.Select(n => new SpriteCandidate(n, n == "甲" ? .8 - gap : .8)).ToArray(), 0));
+        Dictionary<int, string> shop = new() { [1] = "甲", [2] = "戊" };
+        t.Observe(Frame(0, 0, shop: shop));
+        t.Observe(Frame(1, 1, 9, shop) with { Sprites = new Dictionary<FieldCell, FieldSpritePatch> { [Bench] = new([], [1, 2, 3], true) } });
+        Assert.Equal("甲", Assert.Single(t.State!.Units).Operator);
+        Assert.Equal(status, t.State.Units[0].Status);
+    }
+
     [Fact]
     public void IdleFramesFreezePendingAndRequireTwoConsecutiveOccupancyChanges()
     {
@@ -60,6 +76,23 @@ public sealed class FieldTriggerTests
         t.Observe(Frame(3, 1, 9, new() { [1] = "乙" }));
         Assert.DoesNotContain(t.State!.Log, e => e.Kind == "buy");
         t.Observe(Frame(4, 1, 8, new() { [1] = "乙" }));
+        Assert.DoesNotContain(t.State.Log, e => e.Kind == "buy");
+    }
+
+    [Fact]
+    public void DragOrUnreadShopDoesNotCreateFreePurchase()
+    {
+        var t = new FieldTracker();
+        Dictionary<int, string> shop = new() { [1] = "甲", [2] = "乙", [3] = "丙" };
+        t.Observe(Frame(0, 0, shop: shop));
+        t.Observe(Frame(1, 0, 9) with { MainScreen = false, DragOperator = "丁" });
+        t.Observe(Frame(2, 1, shop: shop));
+        t.Observe(Frame(3, 1, shop: shop));
+        Assert.DoesNotContain(t.State!.Log, e => e.Kind == "buy");
+        t.Observe(Frame(4, 0));
+        t.Observe(Frame(5, 0));
+        t.Observe(Frame(6, 1));
+        t.Observe(Frame(7, 1));
         Assert.DoesNotContain(t.State.Log, e => e.Kind == "buy");
     }
 

@@ -51,11 +51,12 @@ public sealed record SettingsDto(string GameTheme, bool ShopMarkers, bool AutoCh
 {
     // TODO(design): 将 placementGoal 加入前端云同步 PREF_KEYS 和 CloudPrefsData。
     public string PlacementGoal { get; init; } = "balanced";
+    public bool Collect { get; init; }
     public bool FieldAuto { get; init; } = true;
     public string FieldHotkey { get; init; } = "Alt+F";
     public MarkerStyles MarkerStyles { get; init; } = new();
     public bool GameThemeAuto { get; init; } = true;
-    public bool RunAsAdmin { get; init; }
+    public bool RunAsAdmin { get; init; } = true;
     public RouteOverlaySettings Routes { get; init; } = new();
     public OverlayLayerSettings OverlayLayers { get; init; } = new();
     public string UiSkin { get; init; } = "follow";

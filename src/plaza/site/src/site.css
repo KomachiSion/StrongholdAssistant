@@ -52,6 +52,11 @@ select:focus {
 ::placeholder {
   color: var(--fg-4);
 }
+/* 用户写的简介、评论、短评用系统字体：网站的 MiSans 只切了网站和游戏数据里的字（scripts/split-site-font.py），
+   用户的字五花八门，跟着下字体会把整套字库拉下来 */
+.ugc {
+  font-family: 'Microsoft YaHei UI', 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif;
+}
 
 /* 通用按钮 */
 .btn {

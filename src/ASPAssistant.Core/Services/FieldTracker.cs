@@ -1,10 +1,15 @@
 using ASPAssistant.Core.Models;
+using ASPAssistant.Core.Placement;
 
 namespace ASPAssistant.Core.Services;
 
 /// <summary>只消费观测，不接触截图、OCR、时钟或存储。</summary>
 public sealed partial class FieldTracker
 {
+    private GarrisonBoardData? _maps;
+    private string? _knownMap;
+    public void ConfigureMaps(GarrisonBoardData maps) => _maps = maps;
+
     public FieldState? State { get; private set; }
     private readonly Dictionary<FieldCell, FieldUnit> _units = new();
     private readonly List<FieldEvent> _log = [];
@@ -22,7 +27,8 @@ public sealed partial class FieldTracker
     public void Reset()
     {
         ResetIdentity();
-        State = null; _units.Clear(); _log.Clear(); _shop = null;
+        _votes.Clear(); _voteCells.Clear();
+        State = null; _knownMap = null; _units.Clear(); _log.Clear(); _shop = null;
         _gains.Clear(); _drag = null; _dragEquipment = null; _beforeDrag = null;
         ResetTriggers();
         _money = _dragMoney = null; _battle = false;
@@ -42,29 +48,61 @@ public sealed partial class FieldTracker
 
     public bool Observe(FieldObservation o, bool recognize = true, bool force = false)
     {
+        ObserveVotes(o);
         if (!o.IsRest) { _battle = true; _drag = null; _dragEquipment = null; _beforeDrag = null; _shop = null; ResetTriggers(); _gains.Clear(); _tierChanges.Clear(); return false; }
-        bool triggered = ObserveTriggers(o) | force;
+        _knownMap = o.MapId ?? _knownMap;
+        bool pruned = false;
+        if (_knownMap is { } mapId && _maps?.Find(mapId) is { } map)
+        {
+            bool Blocked(FieldCell c) => c.Zone == "board" && !GarrisonMap.CanDeploy(map.At(new(c.Col, c.Row)), false);
+            // 禁放格是确定的空格，不能按“本帧不可见”保留或恢复旧人。
+            foreach (var cell in _units.Keys.Concat(_missing.Keys).Concat(_history.Keys).Where(Blocked).Distinct().ToArray())
+            {
+                pruned |= _units.Remove(cell);
+                _missing.Remove(cell); _history.Remove(cell); _pictures.Remove(cell); _anchors.Remove(cell);
+                ClearVotes(cell);
+                _beforeDrag?.Remove(cell); _purchaseCandidates.Remove(cell);
+                _gains.RemoveAll(g => g.Cell == cell);
+            }
+            o = o with { Cells = o.Cells.Where(p => !Blocked(p.Key)).ToDictionary(p => p.Key, p => p.Value) };
+        }
+        if (pruned) Publish(_knownMap, o.Round, o.At);
+        var preDragCells = new Dictionary<FieldCell, int>(_lastCells);
+        bool triggered = ObserveTriggers(o) | force | pruned;
+        if (_purchase is {} purchase)
+            foreach (string purchaseName in purchase.Names) _purchaseEvidence.Add(purchaseName);
         if (!recognize)
         {
             ObservePurchasesOnly(o, triggered);
-            return false;
+            return pruned;
         }
         if (o.DragOperator is { } drag)
         {
             _tierChanges.Clear();
             foreach (var cell in _missing.Where(p => p.Value.Unit.Operator == drag).Select(p => p.Key).ToArray())
                 _missing.Remove(cell);
-            if (_drag is null) { _beforeDrag = new(_units); _dragMoney = _money; }
+            if (_drag is null)
+            {
+                _beforeDrag = new(_units);
+                // 拖动前已观测到的占用变化不能归给随后开始的拖动。
+                foreach (var (cell, tier) in preDragCells)
+                {
+                    if (tier == 0) _beforeDrag.Remove(cell);
+                    else if (!_beforeDrag.TryGetValue(cell, out var unit) || unit.Tier != tier)
+                        _beforeDrag[cell] = new(cell.Zone, cell.Col, cell.Row, tier, null, null);
+                }
+                _dragMoney = _money;
+            }
             _drag = drag;
             if (o.Equipment is not null) _dragEquipment = o.Equipment;
-            return false;
+            return pruned;
         }
         if (!o.MainScreen)
         {
             CaptureEquipmentGain(o, _units.Values);
             _tierChanges.Clear();
             // 详情或短暂遮挡不代表刷新；购买段按观测时间让历史过期。
-            return ApplyEquipment(o) && Publish(State?.MapId, o.Round, o.At);
+            return (ApplyEquipment(o) && Publish(State?.MapId, o.Round, o.At)) || pruned;
         }
         if (!triggered)
         {
@@ -87,10 +125,13 @@ public sealed partial class FieldTracker
         }
         if (!_battle && _drag is { } name)
         {
-            if (removed.Count == 1 && added.Count == 1)
+            if (removed.Count == 1 && added.Count == 1
+                && !(o.Money > _dragMoney)
+                && before[removed[0]].Tier == _units[added[0]].Tier
+                && DragMatchesTier(name, _units[added[0]].Tier, before))
             {
                 var from = removed[0]; var to = added[0];
-                _units[to] = _units[to] with { Operator = name, Source = "drag", Status = "sure", Candidates = [],
+                _units[to] = _units[to] with { Operator = name, Source = "drag", Status = before[from].Status == "sure" ? "sure" : before[from].Status == "auto" ? "auto" : "pending", Candidates = before[from].Candidates,
                     Elite = before[from].Operator == name ? before[from].Elite : null, Equipment = _dragEquipment ?? before[from].Equipment };
                 Add(o.At, "move", name, from, to); removed.Clear(); added.Clear();
             }
@@ -113,10 +154,10 @@ public sealed partial class FieldTracker
                         Add(o.At, "move", known ? u.Operator : null, from, to);
                     }
                     var origin = changed.Where(c => before[c].Operator == name).ToArray();
-                    if (known && origin.Length == 1)
+                    if (known && origin.Length == 1 && DragMatchesTier(name, before[origin[0]].Tier, before))
                     {
                         var to = origin[0] == a ? b : a;
-                        _units[to] = _units[to] with { Operator = name, Source = "drag", Status = "sure", Candidates = [], Equipment = _dragEquipment ?? _units[to].Equipment };
+                        _units[to] = _units[to] with { Operator = name, Source = "drag", Status = before[origin[0]].Status, Candidates = before[origin[0]].Candidates, Equipment = _dragEquipment ?? _units[to].Equipment };
                     }
                 }
                 else
@@ -143,6 +184,7 @@ public sealed partial class FieldTracker
                 }
             }
         }
+        _moved.Clear();
         CaptureGainContext(o, before, dragged);
         _drag = null; _dragEquipment = null; _beforeDrag = null;
         if (!_battle)
@@ -155,14 +197,7 @@ public sealed partial class FieldTracker
             }
             ResolvePurchases(o, added);
 
-            if (o.Sprites is null && removed.Count == 1 && added.Count == 1 && before[removed[0]].Tier == _units[added[0]].Tier)
-            {
-                var from = removed[0]; var to = added[0]; var unit = before[from];
-                _units[to] = _units[to] with { Operator = unit.Operator, Source = unit.Source, Status = unit.Status, Candidates = unit.Candidates, Elite = unit.Elite, Equipment = unit.Equipment };
-                Add(o.At, "move", unit.Operator, from, to);
-                _gains.RemoveAll(g => g.Cell == from || g.Cell == to);
-                removed.Clear();
-            }
+            PairMoves(o, before, removed, added);
             foreach (var c in removed) Add(o.At, "lost", before[c].Operator, c, null);
             foreach (var gain in _gains.Where(g => State is not null || o.GainSource is not null).ToArray())
             {
@@ -172,20 +207,22 @@ public sealed partial class FieldTracker
             }
         }
 
+        if (_battle) PairMoves(o, before, removed, added);
+
         // 仅在原格升一阶且同名两份消失时，沿用原格装备；不改变既有身份判定。
         foreach (var (cell, unit) in _units.ToArray())
             if (before.TryGetValue(cell, out var old) && old.Operator is not null && unit.Tier == old.Tier + 1
                 && before.Values.Count(u => u.Cell != cell && u.Operator == old.Operator && u.Tier == old.Tier
                     && o.Cells.TryGetValue(u.Cell, out int tier) && tier == 0) == 2)
                 _units[cell] = unit with { Equipment = old.Equipment };
-        ResolveIdentity(o, before);
+        ResolveIdentity(o, before, force);
         ApplyEquipment(o);
         // 战斗后的第一帧不推断购买，但要为下一帧保留商店基线。
         if (o.Shop is { } currentShop) { _shop = currentShop; _shopAt = o.At; }
         _battle = false; _money = o.Money ?? _money;
         bool published = Publish(o.MapId ?? State?.MapId, o.Round, o.At);
         if (force && State is not null) State = State with { UpdatedAt = o.At.ToString("O") };
-        return published || force;
+        return published || force || pruned;
     }
 
     private bool ApplyEquipment(FieldObservation o)
@@ -202,6 +239,11 @@ public sealed partial class FieldTracker
 
     private void Add(DateTimeOffset at, string kind, string? name, FieldCell? from, FieldCell? to)
     {
+        if (kind is "move" or "buy" or "sell" or "merge")
+        {
+            if (from is not null) ClearVotes(from);
+            if (to is not null) ClearVotes(to);
+        }
         if (from is not null && kind is "move" or "sell") _missing.Remove(from);
         TrackRosterEvent(at, kind, name, to);
         _log.Add(new(at.ToString("O"), kind, name, from, to));

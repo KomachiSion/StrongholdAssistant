@@ -180,14 +180,14 @@
         <section>
           <h2 class="sec-h">简介<small>Notes</small>{#if mine && !editing}<button class="btn sm ghost ed" onclick={() => ((draft = p!.description), (editing = true))}><Icon name="pencil" size={13} />编辑</button>{/if}</h2>
           {#if editing}
-            <textarea bind:value={draft} rows="6" maxlength="500" placeholder="说说这套阵容的思路、运营要点、适合的首领……"></textarea>
+            <textarea class="ugc" bind:value={draft} rows="6" maxlength="500" placeholder="说说这套阵容的思路、运营要点、适合的首领……"></textarea>
             <div class="edrow">
               <span class="muted">{[...draft].length} / 500</span>
               <button class="btn ghost sm" onclick={() => (editing = false)}>取消</button>
               <button class="btn primary sm" disabled={saving} onclick={save}>{saving ? '保存中…' : '保存'}</button>
             </div>
           {:else if p.description}
-            <p class="desc">{p.description}</p>
+            <p class="desc ugc">{p.description}</p>
           {:else}
             <p class="muted">作者没有写简介。</p>
           {/if}

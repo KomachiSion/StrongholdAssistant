@@ -16,8 +16,6 @@ public sealed record EconomyReading(int? Round, int? Money, int? Level, int? Upg
 public sealed class EconomyReader(IOcrEngine ocr, GameShopTheme theme = GameShopTheme.Terminal)
 {
     private readonly Dictionary<(Rectangle Region, bool Line), (byte[] Pixels, IReadOnlyList<OcrTextResult> Text)> _regions = [];
-    private Rectangle? _phaseRegion;
-    private OcrTextResult? _roundLabel;
     private OcrTextResult? _levelLabel;
     private Rectangle? _upgradeLabelRegion;
     private (int Width, int Height, double Scale) _layout;
@@ -31,31 +29,17 @@ public sealed class EconomyReader(IOcrEngine ocr, GameShopTheme theme = GameShop
         if (_layout != layout)
         {
             _regions.Clear();
-            _phaseRegion = null;
-            _roundLabel = null;
             _levelLabel = null;
             _upgradeLabelRegion = null;
             _layout = layout;
         }
         Task<IReadOnlyList<OcrTextResult>> Read(int x, int y, int w, int h, bool line = false)
             => ReadRegionAsync(bitmap, png, new(x, y, w, h), line);
-        IReadOnlyList<OcrTextResult> top;
-        if (_phaseRegion is { } phase && _roundLabel is not null)
-            top = [_roundLabel, .. await Read(phase.X, phase.Y, phase.Width, phase.Height)];
-        else
-            top = await Read((int)(width * .32), 0, (int)(width * .25), (int)(height * .09));
+        // 阶段标牌的动画会改变 OCR 包围框；固定读取顶部区域，不复用某一帧的文字裁框。
+        var top = await Read((int)(width * .32), 0, (int)(width * .25), (int)(height * .09));
         string heading = string.Join("", top.OrderBy(t => t.Box.X).Select(t => t.Text));
         var roundLabel = top.FirstOrDefault(t => t.Text.Trim() == "回合");
         var combinedRound = top.Select(t => Regex.Match(t.Text, @"^回合\s*([\d?？﹖\s]+)$")).FirstOrDefault(m => m.Success);
-        var phaseLabel = top.FirstOrDefault(t => t.Text.Contains("休息") || t.Text.Contains("休整") || t.Text.Contains("阶段"));
-        if (_phaseRegion is null && roundLabel is not null && phaseLabel is not null)
-        {
-            // 回合数字和阶段文字独立缓存，不比较阶段标牌旁的动画图案。
-            _roundLabel = roundLabel;
-            var box = phaseLabel.Box;
-            _phaseRegion = Rectangle.Intersect(new(box.X - 4, box.Y - 4,
-                Math.Max(box.W + 8, (int)(120 * scale)), box.H + 8), new(0, 0, width, height));
-        }
         string roundText = combinedRound?.Groups[1].Value ?? "";
         if (roundLabel is not null)
         {
@@ -65,7 +49,9 @@ public sealed class EconomyReader(IOcrEngine ocr, GameShopTheme theme = GameShop
         }
         int? round = Number(roundText);
         if (round > 20) round = null;
-        bool isRest = heading.Contains("休息") || heading.Contains("休整");
+        // 动画标牌会让顶部文字漏检；只用本帧就绪控件补证，不沿用上一帧阶段。
+        bool isRest = heading.Contains("休息") || heading.Contains("休整")
+            || await new BoardSurfaceReader(ocr).IsMainScreenAsync(png, width, height);
         bool isFinalRound = isRest && Regex.IsMatch(roundText.Trim(), @"^[?？﹖](\s*[?？﹖])?$");
         var moneyText = await Read((int)(width - 130 * scale),
             (int)(height - 273 * scale), (int)(65 * scale), (int)(38 * scale), true);

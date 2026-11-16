@@ -89,6 +89,7 @@ public sealed class FieldTrackerTests
     public void DragOverridesUnknownOrConflictingIdentityAndCarriesManualAssignment(string? original)
     {
         var t = new FieldTracker(); t.Observe(O(0, bench: 1));
+        t.ConfigureIdentity([new() { Name = "慕斯", Tier = 1 }], (_, _, _) => new([], 0));
         if (original is not null) t.SetOperator(Bench, original, Start);
         t.Observe(O(.8, drag: "慕斯"));
         t.Observe(O(1.6, board: 1));

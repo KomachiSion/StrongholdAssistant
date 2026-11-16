@@ -51,7 +51,7 @@
         </button>
       {/each}
     </div>
-    <textarea bind:value={detail} maxlength="200" placeholder="补充说明（选填）"></textarea>
+    <textarea class="ugc" bind:value={detail} maxlength="200" placeholder="补充说明（选填）"></textarea>
     {#if err}<p class="err">{err}</p>{/if}
     <div class="ft">
       <span class="muted">举报不会公开，只有管理员能看到。</span>

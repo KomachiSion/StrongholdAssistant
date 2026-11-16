@@ -268,7 +268,7 @@
           <p class="gate">先到<a href="/me" use:link>「我的」</a>起个昵称，再来评分。</p>
         {:else}
           <Stars value={draft.score} size={26} onpick={(n) => (draft.score = n)} />
-          <input class="cm" bind:value={draft.comment} maxlength="100" placeholder="一句话说说理由（选填，100 字以内）" onkeydown={(e) => e.key === 'Enter' && changed && save()} />
+          <input class="cm ugc" bind:value={draft.comment} maxlength="100" placeholder="一句话说说理由（选填，100 字以内）" onkeydown={(e) => e.key === 'Enter' && changed && save()} />
           <div class="acts">
             <button class="btn primary" disabled={!changed || saving} onclick={save}>{detail.mine ? '更新评分' : '提交评分'}</button>
             {#if detail.mine}<button class="btn ghost" disabled={saving} onclick={withdraw}>撤回</button><span class="muted small">{ago(detail.mine.updatedAt)}评的</span>{/if}
@@ -290,7 +290,7 @@
                 <span class="sp"></span>
                 {#if c.author.id !== session.me?.id}<button class="rep" title="举报这条短评" onclick={() => (reporting = { id: c.id, what: `${name} · ${c.author.nickname}` })}><Icon name="flag" size={13} /></button>{/if}
               </div>
-              <p>{c.comment}</p>
+              <p class="ugc">{c.comment}</p>
             </li>
           {/each}
         </ul>

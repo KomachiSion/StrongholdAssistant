@@ -33,6 +33,115 @@ public sealed class FieldIdentityTests
         return t;
     }
 
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void DragInheritsStatusAndForceCanCorrectAutomaticOrigin(bool confirmed)
+    {
+        bool changed = false;
+        var t = Tracker((_, _, names) => new(names.Select(n => new SpriteCandidate(n,
+            n == (changed ? "乙" : "甲") ? .9 : .4)).ToArray(), .5));
+        t.Observe(Frame(0, (A, 1, Pic())));
+        if (confirmed) t.SetOperator(A, "甲", Start);
+        t.Observe(Frame(1, (A, 1, Pic())) with { DragOperator = "甲" });
+        var landed = Frame(2, (A, 0, null), (B, 1, Pic(20)));
+        t.Observe(landed);
+        Assert.Equal(confirmed ? "sure" : "auto", Assert.Single(t.State!.Units).Status);
+        changed = true;
+        t.Observe(landed with { At = Start.AddSeconds(3) }, force: true);
+        Assert.Equal(confirmed ? "甲" : "乙", Assert.Single(t.State!.Units).Operator);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void MergeInheritsAutomaticOrConfirmedOrigins(bool confirmed)
+    {
+        var t = Tracker((_, _, names) => new(names.Select(n => new SpriteCandidate(n, n == "甲" ? .9 : .4)).ToArray(), .5));
+        t.Observe(Frame(0, (A, 1, Pic()), (B, 1, Pic(1)), (C, 1, Pic(2))));
+        if (confirmed) foreach (var cell in new[] { A, B, C }) t.SetOperator(cell, "甲", Start);
+        ObserveStable(t, Frame(1, (A, 2, Pic(10)), (B, 0, null), (C, 0, null)));
+        Assert.Equal(confirmed ? "sure" : "auto", Assert.Single(t.State!.Units).Status);
+        Assert.Equal("merge", t.State.Units[0].Source);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void ForceRechecksAutomaticIdentityButKeepsPlayerConfirmation(bool confirm)
+    {
+        bool changed = false;
+        var t = Tracker((_, _, names) => new(names.Select(n =>
+            new SpriteCandidate(n, n == (changed ? "乙" : "甲") ? .9 : .5)).ToArray(), .4));
+        t.AddRoster("甲", "purchase", Start); t.AddRoster("乙", "purchase", Start);
+        var frame = Frame(0, (A, 1, Pic()));
+        t.Observe(frame);
+        if (confirm) t.SetOperator(A, "甲", Start);
+        changed = true;
+        t.Observe(frame with { At = Start.AddSeconds(1) }, force: true);
+        var unit = Assert.Single(t.State!.Units);
+        Assert.Equal(confirm ? "甲" : "乙", unit.Operator);
+        Assert.Equal(confirm ? "sure" : "auto", unit.Status);
+    }
+
+    [Fact]
+    public void ForceAveragesThreeComparisonsAndEmptyCellClearsVotes()
+    {
+        double a = .6, b = .58;
+        var t = Tracker((_, _, names) => new(names.Select(n => new SpriteCandidate(n, n == "甲" ? a : b)).ToArray(), null));
+        t.ConfigureCandidatePool(["丁"], null);
+        t.AddRoster("甲", "purchase", Start); t.AddRoster("乙", "purchase", Start);
+        t.Observe(Frame(0, (A, 1, Pic(0))), force: true);
+        t.Observe(Frame(1, (A, 1, Pic(1))), force: true);
+        a = .58; b = .6;
+        var third = Frame(2, (A, 1, Pic(2)));
+        t.Observe(third, force: true);
+        t.Observe(third, force: true);
+        var unit = Assert.Single(t.State!.Units);
+        Assert.Equal("甲", unit.Operator);
+        Assert.Equal("pending", unit.Status);
+        Assert.Equal((.6 + .6 + .58) / 3, unit.Candidates[0].Score, 6);
+        // 空格即使尚未达到稳定触发，也中断了同一个人的连续占用。
+        t.Observe(Frame(3, (A, 0, null)));
+        a = .4; b = .8;
+        t.Observe(Frame(4, (A, 1, Pic(4))), force: true);
+        unit = Assert.Single(t.State!.Units);
+        Assert.Equal("乙", unit.Operator);
+        Assert.Equal("auto", unit.Status);
+        Assert.Equal(.8, unit.Candidates[0].Score, 6);
+    }
+
+    [Fact]
+    public void VoteHistoryDoesNotMatchOnUntriggeredScans()
+    {
+        int calls = 0;
+        var t = Tracker((_, _, names) => { calls++; return new(names.Select(n => new SpriteCandidate(n, .6)).ToArray(), 0); });
+        t.AddRoster("甲", "purchase", Start); t.AddRoster("乙", "purchase", Start);
+        t.Observe(Frame(0, (A, 1, Pic(0))));
+        int initial = calls;
+        t.Observe(Frame(1, (A, 1, Pic(1))));
+        t.Observe(Frame(2, (A, 1, Pic(2))));
+        Assert.Equal(initial, calls);
+    }
+
+    [Fact]
+    public void MoveObservedBeforeDragDoesNotAcquireLaterDragName()
+    {
+        var t = Tracker();
+        t.AddRoster("甲", "purchase", Start); t.AddRoster("乙", "purchase", Start);
+        var pic = Pic();
+        t.Observe(Frame(0, (A, 1, pic)));
+        // 单帧换格尚未达到稳定触发，但它已发生在下一次拖动之前。
+        t.Observe(Frame(1, (A, 0, null), (B, 1, pic)));
+        t.Observe(Frame(2) with { DragOperator = "乙", MainScreen = false });
+        t.Observe(Frame(3, (A, 0, null), (B, 1, pic)));
+        var unit = Assert.Single(t.State!.Units);
+        Assert.Equal(B, unit.Cell);
+        Assert.Equal("甲", unit.Operator);
+        Assert.NotEqual("drag", unit.Source);
+    }
+
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
@@ -55,6 +164,22 @@ public sealed class FieldIdentityTests
         t.Observe(Frame(6, (A, 2, Pic(6))));
         var changed = Assert.Single(t.State.Units);
         Assert.Equal(2, changed.Tier); Assert.NotEqual("甲", changed.Operator);
+    }
+
+    [Fact]
+    public void AutomaticLearningKeepsEarlierForceTemplate()
+    {
+        bool changed = false;
+        var t = Tracker((_, _, names) => new(names.Select(n =>
+            new SpriteCandidate(n, n == (changed ? "乙" : "甲") ? .9 : .5)).ToArray(), .4));
+        t.AddRoster("甲", "purchase", Start); t.AddRoster("乙", "purchase", Start);
+        var original = Pic();
+        t.Observe(Frame(0, (A, 1, original)) with { Money = 20 }, force: true);
+        for (int i = 1; i <= 8; i++)
+            t.Observe(Frame(i, (A, 1, Pic(i))) with { Money = 20 + i });
+        changed = true;
+        t.Observe(Frame(9, (A, 1, original)), force: true);
+        Assert.Equal("甲", Assert.Single(t.State!.Units).Operator);
     }
 
     [Fact]
@@ -144,8 +269,8 @@ public sealed class FieldIdentityTests
 
     [Theory]
     [InlineData(false, "pending")]
-    [InlineData(true, "auto")]
-    public void HalfGapOnlyAppliesToPlayerConfirmedName(bool confirmed, string expected)
+    [InlineData(true, "sure")]
+    public void SameTierMoveKeepsConfirmationInsteadOfApplyingHalfGap(bool confirmed, string expected)
     {
         var t = Tracker((_, _, names) => new(names.Select((n, i) => new SpriteCandidate(n, .8 - i * .03)).ToArray(), .03));
         t.AddRoster("甲", "purchase", Start); t.AddRoster("乙", "purchase", Start);
@@ -198,13 +323,13 @@ public sealed class FieldIdentityTests
         ObserveStable(t, Frame(1, (A, occupied ? 1 : 0, occupied ? Pic() : null), (B, 1, Pic(100))));
         var unit = t.State!.Units.Single(u => u.Cell == B);
         Assert.Equal(expected, unit.Operator);
-        Assert.Equal("pending", unit.Status);
+        Assert.Equal(occupied ? "pending" : "sure", unit.Status);
     }
 
     [Theory]
-    [InlineData(.1, "auto")]
-    [InlineData(.01, "pending")]
-    public void ConfirmedNameCanAutoFillUntrackedArrivalOnlyWithEnoughGap(double gap, string status)
+    [InlineData(.1, "sure")]
+    [InlineData(.01, "sure")]
+    public void ConfirmedMoveWithoutInitialPictureKeepsSureRegardlessOfGap(double gap, string status)
     {
         var t = Tracker((_, _, names) => new(names.Select((n, i) => new SpriteCandidate(n, .8 - i * gap)).ToArray(), gap));
         ObserveStable(t, Frame(0, (A, 1, Pic())) with { Money = 4 }); t.SetOperator(A, "甲", Start);
@@ -215,14 +340,84 @@ public sealed class FieldIdentityTests
     }
 
     [Fact]
-    public void MoveNeedsSameTierAndSimilarPicture()
+    public void MoveNeedsSameTierButNotSimilarPicture()
     {
         var t = Tracker(); ObserveStable(t, Frame(0, (A, 1, Pic()))); t.SetOperator(A, "甲", Start);
-        ObserveStable(t, Frame(1, (A, 0, null), (B, 1, Pic())));
-        Assert.Equal("carry", Assert.Single(t.State!.Units).Source);
+        ObserveStable(t, Frame(1, (A, 0, null), (B, 1, Pic(100))));
+        Assert.Equal("manual", Assert.Single(t.State!.Units).Source);
         Assert.Equal("甲", t.State.Units[0].Operator);
         ObserveStable(t, Frame(2, (B, 0, null), (C, 2, Pic(90))));
         Assert.NotEqual("carry", Assert.Single(t.State.Units).Source);
+    }
+
+    [Theory]
+    [InlineData("sure", false)]
+    [InlineData("auto", false)]
+    [InlineData("pending", true)]
+    public void ConservationCarriesStatusCandidatesAndEquipmentAcrossScans(string status, bool delayed)
+    {
+        int calls = 0;
+        var t = Tracker((_, _, names) =>
+        {
+            calls++;
+            return new(names.Select((n, i) => new SpriteCandidate(n, .8 - i * (status == "pending" ? .01 : .1))).ToArray(), 0);
+        });
+        t.AddRoster("甲", "purchase", Start); t.AddRoster("乙", "purchase", Start);
+        t.Observe(Frame(0, (Bench, 1, Pic(0, true))));
+        if (status == "sure") t.SetOperator(Bench, "甲", Start);
+        t.Observe(Frame(.5, (Bench, 1, Pic(0, true))) with
+            { PanelOperator = "甲", Equipment = [new("简易通讯机", false)] });
+        var original = Assert.Single(t.State!.Units);
+        int initial = calls;
+        if (delayed) t.Observe(Frame(1, (Bench, 0, null)), force: true);
+        t.Observe(Frame(2, (Bench, 0, null), (A, 1, Pic(100))), force: true);
+        var moved = Assert.Single(t.State.Units);
+        Assert.Equal(original with { Zone = A.Zone, Col = A.Col, Row = A.Row, Candidates = moved.Candidates }, moved);
+        Assert.Equal(original.Candidates, moved.Candidates);
+        Assert.Equal(initial + (status == "sure" ? 0 : 1), calls);
+        Assert.Contains(t.State.Log, e => e.Kind == "move" && e.From == Bench && e.To == A);
+        Assert.DoesNotContain(t.State.Log, e => e.Kind == "lost" || e.Kind == "gain" && e.To == A);
+    }
+
+    [Fact]
+    public void MultipleMovesUseEachOriginOnceByRelativeSimilarity()
+    {
+        var t = Tracker();
+        t.Observe(Frame(0, (A, 1, Pic()), (B, 1, Pic(100))));
+        t.SetOperator(A, "甲", Start); t.SetOperator(B, "乙", Start);
+        t.Observe(Frame(1, (A, 0, null), (B, 0, null), (C, 1, Pic(100)), (Bench, 1, Pic())), force: true);
+        Assert.Equal("乙", t.State!.Units.Single(u => u.Cell == C).Operator);
+        Assert.Equal("甲", t.State.Units.Single(u => u.Cell == Bench).Operator);
+        Assert.Equal(2, t.State.Log.Count(e => e.Kind == "move"));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void MoneyIncreaseSellsDisappearanceInsteadOfMovingIt(bool delayed)
+    {
+        var t = Tracker();
+        t.Observe(Frame(0, (A, 1, Pic())) with { Money = 4 });
+        t.SetOperator(A, "乙", Start);
+        if (delayed) t.Observe(Frame(.5, (A, 0, null)) with { Money = 4 }, force: true);
+        t.Observe(Frame(1, (A, 0, null), (Bench, 1, Pic(100, true))) with { Money = 5 });
+        Assert.Contains(t.State!.Log, e => e.Kind == "sell" && e.Operator == "乙");
+        Assert.DoesNotContain(t.State.Log, e => e.Kind == "move");
+        Assert.Equal("sprite", Assert.Single(t.State.Units).Source);
+    }
+
+    [Fact]
+    public void DragNameWithDifferentTierDoesNotBecomeSure()
+    {
+        var t = Tracker();
+        t.Observe(Frame(0, (Bench, 2, Pic(0, true))));
+        t.SetOperator(Bench, "丙", Start);
+        t.Observe(Frame(1) with { DragOperator = "丙" });
+        t.Observe(Frame(2, (Bench, 0, null), (A, 1, Pic(100))));
+        var unit = Assert.Single(t.State!.Units);
+        Assert.NotEqual("丙", unit.Operator);
+        Assert.NotEqual("drag", unit.Source);
+        Assert.DoesNotContain(t.State.Log, e => e.Kind == "move");
     }
 
     [Fact]
@@ -238,9 +433,10 @@ public sealed class FieldIdentityTests
     }
 
     [Fact]
-    public void OnlyActiveRosterNameAtTierNeedsNoMatcher()
+    public void OnlyAllowedNameAtTierNeedsNoMatcher()
     {
         var t = Tracker((_, _, _) => throw new Exception("唯一候选不应调用比对器"));
+        t.ConfigureCandidatePool(["乙", "丁"], null);
         t.AddRoster("甲", "purchase", Start);
         t.Observe(Frame(0, (A, 1, Pic())));
         Assert.Equal("only", Assert.Single(t.State!.Units).Source);
@@ -257,14 +453,14 @@ public sealed class FieldIdentityTests
         t.AddRoster("甲", "purchase", Start); t.AddRoster("乙", "purchase", Start);
         t.Observe(Frame(0, (A, 1, Pic())));
         Assert.Equal(expected, t.State!.Units[0].Status);
-        Assert.Equal(first < FieldTracker.MinimumRosterScore ? 3 : 2, t.State.Units[0].Candidates.Length);
+        Assert.Equal(3, t.State.Units[0].Candidates.Length);
         if (first < FieldTracker.MinimumRosterScore) Assert.Contains(t.State.Units[0].Candidates, c => c.Operator == "丁");
     }
 
     [Fact]
     public void ConfirmationLearnsPictureAndUntrackedGainRemainsPending()
     {
-        var t = Tracker(); t.AddRoster("甲", "purchase", Start);
+        var t = Tracker((_, _, names) => new(names.Select(n => new SpriteCandidate(n, .5)).ToArray(), 0)); t.AddRoster("甲", "purchase", Start);
         t.Observe(Frame(0, (Bench, 1, Pic(10, true))) with { GainSource = "equipment" });
         t.Observe(Frame(2, (Bench, 1, Pic(10, true))));
         Assert.Equal("pending", t.State!.Units[0].Status);
@@ -310,7 +506,7 @@ public sealed class FieldIdentityTests
         ObserveStable(t, Frame(2) with { IsRest = false });
         ObserveStable(t, Frame(3, (bench ? Bench : B, 1, Pic(0, bench))) with { Round = 2 });
         var unit = Assert.Single(t.State!.Units);
-        Assert.Equal("甲", unit.Operator); Assert.Equal(status, unit.Status); Assert.Equal("carry", unit.Source);
+        Assert.Equal("甲", unit.Operator); Assert.Equal(status, unit.Status); Assert.Equal(confirm ? "manual" : "sprite", unit.Source);
     }
 
     [Fact]
@@ -325,4 +521,25 @@ public sealed class FieldIdentityTests
         t.Observe(Frame(2, (A, 0, null)) with { Money = 5 });
         Assert.True(t.State.Roster.Single(r => r.Operator == "甲").Sold);
     }
+    [Fact]
+    public void AllAllowedNamesAreCandidatesWithoutExpandingPublicRoster()
+    {
+        string[] matched = [];
+        var t = Tracker((_, _, names) =>
+        {
+            matched = names;
+            return new(names.Select(n => new SpriteCandidate(n, n == "乙" ? .9 : .4)).ToArray(), .5);
+        });
+        t.AddRoster("甲", "purchase", Start);
+        t.Observe(Frame(0) with { Shop = new Dictionary<int, string> { [1] = "乙", [2] = "丙" } }, false);
+        t.Observe(Frame(1, (A, 1, Pic())), force: true);
+        Assert.Equal(new[] { "甲", "乙", "丁" }, matched);
+        Assert.Equal("乙", Assert.Single(t.State!.Units).Operator);
+        Assert.Equal("甲", Assert.Single(t.State.Roster).Operator);
+        t.Reset();
+        t.AddRoster("甲", "purchase", Start);
+        t.Observe(Frame(2, (A, 1, Pic())));
+        Assert.NotEqual("only", Assert.Single(t.State!.Units).Source);
+    }
+
 }

@@ -66,14 +66,21 @@ public sealed partial class HostApi
         {
             var picks = await _customPickReader.ReadAsync(frame, width, height);
             if (generation == _matchReadingGeneration && match == _activeRecord && picks is { IsFinal: true })
+            {
                 ApplyCustomPicks(picks.Cards.Where(c => c.Tier == 5).Select(c => c.Name!).ToArray(),
                     picks.Cards.Where(c => c.Tier == 6).Select(c => c.Name!).ToArray());
+                CollectOpening(frame, "info");
+            }
         }
         if (Match.StrategySource is null)
         {
             string? id = reading is { IsRest: true } ? _strategyReader.ReadPortrait(frame, uiScale).Id
                 : await _strategyReader.ReadSelectionAsync(frame, width, height);
-            if (generation == _matchReadingGeneration && match == _activeRecord && id is not null) ApplyRecognizedStrategy(id);
+            if (generation == _matchReadingGeneration && match == _activeRecord && id is not null)
+            {
+                ApplyRecognizedStrategy(id);
+                if (reading is not { IsRest: true }) CollectOpening(frame, "info");
+            }
         }
         if (reading is not { IsRest: true } || Match.Economy is not { } economy || reading.Round != economy.Round) return;
         var key = (match, (int?)economy.Round);

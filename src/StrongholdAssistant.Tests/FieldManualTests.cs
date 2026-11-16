@@ -20,8 +20,10 @@ public sealed class FieldManualTests
         tracker.Observe(empty);
         var snapshot = tracker.State;
         tracker.Observe(empty with { At = at.AddSeconds(1) }, recognize: false);
+        using var image = new OpenCvSharp.Mat(204, 180, OpenCvSharp.MatType.CV_8UC3, new OpenCvSharp.Scalar(40, 80, 120));
+        var patch = FieldReader.CropSprite(image, 90, 180, true)!;
         var purchase = empty with { At = at.AddSeconds(2), Money = 9, Cells = new Dictionary<FieldCell,int> { [cell] = 1 },
-            Sprites = new Dictionary<FieldCell,FieldSpritePatch> { [cell] = new([], [1,2,3], true) } };
+            Sprites = new Dictionary<FieldCell,FieldSpritePatch> { [cell] = patch } };
         tracker.Observe(purchase, recognize: false);
         Assert.Same(snapshot, tracker.State);
         Assert.Equal(1, matches);

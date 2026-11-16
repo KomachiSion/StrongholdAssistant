@@ -145,6 +145,8 @@ public class OcrScannerService : IDisposable
     // 宿主按覆盖层需求启用；复用这一轮截图与资金识别的休整期/回合读数。
     public Func<bool> BoardRoutesRequested { get; set; } = () => false;
     public event Action<byte[]?, EconomyReading?>? BoardFrameReady;
+    public Action<byte[], DateTimeOffset>? CollectionFrame { get; set; }
+    public Action<DateTimeOffset>? CollectionScanCompleted { get; set; }
     public bool BoardMainScreenVisible { get; private set; }
     private byte[]? _boardSurfacePixels;
     private (int, int) _boardSurfaceSize;
@@ -183,6 +185,7 @@ public class OcrScannerService : IDisposable
     public async Task<FieldState> ReadFieldFrameAsync(byte[] frame, DateTimeOffset at,
         Func<byte[], DateTimeOffset, EconomyReading?, bool, bool, IReadOnlyList<ShopItem>, Task<FieldState>> recognize)
     {
+        CollectionFrame?.Invoke(frame, at);
         var (width, height) = GetPngDimensions(frame);
         var surface = FieldReader.InspectSurface(frame);
         if (surface.Obscured || surface.Detail)
@@ -297,7 +300,21 @@ public class OcrScannerService : IDisposable
     }
 
     // 样图测试直接调用这一轮流程；截图仍只由计时器负责。
-    private async Task ScanFrameAsync(byte[] screenshot, int width, int height, DateTimeOffset capturedAt, double captureMs,
+    private Task ScanFrameAsync(byte[] screenshot, int width, int height, DateTimeOffset capturedAt, double captureMs,
+        ShopFrameFingerprint? fingerprint, double fingerprintMs)
+        => CollectionFrame is null
+            ? ScanFrameCoreAsync(screenshot, width, height, capturedAt, captureMs, fingerprint, fingerprintMs)
+            : ScanCollectedFrameAsync(screenshot, width, height, capturedAt, captureMs, fingerprint, fingerprintMs);
+
+    private async Task ScanCollectedFrameAsync(byte[] screenshot, int width, int height, DateTimeOffset capturedAt, double captureMs,
+        ShopFrameFingerprint? fingerprint, double fingerprintMs)
+    {
+        CollectionFrame?.Invoke(screenshot, capturedAt);
+        try { await ScanFrameCoreAsync(screenshot, width, height, capturedAt, captureMs, fingerprint, fingerprintMs); }
+        finally { CollectionScanCompleted?.Invoke(capturedAt); }
+    }
+
+    private async Task ScanFrameCoreAsync(byte[] screenshot, int width, int height, DateTimeOffset capturedAt, double captureMs,
         ShopFrameFingerprint? fingerprint, double fingerprintMs)
     {
         lock (_shopGate)

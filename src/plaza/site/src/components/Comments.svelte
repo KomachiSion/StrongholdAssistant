@@ -119,7 +119,7 @@
           <button onclick={() => (replyTo = null)} title="不回复了"><Icon name="close" size={13} /></button>
         </div>
       {/if}
-      <textarea bind:this={box} bind:value={body} maxlength="300" placeholder="说说你用这套阵容的体验，或者问问作者……" onkeydown={(e) => e.key === 'Enter' && (e.ctrlKey || e.metaKey) && len && !sending && send()}></textarea>
+      <textarea class="ugc" bind:this={box} bind:value={body} maxlength="300" placeholder="说说你用这套阵容的体验，或者问问作者……" onkeydown={(e) => e.key === 'Enter' && (e.ctrlKey || e.metaKey) && len && !sending && send()}></textarea>
       <div class="row">
         <span class="muted">{len} / 300 · Ctrl + Enter 发送</span>
         <button class="btn primary sm" disabled={!len || sending} onclick={send}>{sending ? '发送中…' : '发表'}</button>
@@ -140,7 +140,7 @@
             {#if c.replyTo}<span class="to"><Icon name="reply" size={12} />{c.replyTo.nickname}</span>{/if}
             <span class="t">{ago(c.createdAt)}</span>
           </div>
-          <p class="body">{c.body}</p>
+          <p class="body ugc">{c.body}</p>
           <div class="ops">
             {#if session.me?.nickname}<button onclick={() => reply(c)}><Icon name="reply" size={13} />回复</button>{/if}
             {#if c.author.id !== session.me?.id}<button onclick={() => onreport({ kind: 'comment', id: c.id }, `${c.author.nickname}：${c.body}`)}><Icon name="flag" size={13} />举报</button>{/if}

@@ -68,6 +68,7 @@ public sealed class FieldEquipmentTests(EnemyRecognitionFixture fixture)
     public void DragReadingAndMergeKeepEquipment()
     {
         var t = new FieldTracker(); var a = new FieldCell("board", 1, 1); var b = new FieldCell("board", 2, 1);
+        t.ConfigureIdentity([new() { Name = "杰克", Tier = 1 }], (_, _, _) => new([], 0));
         var c = new FieldCell("bench", 1, 0); var d = new FieldCell("bench", 2, 0); var now = DateTimeOffset.UtcNow;
         FieldObservation O(Dictionary<FieldCell, int> cells) => new(now, true, "m01", 1, cells);
         t.Observe(O(new() { [a] = 1 }));

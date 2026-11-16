@@ -97,6 +97,7 @@ public sealed partial class HostApi
             var (next, avatars) = await ReadInformation();
             int added = ApplyRecognizedMatch(next, avatars, _scanAvatars,
                 opening || _pendingOpening || (_scanOpening && _observedRound > 1));
+            CollectOpening(_scanShot, "ban");
             _pendingOpening = false;
             _openingObserved |= _scanOpening;
             if (continuous) Match = Match with { BansScanned = true };

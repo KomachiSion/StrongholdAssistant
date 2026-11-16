@@ -49,8 +49,9 @@ public sealed class FieldManualTests
             File.WriteAllText(path, "{}");
             var store = new HostSettingsStore(path);
             var old = store.LoadSettings();
-            Assert.True(old.FieldAuto); Assert.Equal("Alt+F", old.FieldHotkey);
-            store.SaveSettings(old with { FieldAuto = false, FieldHotkey = "" });
+            Assert.False(old.FieldAuto); Assert.Equal("Alt+F", old.FieldHotkey);
+            // 自动识别暂时固定关闭：存进去的 true 也不认
+            store.SaveSettings(old with { FieldAuto = true, FieldHotkey = "" });
             Assert.False(store.LoadSettings().FieldAuto); Assert.Equal("", store.LoadSettings().FieldHotkey);
         }
         finally { Directory.Delete(directory, true); }

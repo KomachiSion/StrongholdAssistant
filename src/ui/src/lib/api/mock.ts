@@ -241,7 +241,7 @@ let settings: Settings = {
   routes: { enabled: false, display: 'always', peekSeconds: 6, hotkey: 'Alt+R', overlap: 'cycle', cycleSeconds: 2.2, fly: 'main', side: 'auto' },
   overlayLayers: { placement: true, pending: true, upgrade: true },
   placementGoal: 'balanced',
-  fieldAuto: true,
+  fieldAuto: false,
   fieldHotkey: 'Alt+F',
   collect: location.search.includes('collect'),
   // 官网上的侧栏演示（/demo/?demo）不弹「发现新版本」

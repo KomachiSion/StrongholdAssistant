@@ -688,3 +688,77 @@ export interface PutRatingRequest {
 }
 // DELETE /api/ratings?kind=&name=：撤回自己这个赛季的评分（要登录），204；本来就没有也 204。
 // 后台：举报 kind 为 rating 的进举报列表（显示短评原文、作者、目标名字），处理时「隐藏」只隐藏短评，分数照算。
+
+// ── 机器人只读接口（任务 255）────────────────────────
+// 给用户自己的机器人（Grok 等）和定时 Worker 查看板数据：服务器到服务器调用，不走 Access，不发 Cookie，不需要 CORS。
+// 鉴权：请求头 `Authorization: Bearer <BOT_TOKEN>`（Pages 加密变量，32 字节随机）。
+//   - 没配 BOT_TOKEN：403 `bot_disabled`；没带或不对：401 `unauthorized`，带 `WWW-Authenticate: Bearer`；
+//   - 只接受 GET，其他方法 405 `method_not_allowed`；路径不存在 404 `not_found`；
+//   - 只读：不改任何数据，不返回 Mirror酱 key、BOT_TOKEN 等机密，也不返回账号邮箱。
+// 响应都是 JSON、`Cache-Control: no-store`；出错和其他接口一样是 `{ error, message }`。
+// 日期、月份、「今天」都按北京时间；时间戳是 ISO 8601（UTC，带 Z）。金额都是人民币元（CNY），保留两位小数。
+//
+// GET /api/bot/summary?month=YYYY-MM   一次拿全：销售、广场、流量的要点（BotSummary），机器人和提醒 Worker 主要用这个
+// GET /api/bot/stats                   同 GET /api/admin/stats（AdminStats）
+// GET /api/bot/mirror?month=YYYY-MM    同 GET /api/admin/mirror（AdminMirrorStats）
+// GET /api/bot/traffic?month=YYYY-MM   同 GET /api/admin/traffic（AdminTrafficStats）
+// month 默认本月，格式不对 400 `bad_request`。
+
+/** 一个 Mirror酱 项目这个月的销售（口径同 AdminMirrorProject） */
+export interface BotSalesProject {
+  /** Mirror酱 的资源 id，如 'StrongholdAssistant' */
+  rid: string
+  /** 这个月（不含退款）的销售份数、销售额（元）、预计收益（元，扣支付平台费率后五五分成） */
+  orders: number
+  amountYuan: number
+  incomeYuan: number
+  /** 这个月退款的份数和金额（元） */
+  refundedOrders: number
+  refundedAmountYuan: number
+  /** 今天（北京时间）的份数和销售额；查的不是本月时为 null */
+  today: { orders: number; amountYuan: number } | null
+  /** 这个项目查询失败时的提示，其他数字为 0、today 为 null，且不计入合计 */
+  error?: string
+}
+
+/** GET /api/bot/summary */
+export interface BotSummary {
+  /** 服务器生成这份数据的时间 */
+  at: string
+  /** 统计月份（北京时间），如 '2026-11' */
+  month: string
+  timezone: 'Asia/Shanghai'
+  currency: 'CNY'
+  sales: {
+    /** 顺序同 MIRROR_RIDS */
+    projects: BotSalesProject[]
+    /** 成功查到的项目的合计；today 为 null 当且仅当查的不是本月 */
+    total: {
+      orders: number
+      amountYuan: number
+      incomeYuan: number
+      refundedOrders: number
+      refundedAmountYuan: number
+      today: { orders: number; amountYuan: number } | null
+    }
+    /** 所有项目都查询成功为 true；为 false 时合计偏少，机器人应说明哪个项目没查到 */
+    complete: boolean
+  }
+  /** 阵容广场（口径同 AdminStats） */
+  plaza: {
+    totals: AdminStats['totals']
+    /** 今天（北京时间）的新增；开始记时间之前为 null（同 DailyCount） */
+    today: { users: number | null; posts: number | null; imports: number | null; likes: number | null; comments: number | null; incomeGames: number | null }
+  }
+  /** 经香港服务器的流量（口径同 AdminTrafficStats），统计月份同 month */
+  traffic: {
+    bytes: number
+    /** bytes ÷ 1e9 × 单价（元/GB），两位小数 */
+    costYuan: number
+    forecastBytes: number
+    forecastCostYuan: number
+    pricePerGB: number
+    /** 最近一次收到上报的时间；从没收到过为 null */
+    lastReportAt: string | null
+  }
+}

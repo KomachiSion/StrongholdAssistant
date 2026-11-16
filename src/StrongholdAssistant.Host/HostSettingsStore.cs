@@ -49,7 +49,9 @@ public sealed class HostSettingsStore(string path)
             PlacementGoal = json["placementGoal"]?.GetValue<string>() is "leak" or "layers" ? json["placementGoal"]!.GetValue<string>() : "balanced",
             GameThemeAuto = json["gameThemeAuto"]?.GetValue<bool>() ?? true,
             Collect = json["collect"]?.GetValue<bool>() ?? false,
-            FieldAuto = json["fieldAuto"]?.GetValue<bool>() ?? true,
+            // 场上自动识别暂时关掉（v1.2.4，用户 2026-11-16）：一拖人就重认、推荐位一直变，有人看不到开关老来问；
+            // 设置里的入口也去掉了，只能点「识别」或按快捷键。旧设置里存的 true 一律不认
+            FieldAuto = false,
             FieldHotkey = json["fieldHotkey"]?.GetValue<string>() ?? "Alt+F",
             RunAsAdmin = json["runAsAdmin"]?.GetValue<bool>() ?? true, // v1.0.5 起默认打开：玩家的游戏多是管理员身份，不同意授权就按普通身份运行
             UiSkin = uiSkin,

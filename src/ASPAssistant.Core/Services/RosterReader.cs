@@ -229,8 +229,10 @@ public sealed class RosterReader
                 else if (start >= 0 && !(x + 1 < image.Width && Border(x + 1, y)))
                 {
                     int width = x - start;
+                    // 助战（临时干员）卡是青色边框，亮度不到 .4，按边框颜色也算延续（v1.2.4）。
                     if (start >= 2 && width is >= 100 and <= 145 &&
-                        new[] { .4, .9, 1.5 }.All(d => Enumerable.Range(start - 1, 4).Any(xx => image.GetPixel(xx, y + (int)(width * d)).GetBrightness() > .4)))
+                        new[] { .4, .9, 1.5 }.All(d => Enumerable.Range(start - 1, 4).Any(xx =>
+                            image.GetPixel(xx, y + (int)(width * d)).GetBrightness() > .4 || Border(xx, y + (int)(width * d)))))
                         edges.Add((start, y));
                     start = -1;
                 }
@@ -242,9 +244,10 @@ public sealed class RosterReader
             if (rows.Count == 0 || edge.Y - rows[^1][^1].Y > 5) rows.Add([]);
             rows[^1].Add(edge);
         }
-        var pair = rows.Where(r => r.Select(p => p.X / 5).Distinct().Count() >= 3)
-            .OrderByDescending(r => r.Count).Take(2).OrderBy(r => r[0].Y).ToArray();
-        if (pair.Length != 2) yield break;
+        // 一排里助战卡、角标多时可能只认出一两列；最强的一排够三列即可，另一排借它的列位置。
+        var ranked = rows.OrderByDescending(r => r.Count).Take(2).ToArray();
+        if (ranked.Length != 2 || ranked[0].Select(p => p.X / 5).Distinct().Count() < 3) yield break;
+        var pair = ranked.OrderBy(r => r[0].Y).ToArray();
         double scale = (pair[1][0].Y - pair[0][0].Y) / 351.0;
         if (scale is < .85 or > 1.3) yield break;
         // 两排共用列位置，借另一排补上助战角标遮住的顶边。

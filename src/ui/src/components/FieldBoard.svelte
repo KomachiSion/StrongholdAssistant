@@ -283,7 +283,7 @@
         class:busy
         disabled={busy}
         onclick={() => field.recognize()}
-        title={auto ? `现在认一次场上，重算推荐${keyTip}` : `自动识别关着：点一下认一次场上，算一次推荐${keyTip}`}
+        title={auto ? `现在认一次场上，重算推荐${keyTip}` : `点一下认一次场上，算一次推荐${keyTip}`}
       ><Icon name="scan" size={13} />{busy ? '识别中' : '识别'}</button>
       {#if b}
         <button class="chip" class:on={showRoutes} onclick={() => (showRoutes = !showRoutes)} title="在小棋盘上画本回合敌人路线（和游戏里的路线覆盖分开）"><i></i>路线</button>
@@ -293,13 +293,13 @@
   {#if open}
     <div class="fb" transition:slide={sl}>
       {#if !st && !b}
-        <p class="empty">{auto ? '进休整期后自动认出场上和整备区的人，显示在这块小棋盘上。' : `自动识别关着。休整期在棋盘画面点右上角「识别」${app.settings.fieldHotkey ? `或按 ${app.settings.fieldHotkey}` : ''}，认一次场上和整备区的人。`}</p>
+        <p class="empty">{auto ? '进休整期后自动认出场上和整备区的人，显示在这块小棋盘上。' : `休整期在棋盘画面点右上角「识别」${app.settings.fieldHotkey ? `或按 ${app.settings.fieldHotkey}` : ''}，认一次场上和整备区的人。`}</p>
       {:else}
         <!-- 顶栏：回合、视图切换、推演状态 -->
         <div class="bar">
           <span class="meta">
             {#if b?.round}第 {b.round} 回合{#if b.bossRound} · 首领{/if}{/if}
-            {#if !auto && st}<small class="man" title="自动识别关着，场上停在这次识别的结果">手动 · {hhmm(st.updatedAt)}</small>{/if}
+            {#if !auto && st}<small class="man" title="场上停在这次识别的结果，摆好人后再点「识别」更新">手动 · {hhmm(st.updatedAt)}</small>{/if}
             {#if showRoutes && (walkN || flyN)}<small><i class="lg walk"></i>地面 {walkN}<i class="lg fly"></i>飞行 {flyN}</small>{/if}
           </span>
           {#if canBoth}

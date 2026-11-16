@@ -62,7 +62,7 @@ public sealed partial class HostApi
     {
         if (settings.GameThemeAuto && _detectedTheme is { } detected)
             settings = settings with { GameTheme = detected };
-        settings = settings with { ToggleHotkey = Settings.ToggleHotkey, RunAsAdmin = Settings.RunAsAdmin };
+        settings = settings with { ToggleHotkey = Settings.ToggleHotkey, RunAsAdmin = Settings.RunAsAdmin, FieldAuto = false };
         ValidateSettings(settings);
         var theme = Theme(settings.GameTheme);
         SettingsStore.SaveSettings(settings);

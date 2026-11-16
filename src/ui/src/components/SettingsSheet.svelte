@@ -621,18 +621,8 @@
       <p class="note">联机的首领回合，会移动的首领左右各一只、路线不一样，只画你这一侧；自动认不出时两边都画。</p>
     </section>
 
-    <!-- 场上自动识别（v1.0.1）：关掉后场上和推荐停在上一次，只在本局页「场上」点「识别」时认一次 -->
-    <section>
-      <label class="row">
-        <span class="lbl"><b>自动识别场上</b><small>休整期自动认出场上和整备区的人，跟着重算推荐站位</small></span>
-        <input type="checkbox" class="sw" checked={app.settings.fieldAuto ?? true} onchange={(e) => set('fieldAuto', e.currentTarget.checked)} />
-      </label>
-      <p class="note">
-        {(app.settings.fieldAuto ?? true)
-          ? `关掉后场上和推荐停在上一次，要更新时到本局页「场上」点「识别」${app.settings.fieldHotkey ? `或按 ${keyLabel(app.settings.fieldHotkey)}` : ''}；商店、资金、回合照常读。`
-          : `现在只在本局页「场上」点「识别」${app.settings.fieldHotkey ? `或按 ${keyLabel(app.settings.fieldHotkey)}` : ''}时认一次、算一次推荐；商店、资金、回合照常读，买到的人照常记下。`}
-      </p>
-    </section>
+    <!-- 场上自动识别（v1.0.1）的开关 v1.2.4 起暂时去掉（用户 2026-11-16）：一拖人就重认、推荐位一直变；
+         现在只在本局页「场上」点「识别」或按快捷键时认一次、算一次推荐 -->
 
     <!-- 覆盖层新加的两项（v1.0.0，任务 169）：和商店标记、敌人路线一样各自开关；都只在休整期棋盘主画面画 -->
     <section>
@@ -848,7 +838,7 @@
       {:else if app.keysBlocked && rawOnly(app.settings.fieldHotkey ?? '')}
         <p class="note bad">「{keyLabel(app.settings.fieldHotkey)}」{blockedWhat(app.settings.fieldHotkey)}，游戏是以管理员身份运行的，在游戏里按收不到。换成组合键，或者打开下面的「以管理员身份运行」。</p>
       {:else}
-        <p class="note">休整期在棋盘画面按一下：认一次场上和整备区的人，算一次推荐站位，游戏画面上的推荐跟着更新。自动识别开着关着都能用。</p>
+        <p class="note">休整期在棋盘画面按一下：认一次场上和整备区的人，算一次推荐站位，游戏画面上的推荐跟着更新。</p>
       {/if}
     </section>
 

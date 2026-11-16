@@ -86,6 +86,8 @@ public sealed class BoardPlacementWiringTests : IDisposable
         api.ObserveEconomy(new(1, 10, 1, 0, true));
         var tracker = (FieldTracker)typeof(HostApi).GetField("_fieldTracker", PrivateInstance)!.GetValue(api)!;
         var fieldProperty = typeof(FieldTracker).GetProperty("State")!;
+        // 场上自动识别暂时固定关闭（v1.2.4，读写设置都按 false）；这里验证的是留着的自动重算逻辑，只在内存里打开
+        typeof(HostApi).GetProperty("Settings")!.SetValue(api, api.Settings with { FieldAuto = true });
         var schedule = typeof(HostApi).GetMethod("SchedulePlacement", PrivateInstance)!;
         var generation = typeof(HostApi).GetField("_placementGeneration", PrivateInstance)!;
         var state = new FieldState("m01", 1, "first", [new("board", 2, 2, 1, "芬", "sprite") { Status = "auto" }], []);

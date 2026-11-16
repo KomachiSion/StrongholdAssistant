@@ -77,11 +77,11 @@ public partial class MainWindow
         {
             if (value is ScanStatus status)
             {
-                _scanner.SetBanScreenDetectionPaused(status.Busy || status.Continuous == true || _closing);
+                _scanner.SetBanScreenDetectionPaused(status.Busy || _closing);
                 if (status.Ok == true) _scanner.MarkInformationRecorded();
                 Dispatcher.Invoke(() =>
                 {
-                    bool recognizing = status.Busy || status.Continuous == true;
+                    bool recognizing = status.Busy;
                     if (_capturingInformation == recognizing) return;
                     _capturingInformation = recognizing;
                     if (recognizing)
@@ -236,7 +236,7 @@ public partial class MainWindow
         });
         _api.InitializeRoster(data, _ocr, _capture.Connection, async paused =>
         {
-            _scanner.SetBanScreenDetectionPaused(paused || _api.IsContinuous || _closing);
+            _scanner.SetBanScreenDetectionPaused(paused || _closing);
             if (paused) await _scanner.WaitForIdleAsync();
             await Dispatcher.InvokeAsync(() =>
             {
@@ -263,7 +263,6 @@ public partial class MainWindow
         _tracker.GameWindowLost += () => Dispatcher.BeginInvoke(() =>
         {
             _scanner?.InvalidateShop();
-            _ = _api.StopContinuousAsync(windowLost: true);
             _lastGameRect = null;
             _lastClientRect = null;
             _overlayMode = false;
@@ -595,7 +594,6 @@ public partial class MainWindow
             _api.SettingsStore.SaveDock(_dock);
         }
         if (_api is not null) await _api.StopRosterScanAsync();
-        if (_api is not null) await _api.StopContinuousAsync();
         // 网页先播退场（内容淡出到底色），再藏起窗口等后台收尾，收尾和释放 WebView2 时不会露出白底
         if (Browser.Visibility == Visibility.Visible)
         {

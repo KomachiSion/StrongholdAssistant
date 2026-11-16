@@ -1,4 +1,5 @@
 using ASPAssistant.Core.Data;
+using ASPAssistant.Core.Models;
 using ASPAssistant.Core.GameModes.GarrisonProtocol;
 using ASPAssistant.Core.Services;
 using ASPAssistant.Tests.Services;
@@ -11,21 +12,30 @@ namespace StrongholdAssistant.Tests.Services;
 public class UserInformationTests(EnemyRecognitionFixture fixture, ITestOutputHelper output)
 {
     [Fact]
-    public async Task RecordsUserSampleThroughManualAndContinuousBridge()
+    public async Task RecordsUserSampleThroughManualAndSingleDetailRead()
     {
         var data = Path.Combine(AppContext.BaseDirectory, "data");
         var directory = Path.Combine(Path.GetTempPath(), "StrongholdAssistant.Tests", Guid.NewGuid().ToString("N"));
         try
         {
             var api = await HostApi.CreateAsync(data, directory);
-            await api.InitializeRecognitionAsync(data, fixture.Engine, () => Task.FromResult<byte[]?>(
-                File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "TestData", "info-user-window-1648x933.png"))));
+            int captures = 0;
+            await api.InitializeRecognitionAsync(data, fixture.Engine, () => {
+                captures++;
+                return Task.FromResult<byte[]?>(File.ReadAllBytes(
+                    Path.Combine(AppContext.BaseDirectory, "TestData", "info-user-window-1648x933.png")));
+            });
             var match = await api.RecordInformationAsync();
             Assert.Equal(26, match.Covenants.Length);
             Assert.Equal(10, match.Covenants.Count(c => c.Incomplete));
-            await api.ScanContinuousAsync(true);
-            await api.StopContinuousAsync();
-            Assert.True(api.Match.BansScanned);
+            api.ReadOpeningMode = () => Task.FromResult<GameModeInfo?>(null);
+            await api.HandleOpeningAsync(true);
+            await api.HandleDetailAsync();
+            await api.HandleDetailAsync();
+            Assert.Equal(2, captures);
+            Assert.True(api.Match.Solo);
+            Assert.False(api.Match.AwaitingDetail);
+            Assert.Equal("recognized", api.Match.Source);
             Assert.Equal(match.Covenants, api.Match.Covenants);
             Assert.False(Directory.Exists(Path.Combine(directory, "diagnostics")));
         }

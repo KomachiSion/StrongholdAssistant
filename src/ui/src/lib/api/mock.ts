@@ -332,16 +332,6 @@ const mockDownload = () =>
 const scanListeners = new Set<(s: ScanStatus) => void>()
 const windowListeners = new Set<(e: 'closing') => void>()
 const matchListeners = new Set<(m: MatchInfo) => void>()
-let continuousTimer = 0
-let continuousBefore = 0
-// 假数据：持续识别每秒多识别出一名禁用干员，6 次后像宿主一样自动结束
-function stopContinuous(message: string) {
-  clearInterval(continuousTimer)
-  continuousTimer = 0
-  const added = match.bannedOperators.length - continuousBefore
-  scanListeners.forEach((cb) => cb({ busy: false, continuous: false, ok: true, message: message.replace('{added}', String(added)).replace('{total}', String(match.bannedOperators.length)) }))
-}
-
 const wait = <T>(v: T, ms = 120) => new Promise<T>((r) => setTimeout(() => r(structuredClone(v)), ms))
 
 // 假数据：仿录屏第 6 回合休整期。待确认（云迹 / 承曦格雷伊 / 真理）、自动填（风絮）、认不出（一个 I 阶）各一格，其余是确定的
@@ -558,21 +548,6 @@ export const mockApi: Api = {
     notThis.clear()
     match = computeMatch('recognized', new Date().toISOString())
     return wait(match, 900)
-  },
-  scanContinuous: async (on) => {
-    if (!on) return stopContinuous('持续识别已停止，本次新识别到 {added} 名禁用干员，共 {total} 名。')
-    continuousBefore = match.bannedOperators.length
-    let n = 0
-    const tick = () => {
-      const next = catalog.operators.find((o) => !match.bannedOperators.includes(o.name))
-      if (next) manualBan.add(next.name)
-      match = computeMatch('recognized', new Date().toISOString())
-      matchListeners.forEach((cb) => cb(structuredClone(match)))
-      scanListeners.forEach((cb) => cb({ busy: false, continuous: true }))
-      if (++n >= 6) stopContinuous('连续 3 次没找到开局信息页，持续识别已结束。本次新识别到 {added} 名禁用干员，共 {total} 名。')
-    }
-    scanListeners.forEach((cb) => cb({ busy: true, continuous: true }))
-    continuousTimer = window.setInterval(tick, 1000)
   },
   setMatchStrategy: async (id) => {
     match = { ...match, strategyId: id, strategySource: id ? 'manual' : null }

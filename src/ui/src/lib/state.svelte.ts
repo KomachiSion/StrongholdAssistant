@@ -74,10 +74,6 @@ export class AppState {
    */
   banPicker = $state<string | boolean | { cov: string; slot: number }>(false)
   scanning = $state(false)
-  /** 持续识别进行中 */
-  continuous = $state(false)
-  /** 持续识别开始时为了不挡截屏而自动收起的，结束后自动展开 */
-  private autoCollapsed = false
   settings = $state<Settings>(settings)
   appInfo: AppInfo = appInfo
   /** 现在按哪套游戏主题算（v0.9.2）：自动识别时用宿主认到的，还没认出来就用上次认到 / 手动选的 */
@@ -180,8 +176,6 @@ export class AppState {
     api.onScan((s) => {
       this.scanning = s.busy
       if (s.message) this.scanNote = s
-      if (this.continuous && !s.continuous) this.endContinuous()
-      this.continuous = !!s.continuous
     })
     // 下载中、下好了的推送不带更新内容，沿用发现新版时拿到的，横幅「更新了什么」还能看
     api.onUpdate((u) => (this.update = u.version && u.version === this.update.version ? { notes: this.update.notes, notesUrl: this.update.notesUrl, ...u } : u))
@@ -336,26 +330,6 @@ export class AppState {
     } finally {
       this.scanning = false
     }
-  }
-  // 持续识别：点一次开始，用户在游戏里往下滚动禁用列表，宿主每隔一会儿识别一次并合并结果
-  // 覆盖模式下侧栏盖在游戏上，先收成细条，免得每次截屏都要把侧栏藏起来造成闪烁
-  toggleContinuous() {
-    const on = !this.continuous
-    this.continuous = on
-    if (on) {
-      this.scanNote = null
-      this.matchEdit = false
-      if (this.connection.overlay && !this.collapsed) {
-        this.autoCollapsed = true
-        // 按设置里的收起方式（以前写死成竖条，用户设了向上收起也收成竖条）
-        this.setCollapsed(this.settings.collapseMode)
-      }
-    } else this.endContinuous()
-    api.scanContinuous(on)
-  }
-  private endContinuous() {
-    if (this.autoCollapsed && this.collapsed) this.setCollapsed(false)
-    this.autoCollapsed = false
   }
   /** 资金行「+ 收入」：点上识别不了的收入，从下回合起算进预计 */
   async addIncome(source: string, elite: boolean) {

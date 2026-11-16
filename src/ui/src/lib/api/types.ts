@@ -246,8 +246,6 @@ export interface EmulatorInstance {
 /** 开局信息页识别的进度（自动触发和「重新识别」都会推送） */
 export interface ScanStatus {
   busy: boolean
-  /** 持续识别进行中为 true（两次识别之间 busy 为 false，continuous 仍为 true）；结束时推送 false */
-  continuous?: boolean
   /**
    * 结束时的结果说明：成功时是一句确认，失败时是原因和怎么办，直接显示给用户。
    * v0.7.2：失败时第二行起是技术细节（截到的画面尺寸、界面缩放、哪一步没认出、OCR 读到了什么等），界面折叠显示，同消息桥的错误约定
@@ -1390,13 +1388,6 @@ export interface Api {
   placement(): Promise<PlacementPlan | null>
   /** 立即识别当前画面的开局信息页；失败时以错误返回，错误文字直接给用户看 */
   rescan(): Promise<MatchInfo>
-  /**
-   * 持续识别：on=true 立即识别一次，之后每次识别结束 0.5 秒再识别下一次，结果像 rescan 一样合并（往下滚动禁用列表
-   * 就能逐屏补全）。识别中推送 scan（continuous: true）和 match。on=false 停止。
-   * 以下情况宿主自动停止：连续 3 次没找到开局信息页、持续满 90 秒、游戏窗口丢失。
-   * 停止时推送 scan { busy: false, continuous: false, ok, message }，message 说明本次结果。
-   */
-  scanContinuous(on: boolean): Promise<void>
   /**
    * 手动选本局策略（v0.7.0）：开局识别读不到策略，用户在本局页自己选；null = 清掉。
    * 更新 MatchInfo.strategyId、economy.rule 和当前历史记录，推送 match；新局（开局识别）清空

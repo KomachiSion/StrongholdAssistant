@@ -141,5 +141,4 @@ public sealed record Connection(string State,
 public sealed record EmulatorInstance(string Kind, string Serial, string Name);
 public sealed record ScanStatus(bool Busy,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Message = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] bool? Ok = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] bool? Continuous = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] bool? Ok = null);

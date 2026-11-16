@@ -35,12 +35,12 @@ public sealed class RosterReader
         var timer = Stopwatch.StartNew();
         using var stream = new MemoryStream(frame);
         using var original = new Bitmap(stream);
-        using var image = new Bitmap(original, 1920, 1080);
+        using var image = new Bitmap(original, (int)Math.Round(original.Width * 1080.0 / original.Height), 1080);
         using var png = new MemoryStream(); image.Save(png, System.Drawing.Imaging.ImageFormat.Png);
         var bytes = png.ToArray();
         var header = string.Concat((await _ocr.RecognizeRegionAsync(bytes, 250, 10, 485, 90)).Select(l => l.Text.Replace(" ", "")));
         if (!header.Contains("自选编队") || !(header.Contains("选配助战") || header.Contains("物资调配"))) return null;
-        var filter = string.Concat((await _ocr.RecognizeRegionAsync(bytes, 1690, 15, 230, 210)).Select(l => l.Text.Replace(" ", "")));
+        var filter = string.Concat((await _ocr.RecognizeRegionAsync(bytes, image.Width - 230, 15, 230, 210)).Select(l => l.Text.Replace(" ", "")));
         if (filter.Contains("收起") && filter.Contains("ALL", StringComparison.OrdinalIgnoreCase))
             throw new IOException("先关掉右侧的盟约筛选");
         var countMatch = System.Text.RegularExpressions.Regex.Match(header, @"(\d+)/12");
@@ -99,14 +99,15 @@ public sealed class RosterReader
         return new(cards.OrderBy(c => c.X).ThenBy(c => c.Y).ToArray(), count, timer.Elapsed.TotalMilliseconds, unknown.ToArray());
     }
 
-    // 由排序文字和相连白底定位选中胶囊，坐标统一为 1920×1080；找不到就不点击。
+    // 由排序文字和相连白底定位选中胶囊，按高度归一到 1080，保留画面宽度；找不到就不点击。
     public async Task<RosterSort?> ReadSortAsync(byte[] frame)
     {
         using var stream = new MemoryStream(frame);
         using var original = new Bitmap(stream);
-        using var image = new Bitmap(original, 1920, 1080);
+        using var image = new Bitmap(original, (int)Math.Round(original.Width * 1080.0 / original.Height), 1080);
         using var png = new MemoryStream(); image.Save(png, System.Drawing.Imaging.ImageFormat.Png);
-        var labels = (await _ocr.RecognizeRegionAsync(png.ToArray(), 1250, 10, 550, 105))
+        int regionLeft = image.Width - 670, regionRight = image.Width - 120;
+        var labels = (await _ocr.RecognizeRegionAsync(png.ToArray(), regionLeft, 10, 550, 105))
             .Where(l => l.Text.Replace(" ", "") is "按盟约" or "按等阶").ToArray();
         if (labels.Length != 1) return null;
         var label = labels[0];
@@ -117,14 +118,18 @@ public sealed class RosterReader
             return c.R >= 200 && c.G >= 200 && c.B >= 200;
         }
         int seedX = label.Box.X + label.Box.W / 2, seedY = label.Box.Y - 5;
-        if (seedX is < 1250 or >= 1800 || seedY is < 10 or >= 115 || !White(seedX, seedY)) return null;
+        if (seedX < regionLeft || seedX >= regionRight || seedY is < 10 or >= 115) return null;
+        // 重采样后 OCR 框可能上移几像素，在文字上沿附近找白底，避免种子落到胶囊外。
+        int seedLimit = Math.Min(115, label.Box.Y + 6);
+        while (seedY < seedLimit && !White(seedX, seedY)) seedY++;
+        if (seedY == seedLimit) return null;
         var visited = new HashSet<Point>();
         var queue = new Queue<Point>();
         queue.Enqueue(new(seedX, seedY));
         int left = seedX, right = seedX, top = seedY, bottom = seedY;
         while (queue.TryDequeue(out var p))
         {
-            if (p.X is < 1250 or >= 1800 || p.Y is < 10 or >= 115 || !visited.Add(p) || !White(p.X, p.Y)) continue;
+            if (p.X < regionLeft || p.X >= regionRight || p.Y is < 10 or >= 115 || !visited.Add(p) || !White(p.X, p.Y)) continue;
             left = Math.Min(left, p.X); right = Math.Max(right, p.X);
             top = Math.Min(top, p.Y); bottom = Math.Max(bottom, p.Y);
             queue.Enqueue(new(p.X - 1, p.Y)); queue.Enqueue(new(p.X + 1, p.Y));
@@ -192,9 +197,14 @@ public sealed class RosterReader
     {
         using var stream = new MemoryStream(frame);
         using var original = new Bitmap(stream);
-        using var image = new Bitmap(original, 1920, 1080);
+        using var image = new Bitmap(original, (int)Math.Round(original.Width * 1080.0 / original.Height), 1080);
         var columns = LocateGrid(image).Select(p => p.X).Distinct().Order().ToArray();
-        if (columns.Length < 3) throw new IOException("无法测量物资调配页列间距。");
+        if (columns.Length < 3)
+        {
+            var error = new IOException("无法测量物资调配页列间距。");
+            error.Data["rosterColumns"] = columns;
+            throw error;
+        }
         // 分组标题会扩大个别间隔，取间隔的下中位数，避免把标题算成一列。
         var gaps = columns.Zip(columns.Skip(1), (a, b) => b - a).Order().ToArray();
         return (image.Width, gaps[(gaps.Length - 1) / 2]);

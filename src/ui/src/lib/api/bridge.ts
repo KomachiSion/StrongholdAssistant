@@ -60,7 +60,6 @@ export const bridgeApi: Api = {
   board: call('board'),
   placement: call('placement'),
   rescan: call('rescan'),
-  scanContinuous: call('scanContinuous'),
   setMatchStrategy: call('setMatchStrategy'),
   setCovenantIncomplete: call('setCovenantIncomplete'),
   setOperatorBanned: call('setOperatorBanned'),

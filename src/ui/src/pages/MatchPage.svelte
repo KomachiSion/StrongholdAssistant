@@ -177,7 +177,7 @@
 
 {#snippet bInfo()}
   <EconomyBar />
-  {#if m.awaitingDetail && !app.continuous}
+  {#if m.awaitingDetail}
     <div class="solo-guide">
       <div class="sg-h">单人模式 · 开局页不识别</div>
       <p>单人开局要在两组核心盟约里选一组，选完才算数，所以到对局里再读。</p>
@@ -189,11 +189,7 @@
       <p class="sg-f">每局只自动识别这一次，之后再打开详情不会自动开始，要补读点「重新识别」。</p>
     </div>
   {/if}
-  {#if app.continuous}
-    <div class="note">
-      <span>正在识别对局详情，已识别 <b>{m.bannedOperators.length}</b> 名禁用干员。离开详情页会自动结束，也可以点「停止」。</span>
-    </div>
-  {:else if app.scanNote?.message && !app.scanNote.ok}
+  {#if app.scanNote?.message && !app.scanNote.ok}
     <!-- 识别失败（v0.7.2）：醒目的提示，详情里是技术细节；识别不了的问题很常见，直接给导出诊断包 -->
     <ErrorNote title="识别没成功" error={app.scanNote.message} context={{ 游戏来源: app.connection.source ?? '—', 画面: app.connection.resolution ?? '—' }} onclose={() => (app.scanNote = null)}>
       {#snippet actions()}
@@ -475,20 +471,16 @@
       <button class="tool" class:on={edit} onclick={() => (app.matchEdit = !edit)}>
         <Icon name="pencil" size={13} />{edit ? '完成' : '修正'}
       </button>
-      <button class="tool" class:busy={app.scanning && !app.continuous} onclick={() => app.rescan()} disabled={app.scanning || app.continuous}>
+      <button class="tool" class:busy={app.scanning} onclick={() => app.rescan()} disabled={app.scanning}>
         <span class="spin"><Icon name="refresh" size={13} /></span>
-        {app.scanning && !app.continuous ? '识别中…' : '重新识别'}
+        {app.scanning ? '识别中…' : '重新识别'}
       </button>
-      <!-- 持续识别（v0.9.5 起不再给入口）：禁用名单按盟约规则就能算全，识别一次就够。功能留着，单人对局详情自动识别时还会跑，跑的时候给「停止」 -->
-      {#if app.continuous}
-        <button class="tool live" onclick={() => app.toggleContinuous()}><span class="live-dot"></span>停止</button>
-      {/if}
       {#if m.source !== 'none'}
         <button
           class="tool"
           class:arm={armReset}
           onclick={reset}
-          disabled={app.scanning || app.continuous}
+          disabled={app.scanning}
           title="清掉本局的盟约、禁用干员、首领等信息；打完一局编辑阵容时用"
         >
           <Icon name={armReset ? 'trash' : 'close'} size={13} />{armReset ? '确认清空' : '清空'}
@@ -620,11 +612,6 @@
   }
   .tool:disabled {
     opacity: 0.45;
-  }
-  .tool.live {
-    color: var(--mint);
-    box-shadow: inset 0 0 0 1px var(--mint);
-    opacity: 1;
   }
   .tool.arm {
     color: var(--fg-0);

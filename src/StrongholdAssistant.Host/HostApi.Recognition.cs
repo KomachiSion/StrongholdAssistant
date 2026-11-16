@@ -20,7 +20,6 @@ public sealed partial class HostApi
     private EnemyResult? _scanEnemy;
     private string? _scanFailure;
     private bool _scanOpening;
-    private bool _pendingOpening;
     private DiagnosticOcrEngine? _scanOcr;
     private double? _scanScale;
     private string _scanStep = "截取游戏画面";
@@ -75,19 +74,12 @@ public sealed partial class HostApi
         Changed?.Invoke("connection", connection);
     }
 
-    public Task<MatchInfo> RecordInformationAsync()
+    public async Task<MatchInfo> RecordInformationAsync(bool opening = false)
     {
-        if (IsContinuous) throw new RecognitionException("正在持续识别，请先停止。");
-        return RecordInformationAsync(false);
-    }
-
-    private async Task<MatchInfo> RecordInformationAsync(bool continuous, bool opening = false)
-    {
-        if (continuous) await _scanGate.WaitAsync();
-        else if (!_scanGate.Wait(0)) throw new RecognitionException("正在识别，请稍候。");
+        if (!_scanGate.Wait(0)) throw new RecognitionException("正在识别，请稍候。");
         try
         {
-            Changed?.Invoke("scan", new ScanStatus(true, Continuous: continuous ? true : null));
+            Changed?.Invoke("scan", new ScanStatus(true));
             _scanAvatars = null;
             _scanOpening = false;
             _scanShot = null;
@@ -96,28 +88,24 @@ public sealed partial class HostApi
             ScanStep("截取游戏画面");
             var (next, avatars) = await ReadInformation();
             int added = ApplyRecognizedMatch(next, avatars, _scanAvatars,
-                opening || _pendingOpening || (_scanOpening && _observedRound > 1));
+                opening || (_scanOpening && _observedRound > 1));
             CollectOpening(_scanShot, "ban");
-            _pendingOpening = false;
             _openingObserved |= _scanOpening;
-            if (continuous) Match = Match with { BansScanned = true };
             Changed?.Invoke("match", Match);
-            if (!continuous)
-                Changed?.Invoke("scan", new ScanStatus(false, added > 0
-                    ? $"新识别到 {added} 名禁用干员，共 {Match.BannedOperators.Length} 名。"
-                    : $"没有新识别到禁用干员，共 {Match.BannedOperators.Length} 名。", true));
+            Changed?.Invoke("scan", new ScanStatus(false, added > 0
+                ? $"新识别到 {added} 名禁用干员，共 {Match.BannedOperators.Length} 名。"
+                : $"没有新识别到禁用干员，共 {Match.BannedOperators.Length} 名。", true));
             return Match;
         }
         catch (Exception ex)
         {
             var message = ReportRecognitionFailure(_scanShot, ex.Message, _scanScale,
                 ["失败步骤: " + _scanStep, .. _scanOcr?.Steps ?? []]);
-            if (!continuous) Changed?.Invoke("scan", new ScanStatus(false, message, false));
+            Changed?.Invoke("scan", new ScanStatus(false, message, false));
             throw new RecognitionException(message);
         }
         finally
         {
-            if (continuous) Changed?.Invoke("scan", new ScanStatus(false, Continuous: true));
             _scanGate.Release();
         }
     }
@@ -226,15 +214,6 @@ public sealed partial class HostApi
 
     public async Task HandleOpeningAsync(bool solo)
     {
-        if (IsContinuous)
-        {
-            if (!solo)
-            {
-                _pendingOpening = true;
-                return;
-            }
-            await StopContinuousAsync();
-        }
         if (solo)
         {
             lock (_historyGate) CompleteHistory();
@@ -245,7 +224,7 @@ public sealed partial class HostApi
         }
         Match = Match with { Solo = false, AwaitingDetail = false, Mode = null };
         Changed?.Invoke("match", Match);
-        await RecordInformationAsync(false, opening: true);
+        await RecordInformationAsync(opening: true);
     }
 
     public Task HandleDetailAsync()
@@ -253,7 +232,7 @@ public sealed partial class HostApi
         if (!Match.AwaitingDetail) return Task.CompletedTask;
         Match = Match with { AwaitingDetail = false };
         Changed?.Invoke("match", Match);
-        return ScanContinuousAsync(true);
+        return RecordInformationAsync(false);
     }
 
     private async Task<GameModeInfo?> ReadOpeningModeAsync()

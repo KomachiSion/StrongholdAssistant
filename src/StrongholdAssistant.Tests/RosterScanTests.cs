@@ -8,6 +8,35 @@ namespace StrongholdAssistant.Tests;
 public sealed class RosterScanTests
 {
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SortRecapturesUntilRecognizedWithoutRepeatingInput(bool requireTier)
+    {
+        var results = new Queue<RosterSort?>([null, new("covenant", 1700, 60), new("tier", 1620, 60)]);
+        int captures = 0;
+        var sort = await HostApi.RecheckRosterSortAsync(null, () =>
+        {
+            captures++;
+            return Task.FromResult(results.Dequeue());
+        }, requireTier, CancellationToken.None);
+        Assert.Equal(requireTier ? "tier" : "covenant", sort?.Mode);
+        Assert.Equal(requireTier ? 3 : 2, captures);
+    }
+
+    [Fact]
+    public async Task UnrecognizedSortStopsAfterThreeRecaptures()
+    {
+        int captures = 0;
+        var sort = await HostApi.RecheckRosterSortAsync(null, () =>
+        {
+            captures++;
+            return Task.FromResult<RosterSort?>(null);
+        }, false, CancellationToken.None);
+        Assert.Null(sort);
+        Assert.Equal(3, captures);
+    }
+
+    [Theory]
     [InlineData(false, "user")]
     [InlineData(true, "input")]
     public async Task StartupCancellationReportsStatusWithoutThrowing(bool input, string reason)

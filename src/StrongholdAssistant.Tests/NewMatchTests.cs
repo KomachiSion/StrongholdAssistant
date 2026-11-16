@@ -94,9 +94,7 @@ public sealed class NewMatchTests
         var next = new MatchInfo("recognized", null, [], [], "enemy_9021_acduml", ["DOT", "REFLECTION", "ELEMENT"]);
         api.ReadInformation = () => Task.FromResult((next, new[] { "佩佩" }));
 
-        // 持续识别与手动识别使用同一合并入口。
-        await api.ScanContinuousAsync(true);
-        await api.StopContinuousAsync();
+        await api.RecordInformationAsync();
 
         Assert.Equal("enemy_9021_acduml", api.Match.BossId);
         Assert.Equal(next.EnemyTypes, api.Match.EnemyTypes);

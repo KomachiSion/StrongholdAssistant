@@ -14,12 +14,6 @@
 <div class="strip">
   <span class="grip" aria-hidden="true"><i></i></span>
   <button class="open" title="展开侧栏" aria-label="展开侧栏" onclick={expand}><Icon name={atRight ? 'contractLeft' : 'expandRight'} size={18} /></button>
-  {#if app.continuous}
-    <button class="stopscan" title="正在识别对局详情，点这里停止" aria-label="停止识别" onclick={() => app.toggleContinuous()}>
-      <span class="live-dot"></span>
-      <Icon name="stop" size={14} />
-    </button>
-  {/if}
   <!-- 追踪列表竖着排，点头像取消追踪，和顶栏一样 -->
   <span class="cnt" title="追踪 {total} 项"><b>{total}</b><em>追踪</em></span>
   <div class="list">
@@ -80,20 +74,6 @@
   }
   .open:hover {
     background: var(--mint-hi);
-  }
-  .stopscan {
-    flex: none;
-    width: 34px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-    padding: 6px 0;
-    color: var(--mint);
-    box-shadow: inset 0 0 0 1px var(--mint);
-  }
-  .stopscan:hover {
-    background: var(--mint-tint);
   }
   .cnt {
     flex: none;

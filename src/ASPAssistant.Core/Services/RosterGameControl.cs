@@ -42,7 +42,7 @@ public sealed class RosterGameControl : IDisposable
         else
         {
             var rect = User32.GetClientRectScreen(_start.Window) ?? throw new IOException("无法读取游戏客户区。");
-            Check(_controller.Click(sort.X * rect.Width / 1920, sort.Y * rect.Height / 1080).Wait());
+            Check(_controller.Click(sort.X * rect.Height / 1080, sort.Y * rect.Height / 1080).Wait());
         }
         await Task.Delay(1000, token);
     }
@@ -55,8 +55,8 @@ public sealed class RosterGameControl : IDisposable
         else
         {
             var rect = User32.GetClientRectScreen(_start.Window) ?? throw new IOException("无法读取游戏客户区。");
-            int x1 = (left ? 210 + distance : 210) * rect.Width / 1920;
-            int x2 = (left ? 210 : 210 + distance) * rect.Width / 1920;
+            int x1 = (left ? 210 + distance : 210) * rect.Height / 1080;
+            int x2 = (left ? 210 : 210 + distance) * rect.Height / 1080;
             int y = 450 * rect.Height / 1080;
             Check(_controller.TouchDown(0, x1, y, 0).Wait());
             try

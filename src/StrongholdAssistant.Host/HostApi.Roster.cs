@@ -110,17 +110,16 @@ public sealed partial class HostApi
         _rosterStarted = null;
         _rosterReason = "user";
         _rosterStop = stop;
-        bool resume = IsContinuous;
         RosterGameControl? control = null;
         bool acquired = false;
+        byte[]? first = null;
         try
         {
-            await StopContinuousAsync();
             await _scanGate.WaitAsync(stop.Token); acquired = true;
             await _pauseRoster(true);
             stop.Token.ThrowIfCancellationRequested();
             control = await Task.Run(_rosterControl!);
-            var first = await Task.Run(control.Capture);
+            first = await Task.Run(control.Capture);
             var reading = await _rosterReader.ReadAsync(first);
             stop.Token.ThrowIfCancellationRequested();
             if (reading is null)
@@ -128,7 +127,7 @@ public sealed partial class HostApi
             Changed?.Invoke("rosterScan", new RosterScanStatus(true, 0));
             _ = Task.Run(async () =>
             {
-                try { await RunRosterAsync(control, first, stop, resume); }
+                try { await RunRosterAsync(control, first, stop); }
                 finally { completion.TrySetResult(); }
             });
         }
@@ -140,7 +139,6 @@ public sealed partial class HostApi
             lock (_rosterGate) { _rosterStop = null; stop.Dispose(); }
             if (acquired) _scanGate.Release();
             await _pauseRoster(false);
-            if (resume) await ScanContinuousAsync(true);
             completion.TrySetResult();
             if (canceled)
             {
@@ -148,6 +146,7 @@ public sealed partial class HostApi
                     reason == "input" ? "检测到鼠标或键盘操作，读取停止。" : "已停止读取。"));
                 return;
             }
+            ReportRecognitionFailure(first, ex.Message, null, ["物资调配：检查首页；排序和列尚未读取"]);
             throw;
         }
     }
@@ -164,20 +163,47 @@ public sealed partial class HostApi
             _rosterReason = "input"; _rosterStop?.Cancel();
         }
     }
-    private async Task RunRosterAsync(RosterGameControl control, byte[] frame, CancellationTokenSource stop, bool resume)
+    internal static async Task<RosterSort?> RecheckRosterSortAsync(RosterSort? sort,
+        Func<Task<RosterSort?>> captureAndRead, bool requireTier, CancellationToken token)
+    {
+        for (int attempt = 0; attempt < 3 && (requireTier ? sort?.Mode != "tier" : sort is null); attempt++)
+        {
+            await Task.Delay(500, token);
+            sort = await captureAndRead();
+        }
+        return sort;
+    }
+
+    private async Task RunRosterAsync(RosterGameControl control, byte[] frame, CancellationTokenSource stop)
     {
         string reason = "end"; string? error = null;
         var seen = new HashSet<string>(); var squad = new List<string>();
+        string step = "读取排序";
+        RosterSort? sort = null;
+        RosterReading? reading = null;
+        void SaveFailure(string message, object? measuredColumns = null) => ReportRecognitionFailure(frame, message, null,
+            [$"物资调配：{step}", $"排序：{JsonSerializer.Serialize(sort, JsonOptions)}",
+             $"测量所得列：{JsonSerializer.Serialize(measuredColumns)}",
+             $"已识别卡片列：{JsonSerializer.Serialize(reading?.Cards.Select(c => c.X).Distinct().Order().ToArray())}",
+             $"未匹配名字：{JsonSerializer.Serialize(reading?.UnknownNames)}"]);
         try
         {
             stop.Token.ThrowIfCancellationRequested();
-            var sort = await _rosterReader!.ReadSortAsync(frame);
+            sort = await _rosterReader!.ReadSortAsync(frame);
+            async Task<RosterSort?> CaptureSort()
+            {
+                frame = control.Capture();
+                sort = null;
+                sort = await _rosterReader.ReadSortAsync(frame);
+                return sort;
+            }
+            sort = await RecheckRosterSortAsync(sort, CaptureSort, false, stop.Token);
             if (sort?.Mode == "covenant")
             {
+                step = "切换并确认等阶排序";
                 await control.SelectTierSortAsync(sort, stop.Token);
-                frame = control.Capture();
-                if (await _rosterReader.ReadAsync(frame) is null) { reason = "left"; return; }
-                sort = await _rosterReader.ReadSortAsync(frame);
+                sort = null;
+                sort = await RecheckRosterSortAsync(sort, CaptureSort, true, stop.Token);
             }
             stop.Token.ThrowIfCancellationRequested();
             if (sort?.Mode != "tier") throw new IOException("无法确认物资调配页已按等阶排序。");
@@ -190,13 +216,24 @@ public sealed partial class HostApi
                 {
                     stop.Token.ThrowIfCancellationRequested();
                     if (control.Lost) { reason = "lost"; break; }
-                    var reading = await _rosterReader!.ReadAsync(frame);
-                    if (reading is null) { reason = "left"; break; }
+                    step = "读取卡片";
+                    reading = null;
+                    reading = await _rosterReader!.ReadAsync(frame);
+                    if (reading is null)
+                    {
+                        reason = "left";
+                        SaveFailure("已离开物资调配页，读取停止。");
+                        break;
+                    }
                     if (left) MergeRoster(reading, seen, squad);
                     if (still >= 2) break;
                     var previous = frame;
                     lock (_rosterGate) { _rosterStarted ??= DateTimeOffset.UtcNow; }
-                    await control.DragAsync(left, scroll.NextDrag(frame, reading), stop.Token);
+                    step = "测量列间距";
+                    int distance = scroll.NextDrag(frame, reading);
+                    step = "拖动列表";
+                    await control.DragAsync(left, distance, stop.Token);
+                    step = "拖动后截图";
                     frame = control.Capture();
                     still = RosterReader.SamePosition(previous, frame) ? still + 1 : 0;
                 }
@@ -209,6 +246,7 @@ public sealed partial class HostApi
             reason = control.Lost ? "lost" : "failed"; error = ex.Message;
             // 原来不记，玩家只看到「读取失败。」，诊断包里也查不到原因（v1.0.4 玩家诊断包）
             ASPAssistant.Core.AppLogger.Error("Roster", "物资调配读取失败", ex);
+            SaveFailure(ex.Message, ex.Data["rosterColumns"]);
         }
         finally
         {
@@ -230,7 +268,6 @@ public sealed partial class HostApi
             lock (_rosterGate) { _rosterStop = null; stop.Dispose(); }
             _scanGate.Release();
             await _pauseRoster(false);
-            if (resume) await ScanContinuousAsync(true);
             string message = reason switch { "end" => "物资调配列表读取完成。", "user" => "已停止读取。", "left" => "已离开物资调配页，读取停止。", "input" => "检测到鼠标或键盘操作，读取停止。", "lost" => "游戏窗口丢失，读取停止。", _ => "读取失败。\n" + error };
             Changed?.Invoke("rosterScan", new RosterScanStatus(false, seen.Count, reason, message));
         }

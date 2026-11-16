@@ -2,6 +2,7 @@ using System.Buffers.Binary;
 using System.Reflection;
 using System.Text.Json;
 using ASPAssistant.Core.Data;
+using ASPAssistant.Core.Models;
 using ASPAssistant.Core.GameModes.GarrisonProtocol;
 using ASPAssistant.Core.Services;
 using ASPAssistant.Tests.Services;
@@ -98,24 +99,28 @@ public sealed class SoloModeTests(EnemyRecognitionFixture fixture)
             Assert.True(json.GetProperty("awaitingDetail").GetBoolean());
 
             shot = await Image("mumu-solo-detail-top-1763x992.png");
-            var recognized = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             var scans = new List<ScanStatus>();
             api.Changed += (_, value) => {
                 if (value is ScanStatus status) scans.Add(status);
-                if (value is MatchInfo { Source: "recognized" }) recognized.TrySetResult();
             };
             await Tick();
-            Assert.True(api.IsContinuous);
             Assert.False(api.Match.AwaitingDetail);
-            await recognized.Task.WaitAsync(TimeSpan.FromSeconds(30));
-            await api.StopContinuousAsync();
             Assert.True(api.Match.Solo);
-            Assert.Contains(scans, s => s.Busy && s.Continuous == true);
+            Assert.Equal("recognized", api.Match.Source);
+            Assert.NotNull(api.Match.RecognizedAt);
+            Assert.NotEmpty(api.Match.BannedOperators);
+            Assert.Collection(scans,
+                s => Assert.True(s.Busy),
+                s => {
+                    Assert.False(s.Busy);
+                    Assert.True(s.Ok);
+                    Assert.Equal($"新识别到 {api.Match.BannedOperators.Length} 名禁用干员，共 {api.Match.BannedOperators.Length} 名。", s.Message);
+                });
             Assert.Equal("mode_single_1", api.Match.Mode?.Id);
-            Assert.Contains(scans, s => s.Continuous == false);
             await Tick();
             Assert.Equal(1, details);
-            Assert.False(api.IsContinuous);
+            Assert.Equal(2, captures);
+            Assert.Equal(2, scans.Count);
 
             // 沿用原有状态机：两帧实际对局画面重新允许下一局开局。
             shot = await Image("gameplay-markers-1920x1080.png");
@@ -129,7 +134,38 @@ public sealed class SoloModeTests(EnemyRecognitionFixture fixture)
             Assert.Equal("mode_multi_hard", api.Match.Mode?.Id);
             Assert.True(captures >= 2);
         }
-        finally { await api.StopContinuousAsync(); if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+    }
+
+    [Fact]
+    public async Task DetailFailurePublishesSingleFailureAndSavesDiagnostics()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var api = await HostApi.CreateAsync(Data, directory);
+        var shot = await Image("shop-tier2-color.png");
+        int captures = 0;
+        await api.InitializeRecognitionAsync(Data, fixture.Engine, () => {
+            captures++;
+            return Task.FromResult<byte[]?>(shot);
+        });
+        try
+        {
+            api.ReadOpeningMode = () => Task.FromResult<GameModeInfo?>(null);
+            await api.HandleOpeningAsync(true);
+            var scans = new List<ScanStatus>();
+            api.Changed += (_, value) => { if (value is ScanStatus status) scans.Add(status); };
+            var error = await Assert.ThrowsAsync<RecognitionException>(() => api.HandleDetailAsync());
+            await api.HandleDetailAsync();
+
+            Assert.Equal(1, captures);
+            Assert.True(api.Match.Solo);
+            Assert.False(api.Match.AwaitingDetail);
+            Assert.Equal("none", api.Match.Source);
+            Assert.Equal(new[] { new ScanStatus(true), new ScanStatus(false, error.Message, false) }, scans);
+            Assert.Single(Directory.GetFiles(Path.Combine(directory, "diagnostics"), "*.png"));
+            Assert.Single(Directory.GetFiles(Path.Combine(directory, "diagnostics"), "*.json"));
+        }
+        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
     }
 
     [Fact]

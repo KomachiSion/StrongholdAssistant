@@ -472,7 +472,6 @@ public sealed partial class HostApi
             case "copyText": CopyText(Read<string>(0)); return null;
             case "rescan":
                 return await RecordInformationAsync();
-            case "scanContinuous": await ScanContinuousAsync(Read<bool>(0)); return null;
             case "setCovenantIncomplete": return SetCovenantIncomplete(Read<string>(0), Read<bool>(1));
             case "setOperatorBanned": return SetOperatorBanned(Read<string>(0), Read<bool>(1));
             case "lineups": return await LineupsAsync();

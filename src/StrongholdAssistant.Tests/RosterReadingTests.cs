@@ -7,6 +7,45 @@ namespace StrongholdAssistant.Tests;
 public sealed class RosterReadingTests(EnemyRecognitionFixture fixture, ITestOutputHelper output)
 {
     [Fact]
+    public async Task WideFrameKeepsCardsUndistortedAndSortAnchoredRight()
+    {
+        var reader = new RosterReader(fixture.Engine, Path.Combine(AppContext.BaseDirectory, "data"));
+        var source = Path.Combine(AppContext.BaseDirectory, "TestData", "roster-left-end-1920x1080.jpg");
+        var original = await File.ReadAllBytesAsync(source);
+        using var image = new System.Drawing.Bitmap(source);
+        using var canvas = new System.Drawing.Bitmap(2045, 1080);
+        using (var g = System.Drawing.Graphics.FromImage(canvas))
+        {
+            g.Clear(System.Drawing.Color.Black);
+            // 只验证已有完整列不变形；右侧残卡缺少完整像素，不能伪造新列。
+            g.DrawImage(image, new System.Drawing.Rectangle(0, 0, 1750, 1080), 0, 0, 1750, 1080, System.Drawing.GraphicsUnit.Pixel);
+            g.FillRectangle(System.Drawing.Brushes.Black, 1250, 0, 795, 130);
+            g.DrawImage(image, new System.Drawing.Rectangle(1375, 0, 670, 130), 1250, 0, 670, 130, System.Drawing.GraphicsUnit.Pixel);
+        }
+        using var wide = new System.Drawing.Bitmap(canvas, 2558, 1351);
+        using var png = new MemoryStream();
+        wide.Save(png, System.Drawing.Imaging.ImageFormat.Png);
+        var bytes = png.ToArray();
+        var before = await reader.ReadAsync(original);
+        var after = await reader.ReadAsync(bytes);
+        Assert.NotNull(before);
+        Assert.NotNull(after);
+        Assert.Equal(before.Cards.Select(c => c.Operator.Name), after.Cards.Select(c => c.Operator.Name));
+        Assert.Equal(before.Cards.Select(c => c.Operator.Skill), after.Cards.Select(c => c.Operator.Skill));
+        var (width, spacing) = RosterReader.MeasureScroll(bytes);
+        Assert.Equal(2045, width);
+        Assert.InRange(spacing, 308, 312);
+        var oldSort = await reader.ReadSortAsync(original);
+        var sort = await reader.ReadSortAsync(bytes);
+        Assert.NotNull(oldSort);
+        Assert.NotNull(sort);
+        Assert.Equal(oldSort.Mode, sort.Mode);
+        Assert.InRange(sort.X - oldSort.X, 123, 127);
+        Assert.InRange(sort.Y - oldSort.Y, -2, 2);
+        output.WriteLine($"2558×1351：完整卡片 {after.Cards.Length}，归一宽度 {width}，列距 {spacing}，排序 ({sort.X},{sort.Y})。");
+    }
+
+    [Fact]
     public void VectorAveragesFineStripesWithoutDarkEdges()
     {
         using var image = new System.Drawing.Bitmap(120, 120);

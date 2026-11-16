@@ -265,7 +265,7 @@ public sealed class GameConnectionService : IDisposable
             var device = _device ?? throw new IOException("模拟器连接已断开。");
             var state = State;
             var result = EmulatorDisplay.RunAdb(device, ["-s", device.Serial, "shell", "input", "-d",
-                (device.DisplayId ?? 0).ToString(), "tap", (x * state.Width / 1920).ToString(), (y * state.Height / 1080).ToString()]);
+                (device.DisplayId ?? 0).ToString(), "tap", (x * state.Height / 1080).ToString(), (y * state.Height / 1080).ToString()]);
             if (result.ExitCode != 0) throw new IOException("模拟器排序切换失败：" + result.Error);
         }
     }
@@ -277,8 +277,8 @@ public sealed class GameConnectionService : IDisposable
         {
             var device = _device ?? throw new IOException("模拟器连接已断开。");
             var state = State;
-            int x1 = (left ? 210 + distance : 210) * state.Width / 1920;
-            int x2 = (left ? 210 : 210 + distance) * state.Width / 1920;
+            int x1 = (left ? 210 + distance : 210) * state.Height / 1080;
+            int x2 = (left ? 210 : 210 + distance) * state.Height / 1080;
             int y = 450 * state.Height / 1080;
             var result = EmulatorDisplay.RunAdb(device, ["-s", device.Serial, "shell", "input", "-d",
                 (device.DisplayId ?? 0).ToString(), "swipe", x1.ToString(), y.ToString(), x2.ToString(), y.ToString(), "1100"]);

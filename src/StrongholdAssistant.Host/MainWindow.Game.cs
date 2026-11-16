@@ -251,7 +251,7 @@ public partial class MainWindow
         });
         _scanner.AwaitingDetail = () => _api.Match.AwaitingDetail;
         _scanner.BanScreenDetected += solo => _automaticScan = Dispatcher.InvokeAsync(() => RecordAutomaticallyAsync(solo)).Task.Unwrap();
-        _scanner.DetailScreenDetected += () => _automaticScan = Dispatcher.InvokeAsync(_api.HandleDetailAsync).Task.Unwrap();
+        _scanner.DetailScreenDetected += () => _automaticScan = Dispatcher.InvokeAsync(RecordDetailAutomaticallyAsync).Task.Unwrap();
     }
 
     // 跟随定位不等待 OCR 预热；首次发现和后续移动共用 UpdateGame。
@@ -293,6 +293,14 @@ public partial class MainWindow
         try { await _api.HandleOpeningAsync(solo); }
         catch (RecognitionException) { /* 失败已由 scan 事件送达界面，忙碌时跳过自动请求。 */ }
         finally { _automaticOpeningScreenshot = null; }
+    }
+
+    // 单人对局详情的自动识别也要接住识别失败和「正在识别」：没接住时关闭助手会在等它时出错，
+    // 窗口藏了进程却不退，像卡死（v1.2.0 玩家诊断包）
+    private async Task RecordDetailAutomaticallyAsync()
+    {
+        try { await _api.HandleDetailAsync(); }
+        catch (RecognitionException) { /* 失败已由 scan 事件送达界面，忙碌时跳过自动请求。 */ }
     }
 
     private async Task<byte[]?> CaptureInformationScreenAsync()

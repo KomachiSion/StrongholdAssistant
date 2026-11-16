@@ -3,7 +3,7 @@ using MaaFramework.Binding;
 
 namespace ASPAssistant.Core.Services;
 
-/// <summary>物资页专用后台截屏、排序切换及横向拖动；不激活窗口、不点击卡片。</summary>
+/// <summary>物资页专用截屏、排序切换及横向拖动；开始前把游戏切到前台，不点击卡片。</summary>
 public sealed class RosterGameControl : IDisposable
 {
     private readonly GameConnectionService _connection;
@@ -19,6 +19,10 @@ public sealed class RosterGameControl : IDisposable
             _controller = new(new DesktopWindowInfo(_start.Window, "", "", Win32ScreencapMethod.None,
                 Win32InputMethod.SendMessageWithCursorPos, Win32InputMethod.SendMessageWithCursorPos), LinkOption.None, CheckStatusOption.None);
             Check(_controller.LinkStart().Wait());
+            // 全屏的游戏不在前台时会停止刷新、不处理拖动：点完助手的「读取」焦点在助手上，
+            // 列表一下都拖不动，读两屏没变化就当成到头（v1.2.1 玩家诊断包，几位全屏玩家都这样）
+            User32.SetForegroundWindow(_start.Window);
+            Thread.Sleep(500);
         }
     }
     public bool Lost => _connection.State.Window != _start.Window || !User32.IsWindow(_start.Window) || User32.IsIconic(_start.Window);

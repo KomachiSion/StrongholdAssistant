@@ -153,7 +153,7 @@ public sealed class BanScreenAnalyzer
                 var looksLikeInfo = await _informationDetector.IsInformationScreenAsync(shot, imgWidth, imgHeight);
                 AnalysisFailed?.Invoke(looksLikeInfo
                     ? "未找到完整的核心/附加盟约区域，请打开本局信息页并保持面板顶部可见。"
-                    : "当前画面不是本局信息页，请打开开局信息页或对局详情后重试。");
+                    : "当前画面不是本局信息页，请打开开局信息页或对局详情后重试。想认场上的人，点本局页「场上」的「识别」或按 Alt+F。");
                 return;
             }
             // 2026-11-14：网格本身也会漏掉整行，不能用检测到的槽数作为盟约总数。

@@ -19,7 +19,8 @@ public sealed class SpriteModelMatcher : IDisposable
         _modelWeight = modelWeight;
         _indices = JsonSerializer.Deserialize<string[]>(File.ReadAllText(classesPath))!
             .Select((name, index) => (name, index)).ToDictionary(p => p.name, p => p.index);
-        _net = CvDnn.ReadNetFromOnnx(modelPath) ?? throw new InvalidDataException("小人模型无法加载。");
+        // 读成字节再交给 OpenCV：按路径加载时用 ANSI 编码传路径，装在中文目录、系统又不是中文区域时会崩（v1.1.1 玩家日志）
+        _net = CvDnn.ReadNetFromOnnx(File.ReadAllBytes(modelPath)) ?? throw new InvalidDataException("小人模型无法加载。");
         _net.SetPreferableBackend(Backend.OPENCV);
         _net.SetPreferableTarget(Target.CPU);
     }

@@ -1,4 +1,4 @@
-﻿// 2026-11-12：复用商店扫描截图读取回合与资金，通过事件交给宿主记录。
+// 2026-11-12：复用商店扫描截图读取回合与资金，通过事件交给宿主记录。
 // Modified for ASP Assistant Regulation on 2026-11-09; see NOTICE.
 using System.Threading.Channels;
 // 2026-11-13：先发布商店，按名称指纹复用结果，辅助识别降频并支持热切换扫描速度。
@@ -40,7 +40,11 @@ public class OcrScannerService : IDisposable
     private EconomyReader? _economyReader;
     private byte[]? _informationContext;
     private long _lastTimingLog;
-    public void InvalidateShop() => Interlocked.Increment(ref _cacheVersion);
+    public void InvalidateShop()
+    {
+        Interlocked.Increment(ref _cacheVersion);
+        _shopReader.InvalidateNames();
+    }
     private double _configuredInterval;
     private bool _visibleRest;
     public void SetShopScanSpeed(string speed)
@@ -167,15 +171,21 @@ public class OcrScannerService : IDisposable
     /// <summary>宿主给：屏幕上这块被助手自己的窗口（侧栏）盖着时返回 true，探针就不截。</summary>
     public Func<Rectangle, bool>? ProbeBlocked { get; set; }
 
+    private int _manualFieldRequests;
+
     // 与定时扫描共用占用标志，当前帧的商店、资金和棋盘判定不会与扫描交错。
     // capture：宿主给的截图方法（点助手里的「识别」时前台是助手，要和开局识别一样允许并在需要时先藏起侧栏）
     public async Task<FieldState> ReadCurrentFieldAsync(Func<Task<byte[]?>> capture,
         Func<byte[], DateTimeOffset, EconomyReading?, bool, bool, IReadOnlyList<ShopItem>, Task<FieldState>> recognize)
     {
-        while (Interlocked.CompareExchange(ref _scanning, 1, 0) != 0) await Task.Delay(20);
+        Interlocked.Increment(ref _manualFieldRequests);
+        using (FieldRecognitionTiming.Measure("scanWait"))
+            while (Interlocked.CompareExchange(ref _scanning, 1, 0) != 0) await Task.Delay(20);
+        Interlocked.Decrement(ref _manualFieldRequests);
         try
         {
-            var frame = await capture();
+            byte[]? frame;
+            using (FieldRecognitionTiming.Measure("capture")) frame = await capture();
             if (frame is null) throw new InvalidOperationException("还没连上游戏");
             return await ReadFieldFrameAsync(frame, DateTimeOffset.UtcNow, recognize);
         }
@@ -187,7 +197,8 @@ public class OcrScannerService : IDisposable
     {
         CollectionFrame?.Invoke(frame, at);
         var (width, height) = GetPngDimensions(frame);
-        var surface = FieldReader.InspectSurface(frame);
+        (bool Obscured, bool Detail, bool ConfirmationCandidate) surface;
+        using (FieldRecognitionTiming.Measure("surface")) surface = FieldReader.InspectSurface(frame);
         if (surface.Obscured || surface.Detail)
             throw new InvalidOperationException("棋盘被面板挡住了，关掉面板再点");
         if (surface.ConfirmationCandidate)
@@ -198,12 +209,25 @@ public class OcrScannerService : IDisposable
             if (text.Any(t => t.Text.Replace(" ", "").Contains("确认准备", StringComparison.Ordinal)))
                 throw new InvalidOperationException("棋盘被面板挡住了，关掉面板再点");
         }
-        var economy = await new EconomyReader(_ocrEngine, _shopReader.Theme).ReadAsync(frame, width, height);
-        bool main = await new BoardSurfaceReader(_ocrEngine).IsMainScreenAsync(frame, width, height);
+        bool main;
+        using (FieldRecognitionTiming.Measure("mainScreen"))
+            main = await new BoardSurfaceReader(_ocrEngine).IsMainScreenAsync(frame, width, height);
+        EconomyReading economy;
+        using (FieldRecognitionTiming.Measure("economy"))
+            economy = await new EconomyReader(_ocrEngine, _shopReader.Theme).ReadFieldAsync(frame, width, height, main);
         if (!economy.IsRest || !main)
-            throw new InvalidOperationException("现在不在休整期的棋盘画面，切到棋盘再点");
-        await _shopReader.ReadAsync(frame, width, height, _getTrackedNames());
-        return await recognize(frame, at, economy, main, _shopReader.HasVisibleCards, _shopReader.AllItems);
+            throw new InvalidOperationException("现在不在休整期的棋盘画面，先关掉干员详情等面板、回到棋盘再点");
+        // 手动认人只需卡身遮挡范围，不读商店文字，也不沿用上一帧卡片。
+        using var stream = new MemoryStream(frame);
+        using var bitmap = new System.Drawing.Bitmap(stream);
+        double uiScale = GameUiScale.Shop(bitmap);
+        bool visible = ShopLayout.HasCards(bitmap, uiScale, _shopReader.Theme);
+        var cards = visible ? Enumerable.Range(0, 6).Select(slot =>
+        {
+            var r = ShopLayout.Card(slot, width, height, uiScale, _shopReader.Theme);
+            return new ShopItem { SlotIndex = slot, CardRegion = (r.X / width, r.Y / height, r.Width / width, r.Height / height) };
+        }).ToArray() : [];
+        return await recognize(frame, at, economy, main, visible, cards);
     }
 
     public void Start()
@@ -243,6 +267,8 @@ public class OcrScannerService : IDisposable
     private async void OnScanTick(object? sender, ElapsedEventArgs e)
     {
         if (_pauseBanScreenDetection) return;
+        // 已排队的手动请求先取新帧，避免被下一轮定时扫描抢占。
+        if (Volatile.Read(ref _manualFieldRequests) != 0) return;
         // Skip if a previous scan is still running.
         if (Interlocked.CompareExchange(ref _scanning, 1, 0) != 0)
             return;

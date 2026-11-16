@@ -11,17 +11,19 @@ public sealed partial class HostApi
 
     public async Task<FieldState> RecognizeFieldAsync()
     {
+        using var timing = Settings.Collect ? new FieldRecognitionTiming() : null;
         var clock = Settings.Collect ? System.Diagnostics.Stopwatch.StartNew() : null;
         try
         {
             if (Connection.State != "connected" || ReadCurrentField is null) throw new RecognitionException("还没连上游戏");
             var result = await ReadCurrentField();
-            if (clock is not null) CollectRecognition(clock.Elapsed.TotalMilliseconds, result, null);
+            timing?.Mark("namesReady");
+            if (clock is not null) CollectRecognition(clock.Elapsed.TotalMilliseconds, result, null, timing!);
             return result;
         }
         catch (Exception e)
         {
-            if (clock is not null) CollectRecognition(clock.Elapsed.TotalMilliseconds, null, e.Message);
+            if (clock is not null) CollectRecognition(clock.Elapsed.TotalMilliseconds, null, e.Message, timing!);
             // 保留核心的画面校验提示；采集只旁观，不改变异常处理结果。
             if (e is InvalidOperationException && (e.Message == "还没连上游戏" || e.Message.EndsWith("再点")))
                 throw new RecognitionException(e.Message);
@@ -35,6 +37,18 @@ public sealed partial class HostApi
     private int _fieldGeneration;
     private int _fieldReaderGeneration;
     private Task _fieldIdentityWork = Task.CompletedTask;
+    private int? _fieldRestRound;
+
+    private void ObserveFieldPhase(EconomyReading? reading)
+    {
+        if (reading is null) return;
+        lock (_collectionGate)
+        {
+            if (!reading.IsRest || reading.Round is { } round && _fieldRestRound is { } previous && round != previous)
+                _confirmedFieldSource = null;
+            _fieldRestRound = reading.IsRest ? reading.Round ?? _fieldRestRound : null;
+        }
+    }
     private SpriteMatcher? _fieldSprites;
     private SpriteModelMatcher? _fieldSpriteModel;
     public event Action<FieldState?, FieldOverlayGeometry?>? FieldOverlayChanged;
@@ -84,8 +98,8 @@ public sealed partial class HostApi
         bool mainScreen, bool shopVisible, IReadOnlyList<ShopItem> shop)
     {
         if (economy is not { IsRest: true } || !mainScreen)
-            throw new RecognitionException("现在不在休整期的棋盘画面，切到棋盘再点");
-        await _fieldScanGate.WaitAsync();
+            throw new RecognitionException("现在不在休整期的棋盘画面，先关掉干员详情等面板、回到棋盘再点");
+        using (FieldRecognitionTiming.Measure("fieldWait")) await _fieldScanGate.WaitAsync();
         try
         {
             await ReadFieldCoreAsync(frame, at, economy, mainScreen, shopVisible, shop, true);
@@ -98,6 +112,9 @@ public sealed partial class HostApi
         bool mainScreen, bool shopVisible, IReadOnlyList<ShopItem> shop, bool force)
     {
         var collectionClock = Settings.Collect ? System.Diagnostics.Stopwatch.StartNew() : null;
+        ObserveFieldPhase(economy);
+        if (economy is { IsRest: true, Round: null })
+            economy = economy with { Round = _fieldRestRound };
         int generation;
         lock (_fieldGate) generation = _fieldGeneration;
         if (_fieldReaderGeneration != generation) { _fieldReader!.Reset(); _fieldReaderGeneration = generation; }
@@ -106,7 +123,7 @@ public sealed partial class HostApi
         _fieldReader.BossRound = economy?.IsFinalRound == true || economy?.Round is { } round
             && _boardRouteStore?.IsBossRound(round, Match.Solo, Match.Mode?.Id) == true;
         var cursor = FieldCursorRegion();
-        var observation = await _fieldReader!.ReadAsync(frame, at, economy, mainScreen, shopVisible, shop, cursor);
+        var observation = await _fieldReader!.ReadAsync(frame, at, economy, mainScreen, shopVisible, shop, cursor, readShop: !force);
         var match = Match;
         string? strategy = Catalog.GetProperty("strategies").EnumerateArray()
             .FirstOrDefault(s => s.GetProperty("id").GetString() == match.StrategyId) is var selected
@@ -125,12 +142,14 @@ public sealed partial class HostApi
                 var before = Settings.Collect ? _fieldTracker.State : null;
                 _comparingObservation = observation;
                 _collectionComparisons = Settings.Collect ? [] : null;
-                if (_fieldTracker.Observe(observation, Settings.FieldAuto || force, force)) changed = _fieldTracker.State;
+                using (FieldRecognitionTiming.Measure("tracker"))
+                    if (_fieldTracker.Observe(observation, Settings.FieldAuto || force, force)) changed = _fieldTracker.State;
                 if (Settings.Collect) CollectObservation(frame, observation, before, _fieldTracker.State,
                     _collectionComparisons?.ToArray() ?? [], force, collectionClock?.Elapsed.TotalMilliseconds ?? 0);
                 _collectionComparisons = null; _comparingObservation = null;
                 if (Settings.FieldAuto || force) _fieldOverlayGeometry = geometry;
             }
+            using var publishTiming = FieldRecognitionTiming.Measure("publish");
             if (Settings.FieldAuto || force) FieldOverlayChanged?.Invoke(Field, geometry);
             if (changed is not null && (Settings.FieldAuto || force))
             {
@@ -138,11 +157,10 @@ public sealed partial class HostApi
                 _publishingManualField = force;
                 try { Changed?.Invoke("field", changed); }
                 finally { _publishingManualField = false; }
-                if (force) SchedulePlacementCore(force: true);
             }
+            if (force) SchedulePlacementCore(force: true);
         });
         await _fieldIdentityWork;
-        if (force) await _placementWork;
     }
 
     public FieldState SetFieldOperator(FieldCell cell, string? name)
@@ -171,6 +189,7 @@ public sealed partial class HostApi
     private void ResetField()
     {
         InvalidateCollectionFrame();
+        _fieldRestRound = null;
         ResetPlacement();
         bool hadState;
         lock (_fieldGate)

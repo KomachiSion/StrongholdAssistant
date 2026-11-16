@@ -224,8 +224,17 @@ public sealed partial class FieldTracker
         if (o.Sprites is null || _matchSprite is null) return;
         var gone = before.Values.Where(u => o.Cells.GetValueOrDefault(u.Cell, -1) == 0).ToList();
 
-        foreach (var (cell, rawPatch) in o.Sprites.OrderByDescending(p => _occlusion is null ? 0 : p.Value.Geometry?.BadgeFootY ?? 0))
+        var ordered = o.Sprites.OrderByDescending(p => _occlusion is null ? 0 : p.Value.Geometry?.BadgeFootY ?? 0).ToArray();
+        int rowEnd = 0;
+        foreach (var (cell, rawPatch) in ordered)
         {
+            int index = Array.FindIndex(ordered, p => p.Key == cell);
+            if (force && index == rowEnd)
+            {
+                rowEnd = index + 1;
+                while (rowEnd < ordered.Length && ordered[rowEnd].Key.Zone == cell.Zone && ordered[rowEnd].Key.Row == cell.Row) rowEnd++;
+                PrepareRow(o, ordered[index..rowEnd]);
+            }
             if (!_units.TryGetValue(cell, out var unit)) continue;
             // 异阶尚未确认时不学习这一帧，避免把换入者的图块记到旧身份下。
             if (_tierChanges.ContainsKey(cell)) continue;
@@ -318,6 +327,7 @@ public sealed partial class FieldTracker
                 Source = candidates.Length == 0 ? null : "sprite", Status = status, Candidates = candidates,
                 Elite = unit.Operator == candidates.FirstOrDefault()?.Operator ? unit.Elite : null }, patch, force: force);
         }
+        _preparedRanks.Clear();
         foreach (var u in gone)
         {
             bool consumed = _log.Any(e => e.At == o.At.ToString("O") && e.From == u.Cell && e.Kind is "move" or "sell")
@@ -426,6 +436,63 @@ public sealed partial class FieldTracker
             && patch.OcclusionRatio < SpriteMatcher.OcclusionLearningThreshold && (!force || p.Forced || p.Unit.Status == "sure" && p.Unit.Source is "purchase" or "drag" or "manual") && p.Unit.Tier == tier && (names.Contains(p.Unit.Operator!) || sourceNames.Contains(p.Unit.Operator!)))
             .GroupBy(p => p.Unit.Operator!).ToDictionary(g => g.Key,
                 g => g.Max(p => SpriteMatcher.MatchPersonal(p.Patch, patch)));
+        var prepared = _preparedRanks.GetValueOrDefault(patch.Image);
+        RankResult result;
+        if (prepared is not null && prepared.Names.SequenceEqual(names) && prepared.Sources.SequenceEqual(sourceNames)
+            && prepared.Personal.Count == personal.Count && personal.All(p => prepared.Personal.GetValueOrDefault(p.Key, double.NaN) == p.Value)
+            && SameMask(prepared.Patch.OcclusionMask, patch.OcclusionMask) && SameMask(prepared.Patch.NeighborMask, patch.NeighborMask)
+            && (prepared.Patch.NeighborNames ?? []).SequenceEqual(patch.NeighborNames ?? []))
+            result = prepared.Result;
+        else result = ComputeRank(patch, tier, names, sourceNames, personal);
+        Compared?.Invoke(patch, result.Templates, result.Fused, result.Logits);
+        return result.Fused.OrderBy(c => _roster.GetValueOrDefault(c.Name)?.Sold ?? false).ThenByDescending(c => c.Score).ToArray();
+    }
+
+    private sealed record RankResult(SpriteCandidate[] Templates, SpriteCandidate[] Fused, float[]? Logits);
+    private sealed record PreparedRank(FieldSpritePatch Patch, string[] Names, string[] Sources,
+        Dictionary<string, double> Personal, RankResult Result);
+    private readonly Dictionary<byte[], PreparedRank> _preparedRanks = [];
+    private static bool SameMask(byte[]? a, byte[]? b) => a is null ? b is null : b is not null && a.AsSpan().SequenceEqual(b);
+
+    // 同排只并行纯比对；邻人和个人图块若被前格更新，顺序应用时按实际输入重算。
+    private void PrepareRow(FieldObservation o, KeyValuePair<FieldCell, FieldSpritePatch>[] row)
+    {
+        _preparedRanks.Clear();
+        var inputs = new List<(FieldSpritePatch Patch, int Tier, string[] Names, string[] Sources, Dictionary<string, double> Personal)>();
+        for (int i = 0; i < row.Length; i++)
+        {
+            var (cell, raw) = row[i];
+            if (!_units.TryGetValue(cell, out var unit) || _tierChanges.ContainsKey(cell)
+                || unit.Status == "sure" && unit.Source is "purchase" or "drag" or "manual") continue;
+            var patch = _occlusion?.Invoke(raw, _units.Values.Where(u => u.Cell != cell && o.Sprites!.ContainsKey(u.Cell))
+                .Select(u => (u, o.Sprites![u.Cell]))) ?? raw;
+            var names = MatchCandidates().Distinct().Where(n => HasTier(n, unit.Tier))
+                .OrderBy(n => _roster.GetValueOrDefault(n)?.Sold ?? false).ToArray();
+            var active = names.Where(n => !(_roster.GetValueOrDefault(n)?.Sold ?? false)).ToArray();
+            bool only = !_purchaseCandidates.ContainsKey(cell) && active.Length == 1;
+            if (only) names = active;
+            var sources = only ? [] : (_gainContexts.GetValueOrDefault(cell)?.Names ?? [])
+                .Concat(_purchaseCandidates.GetValueOrDefault(cell) ?? [])
+                .Concat(unit.Operator is { } name ? [name] : []).Where(n => HasTier(n, unit.Tier)).Distinct().ToArray();
+            if (names.Length == 0 && sources.Length == 0) continue;
+            var personal = _learned.Where(p => p.Patch.OcclusionRatio < SpriteMatcher.OcclusionLearningThreshold
+                && patch.OcclusionRatio < SpriteMatcher.OcclusionLearningThreshold
+                && (p.Forced || p.Unit.Status == "sure" && p.Unit.Source is "purchase" or "drag" or "manual")
+                && p.Unit.Tier == unit.Tier && (names.Contains(p.Unit.Operator!) || sources.Contains(p.Unit.Operator!)))
+                .GroupBy(p => p.Unit.Operator!).ToDictionary(g => g.Key, g => g.Max(p => SpriteMatcher.MatchPersonal(p.Patch, patch)));
+            inputs.Add((patch, unit.Tier, names, sources, personal));
+        }
+        var results = new PreparedRank[inputs.Count];
+        Parallel.For(0, inputs.Count, new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount }, i =>
+        {
+            var p = inputs[i];
+            results[i] = new(p.Patch, p.Names, p.Sources, p.Personal, ComputeRank(p.Patch, p.Tier, p.Names, p.Sources, p.Personal));
+        });
+        foreach (var result in results) if (result is not null) _preparedRanks[result.Patch.Image] = result;
+    }
+
+    private RankResult ComputeRank(FieldSpritePatch patch, int tier, string[] names, string[] sourceNames, Dictionary<string, double> personal)
+    {
         float[]? logits = null;
         if (_spriteModel is not null)
         {
@@ -455,8 +522,7 @@ public sealed partial class FieldTracker
         {
             templates = _spriteModel.Fuse(logits!, templates);
         }
-        Compared?.Invoke(patch, templateScores, templates, logits);
-        return templates.OrderBy(c => _roster.GetValueOrDefault(c.Name)?.Sold ?? false).ThenByDescending(c => c.Score).ToArray();
+        return new(templateScores, templates, logits);
     }
 
     private void Remember(FieldUnit unit, FieldSpritePatch patch, bool force = false)

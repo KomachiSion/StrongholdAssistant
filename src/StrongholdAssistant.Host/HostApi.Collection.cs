@@ -17,6 +17,8 @@ public sealed partial class HostApi
     private byte[]? _collectionFrame;
     private DateTimeOffset _collectionAt;
     private FieldObservation? _collectionObservation;
+    private sealed record ConfirmedFieldSource(byte[] Frame, DateTimeOffset At, FieldState? State);
+    private ConfirmedFieldSource? _confirmedFieldSource;
     private Task<byte[]>? _collectionRaw;
     private string? _rawCollectedFor;
     private Lazy<object> _collectionAssets = null!;
@@ -46,7 +48,7 @@ public sealed partial class HostApi
         _collections?.Enable(Settings.Collect);
         _fieldTracker.Compared = Settings.Collect ? CollectComparison : null;
         if (!Settings.Collect)
-            lock (_collectionGate) { _collectionFrame = null; _collectionObservation = null; _collectionRaw = null; }
+            lock (_collectionGate) { _collectionFrame = null; _collectionObservation = null; _collectionRaw = null; _confirmedFieldSource = null; }
         CollectionEnabledChanged?.Invoke();
     }
 
@@ -138,6 +140,8 @@ public sealed partial class HostApi
         lock (_collectionGate)
         {
             _collectionFrame = frame; _collectionAt = observation.At; _collectionObservation = observation;
+            if (force && observation is { IsRest: true, MainScreen: true })
+                _confirmedFieldSource = new(frame, observation.At, after);
             if (observation is { IsRest: true, MainScreen: true } && NeedsCollectionRaw)
             {
                 raw = _collectionRaw ?? Task.FromResult(frame);
@@ -183,13 +187,13 @@ public sealed partial class HostApi
         });
     }
 
-    private void CollectRecognition(double milliseconds, FieldState? result, string? error)
+    private void CollectRecognition(double milliseconds, FieldState? result, string? error, FieldRecognitionTiming timing)
     {
         byte[]? frame; DateTimeOffset frameAt;
         lock (_collectionGate) { frame = _collectionFrame; frameAt = _collectionAt; }
         Collect(DateTimeOffset.UtcNow, b => b.Log("recognize", new
         {
-            milliseconds, result, error, frameAt,
+            milliseconds, stages = timing.Snapshot(), requestId = timing.RequestId, phase = "names", result, error, frameAt,
             frame = frame is null ? null : b.Image(frame, "recognize", capturedAt: frameAt)
         }));
     }
@@ -198,26 +202,27 @@ public sealed partial class HostApi
 
     internal void InvalidateCollectionFrame()
     {
-        if (!Settings.Collect) return;
-        lock (_collectionGate) _collectionObservation = null;
+        lock (_collectionGate) { _collectionObservation = null; _confirmedFieldSource = null; }
     }
 
     public void ConfirmField()
     {
         if (!Settings.Collect) throw new RecognitionException("先打开设置里的「帮助改进识别」");
+        ConfirmedFieldSource? source;
         lock (_collectionGate)
         {
-            if (_collectionObservation is not { IsRest: true, MainScreen: true } || _collectionFrame is null)
-                throw new RecognitionException("现在不在休整期的棋盘画面，切到棋盘再点");
+            source = _confirmedFieldSource;
+            if (source is null)
+                throw new RecognitionException("现在不在休整期的棋盘画面，先关掉干员详情等面板、回到棋盘再点");
         }
-        CollectAnswer("confirmField", null, null, null, Field);
+        CollectAnswer("confirmField", null, null, null, source.State, source);
     }
 
-    private void CollectAnswer(string kind, FieldCell? cell, string? from, string? to, FieldState? state)
+    private void CollectAnswer(string kind, FieldCell? cell, string? from, string? to, FieldState? state, ConfirmedFieldSource? source = null)
     {
         if (!Settings.Collect) return;
         byte[]? frame; DateTimeOffset at;
-        lock (_collectionGate) { frame = _collectionFrame; at = _collectionAt; }
+        lock (_collectionGate) { frame = source?.Frame ?? _collectionFrame; at = source?.At ?? _collectionAt; }
         if (frame is null) return;
         Collect(DateTimeOffset.UtcNow, batch =>
         {
@@ -242,6 +247,7 @@ public sealed partial class HostApi
         {
             _rawCollectedFor = null; _collectionRaw = null;
             _collectionFrame = null; _collectionObservation = null;
+            _confirmedFieldSource = null;
         }
         return _collections!.ClearAsync();
     }

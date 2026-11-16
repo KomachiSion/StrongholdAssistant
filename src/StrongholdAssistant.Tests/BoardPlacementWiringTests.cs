@@ -59,7 +59,7 @@ public sealed class BoardPlacementWiringTests : IDisposable
              new("芬", new("board", 3, 2), new("bench", 2, 0), null)],
             0, [], null, null, []);
         var publish = typeof(HostApi).GetMethod("PublishPlacement", PrivateInstance)!;
-        publish.Invoke(api, [result, 0]);
+        publish.Invoke(api, [result, 0, null]);
         var overlay = Assert.IsType<OverlayPlacementPlan>(Assert.Single(received));
         Assert.Same(result, Assert.Single(bridge));
         Assert.Equal(result.BasedOn, overlay.BasedOn);
@@ -67,10 +67,10 @@ public sealed class BoardPlacementWiringTests : IDisposable
         // 启动时使用同一转换函数读取当前推荐。
         Assert.Equal(overlay.BasedOn, HostApi.ToOverlayPlacement(api.Placement)!.BasedOn);
         Assert.Equal(overlay.Moves, HostApi.ToOverlayPlacement(api.Placement)!.Moves);
-        publish.Invoke(api, [null, 0]);
+        publish.Invoke(api, [null, 0, null]);
         Assert.Null(received[1]);
         Assert.Null(bridge[1]);
-        publish.Invoke(api, [result, 0]);
+        publish.Invoke(api, [result, 0, null]);
         typeof(HostApi).GetMethod("ResetPlacement", PrivateInstance)!.Invoke(api, [true]);
         Assert.Equal(4, received.Count);
         Assert.Null(received[3]);
@@ -98,7 +98,7 @@ public sealed class BoardPlacementWiringTests : IDisposable
         schedule.Invoke(api, null);
         Assert.Equal(initial, generation.GetValue(api));
         var result = new PlacementResult("confirmed", "computed", "balanced", [], 0, [], null, null, []);
-        typeof(HostApi).GetMethod("PublishPlacement", PrivateInstance)!.Invoke(api, [result, initial]);
+        typeof(HostApi).GetMethod("PublishPlacement", PrivateInstance)!.Invoke(api, [result, initial, null]);
         fieldProperty.SetValue(tracker, state with { UpdatedAt = "equipped", Units = [state.Units[0] with { Equipment = [new("坚守盾牌", false)] }] });
         schedule.Invoke(api, null);
         Assert.Equal(initial + 1, generation.GetValue(api));

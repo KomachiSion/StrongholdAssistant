@@ -1,5 +1,8 @@
 ﻿using System.Diagnostics;
 using ASPAssistant.Core.Services;
+using System.Drawing;
+using System.Reflection;
+using ASPAssistant.Core.GameModes.GarrisonProtocol;
 using ASPAssistant.Tests.Services;
 using StrongholdAssistant.Host;
 using Xunit.Abstractions;
@@ -12,6 +15,48 @@ public sealed class CustomPickReadingTests(EnemyRecognitionFixture fixture, ITes
     private static string Data => Path.Combine(AppContext.BaseDirectory, "data");
     private static byte[] Frame(string name) => File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "TestData", name + ".png"));
     private static Task<HostApi> Api() => HostApi.CreateAsync(Data, Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N")));
+
+    [Theory]
+    [InlineData("custom-picks-solo-final-2v2", false)]
+    [InlineData("shop-terminal-ui100-2000x1125", true)]
+    public async Task FullScanReadsFinalPicksAndPreservesRestPage(string sample, bool rest)
+    {
+        var api = await Api();
+        api.InitializeMatchReading(Data, fixture.Engine);
+        using var scanner = new OcrScannerService(new ScreenCaptureService(), new GarrisonOcrStrategy(),
+            new ShopReader(fixture.Engine, []), fixture.Engine, new ASPAssistant.Core.GameState.GameState(), () => []);
+        EconomyReading? economy = null;
+        bool observed = false;
+        scanner.EconomyRead += reading => { economy = reading; api.ObserveEconomy(reading); };
+        scanner.ObserveFieldAsync = (_, _, _, _, _, _) => Task.CompletedTask;
+        scanner.ObserveMatchFrameAsync = async (frame, width, height, reading, scale) =>
+        {
+            observed = true;
+            output.WriteLine($"boardEconomy={reading}");
+            await api.ObserveMatchFrameAsync(frame, width, height, reading, scale);
+        };
+        var shot = Frame(sample);
+        using var bitmap = new Bitmap(new MemoryStream(shot));
+        await (Task)typeof(OcrScannerService).GetMethod("ScanFrameAsync", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(scanner, [shot, bitmap.Width, bitmap.Height, DateTimeOffset.UtcNow, 0d, null, 0d])!;
+        foreach (string flag in new[] { "_pauseBanScreenDetection", "_banScreenActive" })
+            output.WriteLine($"{flag}={typeof(OcrScannerService).GetField(flag, BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(scanner)}");
+        Assert.True(observed);
+        Assert.NotNull(economy);
+        Assert.Equal(rest, economy.IsRest);
+        if (rest)
+        {
+            Assert.Equal(new EconomyReading(1, 4, 1, 5, true), economy with { UpgradeButton = null });
+            Assert.Null(api.Match.CustomPicks);
+        }
+        else
+        {
+            Assert.Null(economy.Round);
+            Assert.NotNull(api.Match.CustomPicks);
+            Assert.Equal(new[] { "结城理", "凯尔希·思衡托" }, api.Match.CustomPicks[5]);
+            Assert.Equal(new[] { "年", "珊比" }, api.Match.CustomPicks[6]);
+        }
+    }
 
     [Fact]
     public async Task SelectionReadsCardsAndBansWithoutPublishingFinalPicks()

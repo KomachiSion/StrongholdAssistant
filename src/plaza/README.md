@@ -67,6 +67,7 @@ npm run build
    npx wrangler pages secret put TURNSTILE_SECRET --project-name stronghold-plaza
    npx wrangler pages secret put CODE_PEPPER --project-name stronghold-plaza
    npx wrangler pages secret put IP_SECRET --project-name stronghold-plaza
+   npx wrangler pages secret put BOT_TOKEN --project-name stronghold-plaza
    npx wrangler pages secret put ALIYUN_DM_ACCESS_KEY_ID --project-name stronghold-plaza
    npx wrangler pages secret put ALIYUN_DM_ACCESS_KEY_SECRET --project-name stronghold-plaza
    npx wrangler pages secret put ALIYUN_DM_ACCOUNT --project-name stronghold-plaza
@@ -126,6 +127,16 @@ npm run build
 - 未指定的请求、权限、网络错误使用简短中文提示。上述待设计确认的产品约定已在代码标注 `TODO(design)`。
 
 `POST /api/edge/traffic` 接收香港反代的日流量汇总（需 `X-Plaza-Edge` 与 `EDGE_SECRET` 相同，先应用 `0008_traffic.sql`）；管理员通过 `GET /api/admin/traffic?month=YYYY-MM` 查询月统计。
+
+## 机器人只读接口
+
+地址为 `https://stronghold-plaza.pages.dev`（也可使用 `https://sa.lubeiluchen.com`），请求头为 `Authorization: Bearer <BOT_TOKEN>`。服务端未配置或留空 `BOT_TOKEN` 时接口关闭；机器人调用不需要 Access 或 Cookie。
+
+四个路径均只接受 GET，返回 JSON：`/api/bot/summary` 汇总销售、广场和流量；`/api/bot/stats`、`/api/bot/mirror`、`/api/bot/traffic` 分别与后台同名统计一致。summary、mirror、traffic 可传 `month=YYYY-MM`，默认北京时间本月；广场统计始终为当前数据。响应不缓存，销售汇总的 `complete=false` 表示有项目查询失败，合计仅含成功项目。
+
+```powershell
+curl.exe -H "Authorization: Bearer $env:BOT_TOKEN" "https://stronghold-plaza.pages.dev/api/bot/summary?month=2026-11"
+```
 
 ## 依赖
 

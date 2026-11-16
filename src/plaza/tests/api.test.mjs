@@ -10,7 +10,7 @@ const built = await build({
  stdin: { contents: "export * from './server/api'; export * from './server/catalog'; export { ipSource } from './server/common'; export { signMail } from './server/mail'", resolveDir: process.cwd(), loader: 'ts' },
  bundle: true, platform: 'neutral', format: 'esm', write: false, loader: { '.txt': 'text' },
 })
-const { handleRequest, catalog, encodeLineup, fingerprint, ipSource, signMail } = await import('data:text/javascript;base64,' + Buffer.from(built.outputFiles[0].text).toString('base64'))
+const { handleRequest, catalog, encodeLineup, fingerprint, covenantNames, ipSource, signMail } = await import('data:text/javascript;base64,' + Buffer.from(built.outputFiles[0].text).toString('base64'))
 const originalFetch = globalThis.fetch
 let mf, db, env, privateKey, jwk
 const mails = new Map()
@@ -19,7 +19,7 @@ let serial = 0
 before(async () => {
  mf = new Miniflare({ modules: true, script: 'export default { fetch() { return new Response() } }', d1Databases: ['DB'], compatibilityDate: '2025-10-11' })
  db = await mf.getD1Database('DB')
- for (const file of ['0001_init.sql', '0002_password.sql', '0003_comments_reports.sql', '0004_sync_favorites_income.sql', '0005_server_privacy.sql', '0006_notices.sql', '0007_admin_stats.sql', '0008_traffic.sql', '0009_ratings.sql']) {
+ for (const file of ['0001_init.sql', '0002_password.sql', '0003_comments_reports.sql', '0004_sync_favorites_income.sql', '0005_server_privacy.sql', '0006_notices.sql', '0007_admin_stats.sql', '0008_traffic.sql', '0009_ratings.sql', '0010_read_optimization.sql']) {
   const sql = await readFile('migrations/' + file, 'utf8')
   // D1 exec 按行分语句；保留触发器整体，迁移一次执行。
   await db.exec(sql.replace(/\r?\n/g, ' '))
@@ -53,6 +53,7 @@ before(async () => {
 })
 beforeEach(async () => {
  await db.batch(['ratings', 'rating_usage', 'notice_actors', 'notices', 'favorites', 'cloud_lineups', 'cloud_prefs', 'sync_usage', 'income_reports', 'income_samples', 'income_summary', 'reports', 'report_usage', 'comments', 'likes', 'imports', 'posts', 'sessions', 'login_codes', 'password_attempts', 'users'].map(t => db.prepare('DELETE FROM ' + t)))
+ await db.prepare('UPDATE stats_cache SET data=NULL,updated_at=0 WHERE id=1').run()
  mails.clear()
 })
 after(async () => {
@@ -1217,6 +1218,8 @@ test('115 看板权限、累计、北京时间趋势与旧记录', async t => {
  const empty = await ok('/api/admin/stats', { headers })
  assert.ok(empty.daily.likes.every(d => d.count === null))
  assert.ok(empty.daily.imports.every(d => d.count === null))
+ // 清空空库快照，独立核实后面的数据口径。
+ await db.prepare('UPDATE stats_cache SET data=NULL WHERE id=1').run()
  // 固定在 UTC 前一天、北京时间今天，覆盖跨日归属。
  const time = Date.parse('2026-11-13T17:00:00.000Z'), now = new Date(time).toISOString()
  t.mock.method(Date, 'now', () => time)
@@ -1405,4 +1408,196 @@ test('131 同 IP 每小时限流', async t => {
  assert.equal(blocked.data.error, 'rate_limited')
  now += 3600000
  assert.equal((await put(other.token)).status, 200)
+})
+
+test('255 机器人鉴权、只读路由及后台权限隔离', async t => {
+ // Node 没有 Workers 的扩展方法，使用同样的定长比较实现。
+ const { timingSafeEqual } = await import('node:crypto')
+ crypto.subtle.timingSafeEqual = (a, b) => timingSafeEqual(Buffer.from(a), Buffer.from(b))
+ t.after(() => { delete crypto.subtle.timingSafeEqual })
+ const bindings = { ...env, BOT_TOKEN: 'test-only-bot' }
+ const request = (path = 'summary', headers = {}, method = 'GET', config = bindings) =>
+  handleRequest(new Request('https://plaza.example/api/bot/' + path, { headers, method }), config)
+ for (const BOT_TOKEN of [undefined, '']) {
+  const response = await request('missing', {}, 'POST', { ...env, BOT_TOKEN })
+  assert.equal(response.status, 403)
+  assert.equal((await response.json()).error, 'bot_disabled')
+ }
+ for (const headers of [{}, { Authorization: 'Basic test-only-bot' }, { Authorization: 'Bearer wrong' }, await access('admin@example.com')]) {
+  for (const path of ['summary', 'missing']) {
+   const response = await request(path, headers)
+   assert.equal(response.status, 401)
+   assert.equal(response.headers.get('WWW-Authenticate'), 'Bearer')
+   assert.equal((await response.json()).error, 'unauthorized')
+  }
+ }
+ const headers = { Authorization: 'Bearer test-only-bot' }
+ for (const method of ['POST', 'OPTIONS']) {
+  assert.equal((await request('summary', {}, method)).status, 401)
+  const response = await request('summary', headers, method)
+  assert.equal(response.status, 405)
+  assert.equal((await response.json()).error, 'method_not_allowed')
+ }
+ assert.equal((await request('missing', headers)).status, 404)
+ for (const path of ['summary', 'mirror', 'traffic']) assert.equal((await request(path + '?month=2026-13', headers)).status, 400)
+ const admin = await handleRequest(new Request('https://plaza.example/api/admin/stats', { headers }), bindings)
+ assert.equal(admin.status, 403)
+ const botResponse = await request('stats', headers)
+ assert.equal(botResponse.status, 200)
+ assert.equal(botResponse.headers.get('Cache-Control'), 'no-store')
+ assert.equal(botResponse.headers.get('Set-Cookie'), null)
+ const botData = await botResponse.json()
+ const adminData = await (await handleRequest(new Request('https://plaza.example/api/admin/stats', { headers: await access('admin@example.com') }), env)).json()
+ delete botData.at
+ delete adminData.at
+ assert.deepEqual(botData, adminData)
+})
+
+test('255 汇总复用统计和缓存、金额舍入、失败项目及敏感信息隔离', async t => {
+ t.mock.method(Date, 'now', () => Date.parse('2026-03-01T16:30:00Z'))
+ const { timingSafeEqual } = await import('node:crypto')
+ crypto.subtle.timingSafeEqual = (a, b) => timingSafeEqual(Buffer.from(a), Buffer.from(b))
+ t.after(() => { delete crypto.subtle.timingSafeEqual })
+ const bindings = { ...env, BOT_TOKEN: 'test-only-bot', MIRROR_KEY: 'test-only-mirror-key', MIRROR_RIDS: 'one,two,failed' }
+ const headers = { Authorization: 'Bearer ' + bindings.BOT_TOKEN }
+ const cache = new Map(), originalCaches = globalThis.caches
+ globalThis.caches = { open: async () => ({ match: async key => cache.get(key)?.clone(), put: async (key, response) => cache.set(key, response.clone()) }) }
+ t.after(() => { globalThis.caches = originalCaches })
+ const fallbackFetch = globalThis.fetch
+ let calls = 0
+ t.mock.method(globalThis, 'fetch', async (url, options) => {
+  const u = new URL(url)
+  if (u.hostname !== 'mirrorchyan.com') return fallbackFetch(url, options)
+  calls++
+  assert.equal(options.headers.Authorization, bindings.MIRROR_KEY)
+  if (u.searchParams.get('rid') === 'failed') throw new Error('测试项目失败')
+  if (!u.pathname.endsWith('/revenue')) return Response.json({ ec: 200, data: {} })
+  const month = u.searchParams.get('date') === '202603' ? '2026-03' : '2026-02'
+  return Response.json({ ec: 200, data: [
+   { activated_at: month + '-02T00:10:00', buy_count: 2, amount: '12.301', platform: 'other', plan: '月卡', blocked: false, email: 'buyer@example.com' },
+   { activated_at: month + '-01T10:00:00', buy_count: 1, amount: '0.004', platform: 'other', plan: '月卡', blocked: false },
+   { activated_at: month + '-02T00:10:00', buy_count: 1, amount: '1.234', platform: 'other', plan: '月卡', blocked: true },
+  ] })
+ })
+ await db.exec('DELETE FROM traffic_days; DELETE FROM traffic_paths; DELETE FROM traffic_state;')
+ await db.prepare('INSERT INTO traffic_days VALUES (?,?,?,?,?,?,?,?,?)').bind('2026-03-02', 'a.example', 10, 1234567890, 1, 0, 0, 0, 0).run()
+ await db.prepare('INSERT INTO traffic_days VALUES (?,?,?,?,?,?,?,?,?)').bind('2026-02-02', 'a.example', 10, 2000000000, 1, 0, 0, 0, 0).run()
+ const get = async (path, auth = headers) => {
+  const response = await handleRequest(new Request('https://plaza.example/api/' + path, { headers: auth }), bindings)
+  assert.equal(response.status, 200)
+  assert.equal(response.headers.get('Cache-Control'), 'no-store')
+  const text = await response.text()
+  for (const secret of [bindings.BOT_TOKEN, bindings.MIRROR_KEY, 'BOT_TOKEN']) assert.ok(!text.includes(secret))
+  assert.doesNotMatch(text, /[^\s"<>]+@[^\s"<>]+/)
+  return JSON.parse(text)
+ }
+ const summary = await get('bot/summary')
+ assert.equal(summary.month, '2026-03')
+ assert.equal(summary.timezone, 'Asia/Shanghai')
+ assert.equal(summary.currency, 'CNY')
+ assert.equal(summary.at, '2026-03-01T16:30:00.000Z')
+ for (const [index, rid] of ['one', 'two'].entries()) assert.deepEqual(summary.sales.projects[index], {
+  rid, orders: 3, amountYuan: 12.31, incomeYuan: 6.15, refundedOrders: 1, refundedAmountYuan: 1.23,
+  today: { orders: 2, amountYuan: 12.3 },
+ })
+ assert.deepEqual(summary.sales.projects[2], { rid: 'failed', orders: 0, amountYuan: 0, incomeYuan: 0,
+  refundedOrders: 0, refundedAmountYuan: 0, today: null, error: 'Mirror酱 数据查询失败。' })
+ assert.deepEqual(summary.sales.total, { orders: 6, amountYuan: 24.61, incomeYuan: 12.31, refundedOrders: 2,
+  refundedAmountYuan: 2.47, today: { orders: 4, amountYuan: 24.6 } })
+ assert.equal(summary.sales.complete, false)
+ const adminHeaders = await access('admin@example.com')
+ const plaza = await get('bot/stats')
+ assert.deepEqual(summary.plaza.totals, plaza.totals)
+ assert.deepEqual(summary.plaza.today, Object.fromEntries(Object.entries(plaza.daily).map(([key, days]) => [key, days.at(-1).count])))
+ const mirror = await get('bot/mirror')
+ assert.deepEqual(mirror, await get('admin/mirror', adminHeaders))
+ assert.equal(calls, 6)
+ const traffic = await get('bot/traffic')
+ assert.deepEqual(traffic, await get('admin/traffic', adminHeaders))
+ assert.deepEqual(summary.traffic, { bytes: traffic.bytes, costYuan: 3.7, forecastBytes: traffic.forecastBytes,
+  forecastCostYuan: Math.round(traffic.forecastBytes / 1e9 * 3 * 100) / 100, pricePerGB: 3, lastReportAt: null })
+ const past = await get('bot/summary?month=2026-02')
+ assert.equal(past.month, '2026-02')
+ assert.ok(past.sales.projects.every(project => project.today === null))
+ assert.equal(past.sales.total.today, null)
+ assert.deepEqual(past.plaza, summary.plaza)
+ assert.equal(past.traffic.costYuan, 6)
+ assert.equal(past.traffic.forecastCostYuan, 6)
+ assert.equal(calls, 12)
+})
+
+// 保留旧条件，逐词核对数据库命中集合。
+function oldSearch(words) {
+ const where = [], values = []
+ for (const word of words) {
+  const pattern = '%' + word.replace(/[\\%_]/g, '\\$&') + '%'
+   const covenants = covenantNames.filter(([name]) => name.toLowerCase().includes(word.toLowerCase())).map(([, id]) => id)
+   where.push(`(json_extract(p.lineup,'$.name') LIKE ? ESCAPE '\\'
+    OR p.description LIKE ? ESCAPE '\\' OR u.nickname LIKE ? ESCAPE '\\'
+    OR EXISTS(SELECT 1 FROM (
+     SELECT p.lineup AS value UNION ALL SELECT value FROM json_each(p.lineup,'$.stages')
+    ) stage WHERE
+     EXISTS(SELECT 1 FROM json_each(stage.value,'$.members') m
+      WHERE json_extract(m.value,'$.name') LIKE ? ESCAPE '\\'
+       OR EXISTS(SELECT 1 FROM json_each(m.value,'$.equipment') e WHERE json_extract(e.value,'$.name') LIKE ? ESCAPE '\\'))
+     OR EXISTS(SELECT 1 FROM json_each(stage.value,'$.equipment') e WHERE e.value LIKE ? ESCAPE '\\'))
+    ${covenants.length ? `OR EXISTS(SELECT 1 FROM json_each(p.lineup,'$.goals') g WHERE json_extract(g.value,'$.id') IN (${covenants.map(() => '?').join(',')}))` : ''})`)
+   values.push(pattern, pattern, pattern, pattern, pattern, pattern, ...covenants)
+ }
+ return { where: where.join(' AND '), values }
+}
+
+test('260 搜索回填、写入同步与新旧条件一致', async () => {
+ const user = await login('SearchAuthor'), other = await login('其他玩家')
+ const original = lineup('SearchTitle', [{ id: 'siracusa', level: 1 }])
+ original.members = [{ name: catalog.operators[0].name, equipment: [{ name: catalog.equipment[0].name, priority: true }] }]
+ original.equipment = [catalog.equipment[1].name]
+ original.stages = [{ name: '过渡', fromRound: 1, toRound: 4, goals: [],
+  members: [{ name: catalog.operators[1].name, equipment: [{ name: catalog.equipment[2].name, priority: false }] }],
+  equipment: [catalog.equipment[3].name] }]
+ const code = encodeLineup(original, catalog)
+ const post = await ok('/api/posts', { method: 'POST', token: user.token, body: { code, description: 'SearchDescription' } })
+ for (const name of ['无关阵容', '字面%值', '字面_值', '字面\\值']) await publish(other, name)
+ const compare = async words => {
+  const old = oldSearch(words)
+  const expected = (await db.prepare('SELECT p.id FROM posts p JOIN users u ON u.id=p.user_id WHERE ' + old.where + ' ORDER BY p.id').bind(...old.values).all()).results.map(p => p.id)
+  const actual = (await ok('/api/posts?' + new URLSearchParams({ q: words.join(' ') }))).posts.map(p => p.id).sort()
+  assert.deepEqual(actual, expected, words.join(' '))
+ }
+ const words = ['searchtitle', 'searchdescription', 'searchauthor', ...catalog.operators.slice(0, 2).map(o => o.name),
+  ...catalog.equipment.slice(0, 4).map(e => e.name), ...covenantNames.map(([name]) => name), '叙拉', '%', '_', '\\', '不存在', 'TitleSearch']
+ for (const word of words) await compare([word])
+ await compare(['SearchTitle', 'SearchDescription', '叙拉古'])
+ // 模拟已有行缺少预计算值，再执行迁移回填。
+ await db.prepare("UPDATE posts SET search_text=''").run()
+ await db.prepare('UPDATE posts SET search_text=(SELECT text FROM post_search_content WHERE id=posts.id)').run()
+ for (const word of words) await compare([word])
+ await ok('/api/posts', { method: 'POST', token: user.token, body: { code, description: '重复发布简介' } })
+ await compare(['重复发布简介']); await compare(['SearchDescription'])
+ await ok('/api/posts/' + post.id, { method: 'PATCH', token: user.token, body: { description: '编辑内容' } })
+ await compare(['编辑内容']); await compare(['重复发布简介'])
+ await ok('/api/posts/' + post.id, { method: 'PATCH', token: user.token,
+  body: { code: encodeLineup(lineup('编辑内容'), catalog), description: '更换分享码' } })
+ await compare(['编辑内容']); await compare(['SearchTitle'])
+})
+
+test('260 统计共享缓存、并发重算与五分钟过期', async t => {
+ let time = Date.parse('2026-11-13T15:59:00Z')
+ t.mock.method(Date, 'now', () => time)
+ const headers = await access('admin@example.com')
+ // 在数据库层记录实际刷新次数，覆盖并发冷启动。
+ await db.exec('CREATE TABLE stats_refresh_test(n INTEGER); INSERT INTO stats_refresh_test VALUES(0); CREATE TRIGGER stats_refresh_test_update AFTER UPDATE OF data ON stats_cache BEGIN UPDATE stats_refresh_test SET n=n+1; END;')
+ t.after(async () => { await db.exec('DROP TRIGGER stats_refresh_test_update; DROP TABLE stats_refresh_test;') })
+ const get = () => ok('/api/admin/stats', { headers })
+ const [first, simultaneous] = await Promise.all([get(), get()])
+ assert.deepEqual(simultaneous, first)
+ await db.prepare('INSERT INTO users(id,created_at) VALUES(?,?)').bind('cache-new-user', new Date(time).toISOString()).run()
+ time += 299999
+ assert.deepEqual(await get(), first)
+ assert.equal((await db.prepare('SELECT n FROM stats_refresh_test').first()).n, 1)
+ time += 1
+ const expired = await get()
+ assert.equal(expired.totals.users, first.totals.users + 1)
+ assert.equal(expired.at, new Date(time).toISOString())
+ assert.equal((await db.prepare('SELECT n FROM stats_refresh_test').first()).n, 2)
 })

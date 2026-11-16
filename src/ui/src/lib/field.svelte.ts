@@ -27,6 +27,8 @@ class FieldStore {
   moves = $state<Record<string, FieldCell>>({})
   /** 正在手动识别（「识别」按钮或快捷键） */
   recognizing = $state(false)
+  /** 识别后站位推荐还在后台算（任务 272 起名字先出、推荐后到；收到 placement 推送就结束） */
+  planPending = $state(false)
 
   units = $derived(this.state?.units ?? [])
   pending = $derived(this.units.filter((u) => u.status === 'pending'))
@@ -44,7 +46,10 @@ class FieldStore {
       this.moves = Object.fromEntries(Object.entries(this.moves).filter(([k]) => keys.has(k)))
     })
     api.onBoard((b) => (this.board = b))
-    api.onPlacement((p) => (this.plan = p))
+    api.onPlacement((p) => {
+      this.plan = p
+      this.planPending = false
+    })
     api.onFieldHotkey(() => this.recognize(true))
   }
 
@@ -52,10 +57,12 @@ class FieldStore {
   async recognize(byKey = false) {
     if (this.recognizing) return
     this.recognizing = true
+    this.planPending = true
     try {
       const f = await api.recognizeField()
       if (byKey) app.showToast(`场上已识别：${f.units.length} 人`)
     } catch (e) {
+      this.planPending = false
       app.showToast((e as Error).message, true)
     } finally {
       this.recognizing = false

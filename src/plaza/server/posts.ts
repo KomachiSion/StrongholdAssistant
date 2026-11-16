@@ -1,5 +1,5 @@
 import type { AdminPost, Post, PostLineup } from '../shared/api'
-import { catalog, covenantNames, decodeLineup, fingerprint } from './catalog'
+import { catalog, decodeLineup, fingerprint } from './catalog'
 import { authenticate, type Context } from './auth'
 import { body, description, empty, fail, hasBlocked, hash, ipSource, iso, json, mask, needNickname, stmt, string, type Env } from './common'
 
@@ -67,18 +67,8 @@ export async function listPosts(ctx: Context, viewer: string | null, admin = fal
   if (q.has('strategy')) { where.push("json_extract(p.lineup,'$.strategyId')=?"); values.push(q.get('strategy')!) }
   for (const word of search.split(/\s+/).filter(Boolean).slice(0, 3)) {
    const pattern = '%' + word.replace(/[\\%_]/g, '\\$&') + '%'
-   const covenants = covenantNames.filter(([name]) => name.toLowerCase().includes(word.toLowerCase())).map(([, id]) => id)
-   where.push(`(json_extract(p.lineup,'$.name') LIKE ? ESCAPE '\\'
-    OR p.description LIKE ? ESCAPE '\\' OR u.nickname LIKE ? ESCAPE '\\'
-    OR EXISTS(SELECT 1 FROM (
-     SELECT p.lineup AS value UNION ALL SELECT value FROM json_each(p.lineup,'$.stages')
-    ) stage WHERE
-     EXISTS(SELECT 1 FROM json_each(stage.value,'$.members') m
-      WHERE json_extract(m.value,'$.name') LIKE ? ESCAPE '\\'
-       OR EXISTS(SELECT 1 FROM json_each(m.value,'$.equipment') e WHERE json_extract(e.value,'$.name') LIKE ? ESCAPE '\\'))
-     OR EXISTS(SELECT 1 FROM json_each(stage.value,'$.equipment') e WHERE e.value LIKE ? ESCAPE '\\'))
-    ${covenants.length ? `OR EXISTS(SELECT 1 FROM json_each(p.lineup,'$.goals') g WHERE json_extract(g.value,'$.id') IN (${covenants.map(() => '?').join(',')}))` : ''})`)
-   values.push(pattern, pattern, pattern, pattern, pattern, pattern, ...covenants)
+   where.push("(p.search_text LIKE ? ESCAPE '\\' OR u.nickname LIKE ? ESCAPE '\\')")
+   values.push(pattern, pattern)
   }
  }
  // 游标绑定当前筛选，防止换排序后误用旧游标。

@@ -23,7 +23,14 @@ public sealed class EconomyReader(IOcrEngine ocr, GameShopTheme theme = GameShop
     // 数字框跟着左移会把「合」字最右一竖读成 1，第 2 回合读成 12（v1.0.4 玩家诊断包）
     private int? _roundDigitsX;
 
-    public async Task<EconomyReading> ReadAsync(byte[] png, int width, int height, double? uiScale = null)
+    public Task<EconomyReading> ReadAsync(byte[] png, int width, int height, double? uiScale = null)
+        => ReadCoreAsync(png, width, height, uiScale, true, null);
+
+    // 手动认人只消费回合和阶段；等级与升级价格仍由正常经济扫描读取。
+    public Task<EconomyReading> ReadFieldAsync(byte[] png, int width, int height, bool mainScreen)
+        => ReadCoreAsync(png, width, height, null, false, mainScreen);
+
+    private async Task<EconomyReading> ReadCoreAsync(byte[] png, int width, int height, double? uiScale, bool readUpgrade, bool? mainScreen)
     {
         using var stream = new MemoryStream(png);
         using var bitmap = new Bitmap(stream);
@@ -55,8 +62,9 @@ public sealed class EconomyReader(IOcrEngine ocr, GameShopTheme theme = GameShop
         if (round > 20) round = null;
         // 动画标牌会让顶部文字漏检；只用本帧就绪控件补证，不沿用上一帧阶段。
         bool isRest = heading.Contains("休息") || heading.Contains("休整")
-            || await new BoardSurfaceReader(ocr).IsMainScreenAsync(png, width, height);
+            || (mainScreen ?? await new BoardSurfaceReader(ocr).IsMainScreenAsync(png, width, height));
         bool isFinalRound = isRest && Regex.IsMatch(roundText.Trim(), @"^[?？﹖](\s*[?？﹖])?$");
+        if (!readUpgrade) return new(round, null, null, null, isRest) { IsFinalRound = isFinalRound };
         var moneyText = await Read((int)(width - 130 * scale),
             (int)(height - 273 * scale), (int)(65 * scale), (int)(38 * scale), true);
         int? money = Number(string.Join("", moneyText.Select(t => t.Text)));

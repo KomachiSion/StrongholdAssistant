@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Text.Json;
 using System.Windows;
 using Microsoft.Web.WebView2.Core;
@@ -65,15 +65,20 @@ public partial class MainWindow : Window
         _api.DialogOwner = this;
         _api.UpdateReady += () => Dispatcher.BeginInvoke(LaunchPreparedUpdate);
         InitializeWindow();
-        var environment = await CoreWebView2Environment.CreateAsync(userDataFolder: Path.Combine(userDirectory, "WebView2"));
+        var environment = await CoreWebView2Environment.CreateAsync(userDataFolder: Path.Combine(userDirectory, "WebView2"),
+            options: ASPAssistant.Core.Services.CrashGuard.GpuDisabled ? new CoreWebView2EnvironmentOptions("--disable-gpu") : null);
         environment.BrowserProcessExited += (_, args) => ASPAssistant.Core.AppLogger.Info("WebView2",
             $"BrowserProcessExited: BrowserProcessExitKind={args.BrowserProcessExitKind}; BrowserProcessId={args.BrowserProcessId}");
         // 默认底色已在构造窗口时按启动设置应用。
         await Browser.EnsureCoreWebView2Async(environment);
         var web = Browser.CoreWebView2;
-        web.ProcessFailed += (_, args) => ASPAssistant.Core.AppLogger.Error("WebView2",
-            $"ProcessFailed: ProcessFailedKind={args.ProcessFailedKind}; Reason={args.Reason}; " +
-            $"ExitCode={args.ExitCode}; ProcessDescription={args.ProcessDescription}");
+        web.ProcessFailed += (_, args) =>
+        {
+            ASPAssistant.Core.AppLogger.Error("WebView2",
+                $"ProcessFailed: ProcessFailedKind={args.ProcessFailedKind}; Reason={args.Reason}; " +
+                $"ExitCode={args.ExitCode}; ProcessDescription={args.ProcessDescription}");
+            if (args.ProcessFailedKind == CoreWebView2ProcessFailedKind.GpuProcessExited) ASPAssistant.Core.Services.CrashGuard.GpuCrashed();
+        };
         ApplyScale(null);
         web.Settings.IsNonClientRegionSupportEnabled = true;
         // 缩放只走设置里的"界面大小"：关掉 Ctrl+滚轮 / Ctrl+加减号，否则页面放大而窗口不变，侧栏会挤坏

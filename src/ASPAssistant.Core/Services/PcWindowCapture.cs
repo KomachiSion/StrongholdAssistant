@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
@@ -36,12 +36,14 @@ public sealed class PcWindowCapture : IDisposable
             }
             if (window == 0 || !User32.IsWindow(window) || User32.IsIconic(window))
                 return Fallback("窗口不存在或已最小化");
+            if (CrashGuard.WgcDisabled) return Fallback("这台电脑上窗口捕获连续异常退出，改用 BitBlt");
             if (_initializationFailed) return null;
             try
             {
                 if (_controller is null)
                 {
                     _initializationFailed = true;
+                    CrashGuard.WgcStarting();
                     _controller = new(new DesktopWindowInfo(window, "", "", Win32ScreencapMethod.FramePool,
                         Win32InputMethod.None, Win32InputMethod.None), LinkOption.None, CheckStatusOption.None);
                     if (_controller.LinkStart().Wait() != MaaJobStatus.Succeeded)

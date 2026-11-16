@@ -35,6 +35,9 @@
   let loading = $state(false)
   let error = $state('')
   let seq = 0
+  // 每条攻略是第几次加载读到的：「本局」排序只在同一次加载里排，加载更多的接在下面（v1.2.5，群友反馈新读到的跑到上面去了）
+  let pageOf = new Map<string, number>()
+  let pageCount = 0
 
   async function load(more = false) {
     const my = ++seq
@@ -49,7 +52,11 @@
       })
       if (my !== seq) return
       const seen = new Set(more ? items.map((x) => x.id) : [])
-      items = [...(more ? items : []), ...r.items.filter((x) => !seen.has(x.id))]
+      const fresh = r.items.filter((x) => !seen.has(x.id))
+      if (!more) (pageOf = new Map()), (pageCount = 0)
+      for (const x of fresh) pageOf.set(x.id, pageCount)
+      pageCount++
+      items = [...(more ? items : []), ...fresh]
       token = r.pageToken
       loginRequired = r.loginRequired
     } catch (e) {
@@ -119,7 +126,8 @@
   const cards = $derived(items.map((it) => ({ it, sk: it.guide ? guideToLineup(it.guide, app.catalog) : null })))
   const shown = $derived(
     st.sort === 'match' && isAll
-      ? [...cards].sort((a, b) => (a.sk ? app.lineupPenalty(a.sk.lineup) : 1e9) - (b.sk ? app.lineupPenalty(b.sk.lineup) : 1e9))
+      ? [...cards].sort((a, b) => (pageOf.get(a.it.id) ?? 0) - (pageOf.get(b.it.id) ?? 0)
+          || (a.sk ? app.lineupPenalty(a.sk.lineup) : 1e9) - (b.sk ? app.lineupPenalty(b.sk.lineup) : 1e9))
       : cards,
   )
   const num = (n: number) => (n >= 10000 ? `${(n / 10000).toFixed(1)}万` : String(n))
@@ -129,22 +137,35 @@
     { v: 'published', label: '我的发布' },
   ]
   const sorts: { v: Sort; label: string; tip?: string }[] = [
-    { v: 'match', label: '本局', tip: '在已经读到的攻略里，按本局盟约和禁用排' },
+    { v: 'match', label: '本局', tip: '在已经读到的攻略里，按本局盟约和禁用排；加载更多的接在下面另排' },
     { v: 'recommended', label: '推荐' },
     { v: 'latest', label: '最新' },
   ]
-  // 这次打开里导入过的攻略：按钮改成「已导入」，还能再点
+  // 查重（v1.2.5，群友反馈同一套能导入好几次）：阵容不记来源，按内容比——名字、成型和各回合阶段的干员都一样就算同一套。
+  // 导入后改过的不算重复，可以再导一份
+  const roster = (l: Lineup) =>
+    JSON.stringify([l.members, ...(l.stages ?? []).map((s) => s.members)].map((ms) => ms.map((m) => m.name).sort()))
+  const existing = (lineup: Lineup) => app.lineups.find((l) => l.name === lineup.name && roster(l) === roster(lineup))
+  // 这次打开里导入过的攻略：按钮改成「已导入」
   let done = $state<string[]>([])
   const importOne = (it: SklandGuideItem, lineup: Lineup) => {
-    app.importLineup(lineup, false, true)
     if (!done.includes(it.id)) done = [...done, it.id]
+    const had = existing(lineup)
+    if (had) return app.showToast(`「${had.name}」已经在我的阵容里了，没有重复导入`)
+    app.importLineup(lineup, false, true)
+  }
+  const importAsTarget = (lineup: Lineup) => {
+    const had = existing(lineup)
+    if (!had) return app.importLineup(lineup, true)
+    app.setTarget(had.id)
+    app.showToast(`「${had.name}」之前导入过，直接设为目标`)
   }
   const menuFor = (it: SklandGuideItem, lineup: Lineup) => () => ({
     title: it.title,
     sub: `森空岛 · ${it.author}`,
     items: [
       { label: '导入到我的阵容', icon: 'download' as const, run: () => importOne(it, lineup) },
-      { label: '导入并设为目标', icon: 'focus' as const, run: () => app.importLineup(lineup, true) },
+      { label: '导入并设为目标', icon: 'focus' as const, run: () => importAsTarget(lineup) },
       'sep' as const,
       { label: '在森空岛打开', icon: 'arrowRight' as const, run: () => api.openUrl(it.url) },
     ],
@@ -250,7 +271,8 @@
             {#if sk.unknown.operators + sk.unknown.equipment}<span class="warn" title="助手的数据里没有，可能是新赛季或旧攻略">{sk.unknown.operators + sk.unknown.equipment} 个认不出</span>{/if}
           {/snippet}
           {#snippet actions()}
-            <button class="open" class:done={done.includes(it.id)} onclick={() => importOne(it, sk.lineup)} title="导入到我的阵容；右键还能导入并设为目标">{done.includes(it.id) ? '已导入' : '导入'}</button>
+            {@const imported = done.includes(it.id) || !!existing(sk.lineup)}
+            <button class="open" class:done={imported} onclick={() => importOne(it, sk.lineup)} title={imported ? '已经在我的阵容里了；右键可以设为目标' : '导入到我的阵容；右键还能导入并设为目标'}>{imported ? '已导入' : '导入'}</button>
           {/snippet}
         </LineupCard>
       {:else}

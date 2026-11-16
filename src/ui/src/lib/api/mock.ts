@@ -512,7 +512,7 @@ export const mockApi: Api = {
   confirmField: async () => {
     await new Promise((r) => setTimeout(r, 300))
     if (!settings.collect) throw new Error('先打开设置里的「帮助改进识别」')
-    if (location.search.includes('notRest')) throw new Error('现在不在休整期的棋盘画面，切到棋盘再点')
+    if (location.search.includes('notRest')) throw new Error('现在不在休整期的棋盘画面，先关掉干员详情等面板、回到棋盘再点')
     collections[0] = { ...collections[0], answers: collections[0].answers + field.units.filter((u) => u.operator).length }
   },
   collections: () => wait(structuredClone(collections)),

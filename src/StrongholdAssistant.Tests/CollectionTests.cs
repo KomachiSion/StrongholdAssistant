@@ -88,7 +88,7 @@ public sealed class CollectionTests : IDisposable
         Assert.Equal("先打开设置里的「帮助改进识别」", Assert.Throws<RecognitionException>(api.ConfirmField).Message);
         api.SaveSettings(api.Settings with { Collect = true });
         Assert.True(new HostSettingsStore(Path.Combine(_directory, "settings.json")).LoadSettings().Collect);
-        Assert.Equal("现在不在休整期的棋盘画面，切到棋盘再点", Assert.Throws<RecognitionException>(api.ConfirmField).Message);
+        Assert.Equal("现在不在休整期的棋盘画面，先关掉干员详情等面板、回到棋盘再点", Assert.Throws<RecognitionException>(api.ConfirmField).Message);
         Assert.Empty(Assert.IsType<CollectionMatch[]>(await api.InvokeAsync("collections", [])));
         await api.InvokeAsync("clearCollections", []);
         await api.FinishCollectionsAsync();

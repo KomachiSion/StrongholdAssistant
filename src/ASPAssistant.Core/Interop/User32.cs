@@ -1,4 +1,4 @@
-// Modified for ASP Assistant Regulation on 2026-11-09; see NOTICE.
+﻿// Modified for ASP Assistant Regulation on 2026-11-09; see NOTICE.
 // 2026-11-12：参考上游 PR #5，增加 nemudisplay 子窗口及祖先查询。
 // 2026-11-15：PC 游戏窗口改为枚举后按可见性和客户区面积选择。
 using System.Runtime.InteropServices;
@@ -120,6 +120,10 @@ public static class User32
             throw new InvalidOperationException("无法读取窗口 DPI");
         return dpi / 96.0;
     }
+
+    /// <summary>重新放到置顶层最上面，不抢焦点、不动位置（v1.2.5）。</summary>
+    public static void RaiseTopmost(IntPtr hwnd) =>
+        SetWindowPos(hwnd, new IntPtr(-1), 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0010);
 
     /// <summary>顶层窗口的位置和尺寸均为物理像素，不改变焦点或 Z 序。</summary>
     public static void SetWindowBounds(IntPtr hwnd, RECT bounds)

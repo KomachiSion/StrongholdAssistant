@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Runtime.InteropServices;
 using System.Windows.Interop;
 using System.Diagnostics;
@@ -81,6 +81,7 @@ public partial class App : Application
             : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "StrongholdAssistant");
         _logDirectory = Path.Combine(userDirectory, "logs");
         AppLogger.Initialize(_logDirectory);
+        CrashGuard.Initialize(userDirectory);
         DispatcherUnhandledException += (_, args) => ReportUnhandledException(args.Exception);
         AppDomain.CurrentDomain.UnhandledException += (_, args) => ReportUnhandledException((Exception)args.ExceptionObject);
         TaskScheduler.UnobservedTaskException += (_, args) => ReportUnhandledException(args.Exception);
@@ -201,6 +202,9 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        // 记一笔正常退出，日志里没有这行就是闪退（v1.2.5）。
+        AppLogger.Info("Host", $"正常退出 code={e.ApplicationExitCode}");
+        CrashGuard.NormalExit();
         _deepLinks.Dispose();
         _wait?.Unregister(null);
         _activation?.Dispose();

@@ -3,10 +3,11 @@ import type { Context } from './auth'
 import { DAY, iso, json, stmt } from './common'
 
 export async function stats({ env }: Context) {
- const now = Date.now(), at = iso(now), offset = 8 * 3600000
+ const now = Date.now(), offset = 8 * 3600000
+ const cached = await stmt(env, 'SELECT data,updated_at FROM stats_cache WHERE id=1').first<{ data: string | null; updated_at: number }>()
+ if (cached!.data && cached!.updated_at > now - 300000) return json(formatStats(JSON.parse(cached!.data), cached!.updated_at))
  const today = Math.floor((now + offset) / DAY) * DAY - offset
  const start = iso(today - 29 * DAY), end = iso(today + DAY), week = iso(today - 6 * DAY)
- const dates = Array.from({ length: 30 }, (_, i) => iso(today + offset - (29 - i) * DAY).slice(0, 10))
  const cte = `WITH active_users AS (SELECT * FROM users WHERE deleted=0 AND banned=0),
   counted_posts AS (SELECT p.* FROM posts p JOIN active_users u ON u.id=p.user_id WHERE p.status<>'deleted')`
  const sources = {
@@ -31,20 +32,34 @@ export async function stats({ env }: Context) {
   (SELECT COUNT(*) FROM (SELECT target_kind,target_id FROM reports GROUP BY target_kind,target_id
    HAVING MAX(resolved_at IS NULL)=1)) AS openReports`
  const dailyKeys = Object.keys(sources) as (keyof typeof sources)[]
- const rank = (table: 'likes' | 'imports') => stmt(env, `${cte}
+ const rank = (table: 'likes' | 'imports') => `${cte}
   SELECT p.id,json_extract(p.lineup,'$.name') AS name,u.nickname AS author,COUNT(*) AS count
   FROM ${table} e JOIN counted_posts p ON p.id=e.post_id JOIN active_users u ON u.id=p.user_id
   ${table === 'likes' ? 'JOIN active_users actor ON actor.id=e.user_id' : ''}
-  WHERE p.status='visible' AND e.created_at>=? AND e.created_at<?
-  GROUP BY p.id ORDER BY count DESC,p.id LIMIT 10`, week, end)
- const results = await env.DB.batch([
-  stmt(env, totals),
-  ...dailyKeys.map(key => stmt(env, `${cte} SELECT date(created_at,'+8 hours') AS date,COUNT(*) AS count
-   FROM (${sources[key]}) WHERE created_at>=? AND created_at<? GROUP BY date(created_at,'+8 hours')`, start, end)),
-  stmt(env, `SELECT (SELECT date(MIN(created_at),'+8 hours') FROM likes) AS likes,
-   (SELECT date(MIN(created_at),'+8 hours') FROM imports) AS imports`),
-  rank('imports'), rank('likes'),
- ])
+  WHERE p.status='visible' AND e.created_at>=?4 AND e.created_at<?3
+  GROUP BY p.id ORDER BY count DESC,p.id LIMIT 10`
+ // 过期判断与聚合在同一条 UPDATE 中，跨实例并发也只重算一次。
+ const rowsJson = (sql: string, keys: string[]) => `(SELECT json_group_array(json_object(${keys.map(key => `'${key}',${key}`).join(',')})) FROM (${sql}))`
+ const queries = [
+  rowsJson(totals, ['users', 'posts', 'imports', 'likes', 'comments', 'favorites', 'cloudSync', 'openReports']),
+  ...dailyKeys.map(key => rowsJson(`${cte} SELECT date(created_at,'+8 hours') AS date,COUNT(*) AS count
+   FROM (${sources[key]}) WHERE created_at>=?2 AND created_at<?3 GROUP BY date(created_at,'+8 hours')`, ['date', 'count'])),
+  rowsJson(`SELECT (SELECT date(MIN(created_at),'+8 hours') FROM likes) AS likes,
+   (SELECT date(MIN(created_at),'+8 hours') FROM imports) AS imports`, ['likes', 'imports']),
+  rowsJson(rank('imports'), ['id', 'name', 'author', 'count']), rowsJson(rank('likes'), ['id', 'name', 'author', 'count']),
+ ]
+ await stmt(env, `UPDATE stats_cache SET data=json_array(${queries.join(',')}),updated_at=?1
+  WHERE id=1 AND (data IS NULL OR updated_at<=?1-300000)`, now, start, end, week).run()
+ const fresh = await stmt(env, 'SELECT data,updated_at FROM stats_cache WHERE id=1').first<{ data: string; updated_at: number }>()
+ return json(formatStats(JSON.parse(fresh!.data), fresh!.updated_at))
+}
+
+function formatStats(rows: Record<string, unknown>[][], now: number): AdminStats {
+ const results = rows.map(results => ({ results }))
+ const at = iso(now), offset = 8 * 3600000
+ const today = Math.floor((now + offset) / DAY) * DAY - offset
+ const dates = Array.from({ length: 30 }, (_, i) => iso(today + offset - (29 - i) * DAY).slice(0, 10))
+ const dailyKeys = ['users', 'posts', 'imports', 'likes', 'comments', 'incomeGames'] as const
  const first = results[7].results[0] as { likes: string | null; imports: string | null }
  const daily = {} as AdminStats['daily']
  dailyKeys.forEach((key, i) => {
@@ -58,5 +73,5 @@ export async function stats({ env }: Context) {
  }))
  const data: AdminStats = { totals: results[0].results[0] as unknown as AdminStats['totals'], daily,
   topImported: ranking(8), topLiked: ranking(9), at }
- return json(data)
+ return data
 }

@@ -3,6 +3,7 @@
 import { api, type Operator, type Roster, type RosterOperator, type RosterScanStatus } from './api'
 import { app } from './state.svelte'
 import { setMyDefault } from './opconfig'
+import { field } from './field.svelte'
 
 type Patch = Partial<Pick<RosterOperator, 'skin' | 'skill' | 'module' | 'potential'>>
 
@@ -92,11 +93,13 @@ export const roster = new RosterState()
 
 /**
  * 本局可能出现的自选干员（docs/design.md「本局盟约里的自选干员」）：本局读到「确定自选编队」（157）就是本局选的人；
- * 没读到但读过物资调配页，就是自选编队里的人；都没有为 null，不收窄（全部自选干员）
+ * 没读到但读过物资调配页，就是自选编队里的人（编队 0 人就是一个也没有）；都没有为 null，不收窄（全部自选干员）。
+ * 场上认到的自选干员（本局名单里的）总是算进去
  */
 export function diyPool(): { names: Set<string>; from: 'match' | 'squad' } | null {
+  const seen = (field.state?.roster ?? []).map((r) => r.operator).filter((n) => app.op(n).diy)
   const p = app.match.customPicks
-  if (p) return { names: new Set([...p[5], ...p[6]]), from: 'match' }
-  if (roster.data.customSquad.length) return { names: new Set(roster.data.customSquad), from: 'squad' }
+  if (p) return { names: new Set([...p[5], ...p[6], ...seen]), from: 'match' }
+  if (roster.data.readAt) return { names: new Set([...roster.data.customSquad, ...seen]), from: 'squad' }
   return null
 }

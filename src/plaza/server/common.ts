@@ -12,6 +12,7 @@ export interface Env {
  CODE_PEPPER: string
  IP_SECRET: string
  EDGE_SECRET?: string
+ BOT_TOKEN?: string
  ADMIN_EMAILS: string
  ACCESS_TEAM_DOMAIN: string
  ACCESS_AUD: string

@@ -62,7 +62,8 @@ public sealed partial class HostApi
                 }
             }
         }
-        if (reading is null)
+        // 经济扫描在非棋盘页也返回空字段对象，不能用 null 判断是否读取自选页。
+        if (reading is not { IsRest: true })
         {
             var picks = await _customPickReader.ReadAsync(frame, width, height);
             if (generation == _matchReadingGeneration && match == _activeRecord && picks is { IsFinal: true })

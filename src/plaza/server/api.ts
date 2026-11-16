@@ -1,5 +1,6 @@
 import { account, type Context } from './auth'
 import { admin } from './admin'
+import { bot } from './bot'
 import { reportTraffic } from './traffic'
 import { posts, publicPosts } from './posts'
 import { comments } from './comments'
@@ -14,12 +15,14 @@ export type { Env } from './common'
 export async function handleRequest(request: Request, env: Env): Promise<Response> {
  const ctx: Context = { request, env }, url = new URL(request.url)
  const origin = request.headers.get('Origin')
- const allowed = origin && (origin === url.origin || env.ALLOWED_ORIGINS.split(',').map(s => s.trim()).includes(origin))
+ const isBot = url.pathname.startsWith('/api/bot/')
+ const allowed = !isBot && origin && (origin === url.origin || env.ALLOWED_ORIGINS.split(',').map(s => s.trim()).includes(origin))
  let response: Response
  try {
   // Cookie 写请求也限制来源，避免其他站点借用户登录状态修改数据。
-  if (origin && !allowed) fail(403, 'forbidden', '此来源无权访问。')
-  if (request.method === 'OPTIONS') response = empty()
+  if (!isBot && origin && !allowed) fail(403, 'forbidden', '此来源无权访问。')
+  if (isBot) response = await bot(ctx, url.pathname)
+  else if (request.method === 'OPTIONS') response = empty()
   else if (url.pathname === '/api/edge/traffic' && request.method === 'POST') response = await reportTraffic(ctx)
   else if (url.pathname.startsWith('/api/admin/')) response = await admin(ctx, url.pathname)
   else if (url.pathname === '/api/me' || url.pathname === '/api/me/password' || url.pathname.startsWith('/api/auth/')) response = await account(ctx, url.pathname)

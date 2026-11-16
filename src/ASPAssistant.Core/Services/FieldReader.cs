@@ -108,8 +108,9 @@ public sealed partial class FieldReader
     }
 
     public async Task<FieldObservation> ReadAsync(byte[] frame, DateTimeOffset at, EconomyReading? economy,
-        bool mainScreen, bool shopVisible, IReadOnlyList<ShopItem> shop, RectangleF? cursorRegion = null)
+        bool mainScreen, bool shopVisible, IReadOnlyList<ShopItem> shop, RectangleF? cursorRegion = null, bool readShop = true)
     {
+        using var timing = FieldRecognitionTiming.Measure("reader");
         OverlayGeometry = null;
         _frameGeometry = null;
         if (economy is not { IsRest: true }) return new(at, false, null, economy?.Round, new Dictionary<FieldCell, int>());
@@ -138,16 +139,21 @@ public sealed partial class FieldReader
         if (dragging || !mainScreen)
             return new(at, true, null, economy.Round, new Dictionary<FieldCell, int>(), Money: economy.Money, DragOperator: dragging ? drag : null, MainScreen: false)
                 { PanelOperator = drag, Equipment = equipment };
+        // 宽屏的棋盘按高度等比显示；只转换棋盘，详情和商店控件仍在原画面读取。
+        var (boardFrame, viewport) = NormalizeBoardViewport(frame, bitmap.Width, bitmap.Height);
+        using var boardStream = ReferenceEquals(boardFrame, frame) ? null : new MemoryStream(boardFrame);
+        using var normalizedBitmap = boardStream is null ? null : new Bitmap(boardStream);
+        var boardBitmap = normalizedBitmap ?? bitmap;
         var key = (bitmap.Width, bitmap.Height, shopVisible);
         if (_frameKey != key) { _boards.Clear(); _frameKey = key; }
         KnownMap = _lastMap ?? KnownMap;
         _boards.TryGetValue(key, out var board);
         if (BossRound && KnownMap is not null)
-            board = _board.RecognizeDetailed(frame, KnownMap, bossRound: true).Match;
+            board = _board.RecognizeDetailed(boardFrame, KnownMap, bossRound: true).Match;
         else if (board is null)
         {
             // 空卡较多时商店长边会漏检；镜头由棋盘本身判定，不能直接把“没检测到卡”当收店。
-            board = _board.Recognize(frame, KnownMap, null);
+            board = _board.Recognize(boardFrame, KnownMap, null);
             if (board is not null) _boards[key] = board;
         }
         _lastMap = board?.MapId ?? KnownMap;
@@ -155,10 +161,15 @@ public sealed partial class FieldReader
             (float)i.CardRegion.Width, (float)i.CardRegion.Height)).ToList();
         if (panel) hidden.Add(new(0, .17f, .33f, .75f));
         if (cursorRegion is { } cursor) hidden.Add(cursor);
-        var cells = ReadCells(bitmap, board, shopVisible, hidden);
+        if (viewport.Width != 1)
+            hidden = hidden.Select(r => new RectangleF((r.X - viewport.X) / viewport.Width,
+                r.Y, r.Width / viewport.Width, r.Height)).ToList();
+        var cells = ReadCells(boardBitmap, board, shopVisible, hidden);
+        if (viewport.Width != 1 && OverlayGeometry is { } overlay)
+            OverlayGeometry = RestoreBoardViewport(overlay, viewport);
         if (panel) OverlayGeometry = null;
         Dictionary<int, string>? cards = null;
-        if (shopVisible)
+        if (readShop && shopVisible)
         {
             var current = shop.GroupBy(i => i.SlotIndex).ToDictionary(g => g.Key, g => g.First());
             foreach (var (slot, old) in _shopCards)
@@ -166,10 +177,10 @@ public sealed partial class FieldReader
             _shopCards = current;
             cards = current.Where(p => _names.Contains(p.Value.Name)).ToDictionary(p => p.Key, p => p.Value.Name);
         }
-        else _shopCards.Clear();
+        else if (readShop) _shopCards.Clear();
         return new(at, true, _lastMap, economy.Round, cells,
             cards, economy.Money) { PanelOperator = drag, Equipment = equipment,
-                Sprites = ReadSprites(frame, cells), Geometry = _frameGeometry };
+                Sprites = ReadSprites(boardFrame, cells), Geometry = _frameGeometry };
     }
 
     private static bool HasDetailPanel(Bitmap bitmap, double scale)
@@ -398,8 +409,9 @@ public sealed partial class FieldReader
             return edges;
         }
         int body = Edges(55);
+        // 棋盘人物的密集轮廓可能偏上（如黑键），检查相邻的上下两段身体，沿用原门槛。
         return body >= 22 && (badge.Tier is not (4 or 6)
-            || Edges(15) >= (board ? 12 : 22) && body + Edges(75) >= 130);
+            || Edges(15) >= (board ? 12 : 22) && body + (board ? Math.Max(Edges(35), Edges(75)) : Edges(75)) >= 130);
     }
 
     // 906 秒既有测试裁片的倒三角灰度描述子（16×16），不含角标或鸟形身份。

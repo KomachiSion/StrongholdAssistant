@@ -1,4 +1,4 @@
-// Modified for ASP Assistant Regulation on 2026-11-09; see NOTICE.
+﻿// Modified for ASP Assistant Regulation on 2026-11-09; see NOTICE.
 // 2026-11-11：从 ASPAssistant.App 的截图和窗口停靠流程改编，推送改为 WebView2 消息桥；见 NOTICE。
 using System.ComponentModel;
 using System.Text.Json;
@@ -203,7 +203,6 @@ public partial class MainWindow
             if (frame is null || !_scanner.BoardMainScreenVisible || reading is { IsRest: false })
             {
                 _api.HideFieldOverlay();
-                _api.InvalidateCollectionFrame();
             }
             _api.ObserveBoardFrame(frame, reading, _scanner.BoardShopVisible, _scanner.BoardMainScreenVisible);
         };
@@ -276,6 +275,14 @@ public partial class MainWindow
             _overlay.UpdateShopItems([]);
             _overlay.Hide();
             PublishConnection();
+        });
+        // 游戏窗口自己也常是置顶窗口：点一下游戏，它就排到侧栏前面把侧栏盖住。
+        // WPF 的 Topmost 只在设置时排一次，所以游戏切到前台时重新把侧栏和标记层提到最上面（v1.2.5）。
+        _tracker.GameWindowFocusChanged += focused => Dispatcher.BeginInvoke(() =>
+        {
+            if (!focused || _closing) return;
+            if (Topmost && IsVisible) User32.RaiseTopmost(new WindowInteropHelper(this).Handle);
+            if (_overlay.IsVisible) User32.RaiseTopmost(new WindowInteropHelper(_overlay).Handle);
         });
         _tracker.GameWindowMinimizedChanged += minimized => Dispatcher.BeginInvoke(() =>
         {

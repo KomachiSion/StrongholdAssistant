@@ -98,13 +98,22 @@ public sealed partial class HostApi
             _placementStop?.Cancel();
             var stop = new CancellationTokenSource();
             _placementStop = stop;
+            var timing = force ? ASPAssistant.Core.Services.FieldRecognitionTiming.Active : null;
             _placementWork = Task.Run(async () =>
             {
                 try
                 {
                     if (!force) await Task.Delay(1000, stop.Token);
                     var result = _placementAdapter.Compute(input, stop.Token);
-                    PublishPlacement(result, generation);
+                    PublishPlacement(result, generation, timing is null ? null : () =>
+                    {
+                        timing.Mark("placementReady");
+                        Collect(DateTimeOffset.UtcNow, b => b.Log("recognize", new
+                        {
+                            requestId = timing.RequestId, phase = "placement", stages = timing.Snapshot(),
+                            milliseconds = timing.Snapshot()["placementReady"], basedOn = snapshot.UpdatedAt
+                        }));
+                    });
                 }
                 catch (OperationCanceledException) when (stop.IsCancellationRequested) { }
                 finally
@@ -119,12 +128,12 @@ public sealed partial class HostApi
         }
     }
 
-    private void PublishPlacement(PlacementResult? result, int generation)
+    private void PublishPlacement(PlacementResult? result, int generation, Action? published = null)
     {
         // 消息桥会同步切到窗口线程；不能持有计算锁等待它，否则 placement() 可能互锁。
         if (DialogOwner?.Dispatcher is { } dispatcher && !dispatcher.CheckAccess())
         {
-            dispatcher.BeginInvoke(() => PublishPlacement(result, generation));
+            dispatcher.BeginInvoke(() => PublishPlacement(result, generation, published));
             return;
         }
         lock (_placementGate)
@@ -135,5 +144,6 @@ public sealed partial class HostApi
             result = _placement;
         }
         NotifyPlacement(result);
+        published?.Invoke();
     }
 }

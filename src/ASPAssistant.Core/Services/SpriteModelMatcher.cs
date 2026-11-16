@@ -10,7 +10,7 @@ public sealed class SpriteModelMatcher : IDisposable
     public const double ModelWeight = .1;
     // 两局跨局预测分别校准为 .033005 / .096211，取较高值向上取整。
     public const double AutoFillGap = .09622;
-    private readonly Net _net;
+    private readonly ThreadLocal<Net> _nets;
     private readonly double _modelWeight;
     private readonly Dictionary<string, int> _indices;
 
@@ -20,23 +20,27 @@ public sealed class SpriteModelMatcher : IDisposable
         _indices = JsonSerializer.Deserialize<string[]>(File.ReadAllText(classesPath))!
             .Select((name, index) => (name, index)).ToDictionary(p => p.name, p => p.index);
         // 读成字节再交给 OpenCV：按路径加载时用 ANSI 编码传路径，装在中文目录、系统又不是中文区域时会崩（v1.1.1 玩家日志）
-        _net = CvDnn.ReadNetFromOnnx(File.ReadAllBytes(modelPath)) ?? throw new InvalidDataException("小人模型无法加载。");
-        _net.SetPreferableBackend(Backend.OPENCV);
-        _net.SetPreferableTarget(Target.CPU);
+        var model = File.ReadAllBytes(modelPath);
+        _nets = new(() =>
+        {
+            var net = CvDnn.ReadNetFromOnnx(model) ?? throw new InvalidDataException("小人模型无法加载。");
+            net.SetPreferableBackend(Backend.OPENCV);
+            net.SetPreferableTarget(Target.CPU);
+            return net;
+        }, true);
     }
 
     public float[] Predict(Mat crop)
     {
+        using var timing = FieldRecognitionTiming.Measure("model");
         if (crop.Empty() || crop.Width != 180 || crop.Height != 204 || crop.Type() != MatType.CV_8UC3)
             throw new ArgumentException("小人模型输入必须为 180×204 BGR 图块。", nameof(crop));
         using var blob = CvDnn.BlobFromImage(crop, 1d / 255, new Size(160, 192), swapRB: true, crop: false);
-        lock (_net)
-        {
-            _net.SetInput(blob);
-            using var prediction = _net.Forward();
-            prediction.GetArray(out float[] values);
-            return values;
-        }
+        var net = _nets.Value!;
+        net.SetInput(blob);
+        using var prediction = net.Forward();
+        prediction.GetArray(out float[] values);
+        return values;
     }
 
     public SpriteCandidate[] Fuse(Mat crop, IReadOnlyList<SpriteCandidate> templates)
@@ -69,5 +73,5 @@ public sealed class SpriteModelMatcher : IDisposable
         return weights.Select(w => w / sum).ToArray();
     }
 
-    public void Dispose() => _net.Dispose();
+    public void Dispose() { foreach (var net in _nets.Values) net.Dispose(); _nets.Dispose(); }
 }

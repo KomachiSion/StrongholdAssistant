@@ -207,7 +207,10 @@ public sealed class RosterReader
         }
         // 分组标题会扩大个别间隔，取间隔的下中位数，避免把标题算成一列。
         var gaps = columns.Zip(columns.Skip(1), (a, b) => b - a).Order().ToArray();
-        return (image.Width, gaps[(gaps.Length - 1) / 2]);
+        double spacing = gaps[(gaps.Length - 1) / 2];
+        // 列距约 310×界面缩放（0.85～1.3）；超出说明认到的不是卡片列，按测不出处理（v1.2.5）。
+        if (spacing is < 250 or > 420) throw new IOException("无法测量物资调配页列间距。");
+        return (image.Width, spacing);
     }
 
     private static IEnumerable<(int X, int Y, double Scale)> LocateGrid(Bitmap image)
@@ -215,7 +218,8 @@ public sealed class RosterReader
         bool Border(int x, int y)
         {
             var c = image.GetPixel(x, y);
-            return c.R > 170 && c.G > 90 && (c.B > 150 || c.B < 120) || c.B > 140 && c.G > 80 && c.R < 100;
+            // 助战卡青色边框在模拟器画面里蓝色只有 140 上下（v1.2.5 放宽到 120）。
+            return c.R > 170 && c.G > 90 && (c.B > 150 || c.B < 120) || c.B > 120 && c.G > 80 && c.R < 100;
         }
         // 寻找卡面顶边，并以向下延续的左边框排除技能格、底边和画面内的亮线。
         var edges = new List<(int X, int Y)>();
@@ -244,15 +248,23 @@ public sealed class RosterReader
             if (rows.Count == 0 || edge.Y - rows[^1][^1].Y > 5) rows.Add([]);
             rows[^1].Add(edge);
         }
-        // 一排里助战卡、角标多时可能只认出一两列；最强的一排够三列即可，另一排借它的列位置。
-        var ranked = rows.OrderByDescending(r => r.Count).Take(2).ToArray();
-        if (ranked.Length != 2 || ranked[0].Select(p => p.X / 5).Distinct().Count() < 3) yield break;
-        var pair = ranked.OrderBy(r => r[0].Y).ToArray();
-        double scale = (pair[1][0].Y - pair[0][0].Y) / 351.0;
-        if (scale is < .85 or > 1.3) yield break;
-        // 两排共用列位置，借另一排补上助战角标遮住的顶边。
-        var columns = pair.SelectMany(r => r).Select(p => p.X).Order()
+        // 一排里助战卡、角标多时可能只认出一两列，另一排借它的列位置；
+        // 小图标、白色立绘也可能被当成一排：只取上下间距像两排卡的组合，
+        // 先比两排对得上的列数（真卡上下同列，立绘白块对不上），再比列数（v1.2.5）。
+        static List<int> Columns(IEnumerable<(int X, int Y)> points) => points.Select(p => p.X).Order()
             .Aggregate(new List<int>(), (xs, x) => { if (xs.Count == 0 || x - xs[^1] > 5) xs.Add(x); return xs; });
+        var pair = (from upper in rows
+                    from lower in rows
+                    let gap = (lower[0].Y - upper[0].Y) / 351.0
+                    where gap is >= .85 and <= 1.3
+                    let top = Columns(upper)
+                    let bottom = Columns(lower)
+                    orderby top.Count(x => bottom.Any(b => Math.Abs(b - x) <= 5)) descending, top.Count + bottom.Count descending
+                    select new[] { upper, lower }).FirstOrDefault();
+        if (pair is null || pair.SelectMany(r => r).Select(p => p.X / 5).Distinct().Count() < 3) yield break;
+        double scale = (pair[1][0].Y - pair[0][0].Y) / 351.0;
+        // 两排共用列位置，借另一排补上助战角标遮住的顶边。
+        var columns = Columns(pair.SelectMany(r => r));
         foreach (int column in columns)
         foreach (var row in pair)
             if (column >= 60 * scale && column + 205 * scale < image.Width)

@@ -22,7 +22,9 @@ public sealed partial class SpriteMatcher : IDisposable
     private readonly double _pixelsPerUnit;
     public bool UsesPhysicalScale => _pixelsPerUnit > 0;
     private readonly List<Template> _source = [];
-    private readonly Dictionary<string, List<Template>> _scaled = new(StringComparer.Ordinal);
+    // 比对线程独立持有缩放图，避免其他格换尺度时释放正在使用的 Mat。
+    private readonly ThreadLocal<Dictionary<string, List<Template>>> _scaledByThread = new(() => new(StringComparer.Ordinal), true);
+    private Dictionary<string, List<Template>> _scaled => _scaledByThread.Value!;
 
     public SpriteMatcher(string packagePath)
     {
@@ -87,6 +89,7 @@ public sealed partial class SpriteMatcher : IDisposable
         Point? searchAnchor, IReadOnlyDictionary<string, string?>? skins,
         double? screenPixelsPerUnit, Mat? occlusion, FieldSpritePatch? fieldPatch)
     {
+        using var timing = FieldRecognitionTiming.Measure("templates");
         if (crop.Empty() || crop.Type() != MatType.CV_8UC3)
             throw new ArgumentException("裁块必须为BGR图像。", nameof(crop));
         if (UsesPhysicalScale && (screenPixelsPerUnit is not { } unit || !double.IsFinite(unit) || unit <= 0))
@@ -212,6 +215,7 @@ public sealed partial class SpriteMatcher : IDisposable
 
     private List<Template> Templates(string name, double? screenPixelsPerUnit = null)
     {
+        using var timing = FieldRecognitionTiming.Measure("templateScale");
         string key = UsesPhysicalScale ? $"{name}@{screenPixelsPerUnit:R}" : name;
         if (_scaled.TryGetValue(key, out var cached)) return cached;
         // 拟合投影每帧会微调格宽；每人仅留当前尺度，避免整局积累连续尺度的原生图像。
@@ -249,7 +253,8 @@ public sealed partial class SpriteMatcher : IDisposable
 
     public void Dispose()
     {
-        foreach (var t in _source.Concat(_scaled.Values.SelectMany(v => v)))
+        foreach (var t in _source.Concat(_scaledByThread.Values.SelectMany(d => d.Values).SelectMany(v => v)))
         { t.Color.Dispose(); t.Mask.Dispose(); }
+        _scaledByThread.Dispose();
     }
 }

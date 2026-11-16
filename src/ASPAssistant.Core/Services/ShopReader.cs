@@ -18,6 +18,9 @@ public sealed class ShopReader(IOcrEngine engine, IReadOnlyList<string> catalogN
 {
     // 2026-11-15：可见商店连续两次名称读空才报告失败。
     private int _emptyReadings;
+    private byte[]? _lastNameInput;
+    private IReadOnlyList<OcrTextResult> _lastNameTexts = [];
+    internal void InvalidateNames() => _lastNameInput = null;
     internal bool NeedsEmptyConfirmation => _emptyReadings == 1;
     private readonly string[] _names = catalogNames.OrderByDescending(n => n.Length).ToArray();
     private volatile GameShopTheme _theme = GameShopTheme.Terminal;
@@ -145,7 +148,18 @@ public sealed class ShopReader(IOcrEngine engine, IReadOnlyList<string> catalogN
         var ocrInput = encoded.ToArray();
         // 高分辨率缩小后，空槽纹理可能被检测成横跨整张卡片的单个 W。
         // 只排除过宽的单个英文字符；「砾」这类单字干员名不受影响。
-        var texts = (await engine.RecognizeRegionAsync(ocrInput, 0, 0, strip.Width, strip.Height))
+        // 只复用完全相同的OCR输入；卡名、冻结状态或主题改变都会重新识别。
+        // 空结果仍交给下一次OCR，保留原有的连续空读确认。
+        IReadOnlyList<OcrTextResult> nameTexts;
+        if (_lastNameTexts.Count > 0 && ocrInput.AsSpan().SequenceEqual(_lastNameInput))
+            nameTexts = _lastNameTexts;
+        else
+        {
+            nameTexts = await engine.RecognizeRegionAsync(ocrInput, 0, 0, strip.Width, strip.Height);
+            _lastNameInput = ocrInput;
+            _lastNameTexts = nameTexts;
+        }
+        var texts = nameTexts
             .Where(t => t.Text.Trim() is not [< (char)128] || t.Box.W <= t.Box.H * 2).ToList();
         if (!texts.Any(t => t.Text.Contains("收起", StringComparison.Ordinal) && t.Box.X + t.Box.W > width * 1.6))
         {

@@ -112,6 +112,7 @@ public sealed partial class HostApi
 
     internal void ObserveEconomy(EconomyReading reading)
     {
+        ObserveFieldPhase(reading);
         lock (_historyGate)
         {
             if (!reading.IsRest || reading.Round is not (>= 1 and <= 20))

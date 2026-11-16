@@ -1,3 +1,4 @@
+using Moq;
 ﻿using System.Text.Json;
 using ASPAssistant.Core.Models;
 using ASPAssistant.Core.Services;
@@ -36,6 +37,34 @@ public sealed class FieldManualTests
         tracker.Observe(purchase with { At = at.AddSeconds(6), Money = 8 }, force: true);
         Assert.Equal("甲", Assert.Single(tracker.State.Units).Operator);
         Assert.NotEqual("unknown", Assert.Single(tracker.State.Units).Status);
+    }
+
+    [Fact]
+    public async Task ManualRecognitionPublishesFieldWithoutWaitingForPlacement()
+    {
+        string directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var pending = new TaskCompletionSource();
+        try
+        {
+            string data = Path.Combine(AppContext.BaseDirectory, "data");
+            var api = await HostApi.CreateAsync(data, directory);
+            var ocr = new Moq.Mock<IOcrEngine>();
+            ocr.Setup(o => o.RecognizeRegionAsync(Moq.It.IsAny<byte[]>(), Moq.It.IsAny<int>(), Moq.It.IsAny<int>(), Moq.It.IsAny<int>(), Moq.It.IsAny<int>()))
+                .ReturnsAsync(Array.Empty<OcrTextResult>());
+            api.CreateShopReader(ocr.Object);
+            api.InitializeField(data, ocr.Object);
+            typeof(HostApi).GetField("_placementWork", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.SetValue(api, pending.Task);
+            bool published = false;
+            api.Changed += (kind, _) => { if (kind == "field") published = true; };
+            using var bitmap = new System.Drawing.Bitmap(1920, 1080);
+            using var bytes = new MemoryStream();
+            bitmap.Save(bytes, System.Drawing.Imaging.ImageFormat.Png);
+            await api.RecognizeFieldFrameAsync(bytes.ToArray(), DateTimeOffset.UtcNow, new(1, null, null, null, true), true, false, [])
+                .WaitAsync(TimeSpan.FromSeconds(10));
+            Assert.True(published);
+            Assert.False(pending.Task.IsCompleted);
+        }
+        finally { pending.SetResult(); if (Directory.Exists(directory)) Directory.Delete(directory, true); }
     }
 
     [Fact]

@@ -27,6 +27,17 @@ public sealed class SklandAccountTests
     }
 
     [Fact]
+    public void LoadingAnimationPausesTheWaitForAtMostOneMinute()
+    {
+        var start = DateTime.UtcNow;
+        var waitingSince = start;
+        Assert.False(SklandParser.HistoryWaitExpired(false, false, start.AddSeconds(40), ref waitingSince, true, start));
+        Assert.False(SklandParser.HistoryWaitExpired(false, false, start.AddSeconds(54), ref waitingSince, false, start));
+        waitingSince = start;
+        Assert.True(SklandParser.HistoryWaitExpired(false, false, start.AddSeconds(76), ref waitingSince, true, start));
+    }
+
+    [Fact]
     public void MissingFormAndButtonStillTimesOut()
     {
         var start = DateTime.UtcNow;

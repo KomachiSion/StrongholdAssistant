@@ -142,7 +142,8 @@ public sealed partial class HostApi
             _sklandGuideStep = "wait-navigation";
             await navigated.Task.WaitAsync(TimeSpan.FromSeconds(30));
             _sklandGuideStep = "wait-first-page";
-            _sklandGuidesFirstPage = await firstPage.Task.WaitAsync(TimeSpan.FromSeconds(30));
+            // 页面先放加载动画，网慢时要半分钟以上
+            _sklandGuidesFirstPage = await firstPage.Task.WaitAsync(TimeSpan.FromSeconds(60));
             _sklandGuidesResources = await GuideScriptAsync(GuideInitializeScript, null, "initialize");
             _sklandGuideStep = "read-login-state";
             _sklandGuidesLoggedIn = _sklandGuidesResources.GetProperty("loggedIn").GetBoolean();

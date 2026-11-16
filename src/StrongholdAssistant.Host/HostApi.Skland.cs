@@ -419,6 +419,7 @@ public sealed partial class HostApi
                     try
                     {
                         var waitingSince = DateTime.UtcNow;
+                        var pageStarted = waitingSince;
                         var buttonLogged = false;
                         while (true)
                         {
@@ -430,7 +431,7 @@ public sealed partial class HostApi
                                   const login = [...document.querySelectorAll('input')].some(i =>
                                     i.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) &&
                                     (i.type === 'password' || i.type === 'tel' || /手机号/.test(i.placeholder + i.parentElement.textContent)));
-                                  return { button: !!button, login };
+                                  return { button: !!button, login, loading: /\d+% COMPLETE/.test(document.body.innerText) };
                                 })()
                                 """);
                             token.ThrowIfCancellationRequested();
@@ -438,7 +439,8 @@ public sealed partial class HostApi
                             var loginForm = state.RootElement.GetProperty("login").GetBoolean();
                             if (loginForm && logoutGeneration == _sklandLogoutGeneration) File.Delete(SklandAccountPath);
                             if (!visible && loginForm) { completion.TrySetResult(null); return; }
-                            if (SklandParser.HistoryWaitExpired(visible, loginForm, DateTime.UtcNow, ref waitingSince)) break;
+                            if (SklandParser.HistoryWaitExpired(visible, loginForm, DateTime.UtcNow, ref waitingSince,
+                                state.RootElement.GetProperty("loading").GetBoolean(), pageStarted)) break;
                             if (state.RootElement.GetProperty("button").GetBoolean() && !loginForm)
                             {
                                 if (!buttonLogged)
@@ -560,7 +562,8 @@ public sealed partial class HostApi
         }
         try
         {
-            if (silent) silentTimeout.CancelAfter(TimeSpan.FromSeconds(25));
+            // 页面加载动画可能要半分钟以上，后台读取也多等一些
+            if (silent) silentTimeout.CancelAfter(TimeSpan.FromSeconds(60));
             if (visible)
             {
                 window.Loaded += async (_, _) => await InitializeAsync();

@@ -101,17 +101,23 @@ public sealed partial class HostApi
                     try
                     {
                         var waitingSince = DateTime.UtcNow;
+                        var pageStarted = waitingSince;
                         while (!completion.Task.IsCompleted)
                         {
                             var result = await core.ExecuteScriptAsync("""
-                                [...document.querySelectorAll('input')].some(i =>
-                                  i.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) &&
-                                  (i.type === 'password' || i.type === 'tel' || /手机号/.test(i.placeholder + i.parentElement.textContent)))
+                                ({
+                                  login: [...document.querySelectorAll('input')].some(i =>
+                                    i.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) &&
+                                    (i.type === 'password' || i.type === 'tel' || /手机号/.test(i.placeholder + i.parentElement.textContent))),
+                                  loading: /\d+% COMPLETE/.test(document.body.innerText)
+                                })
                                 """);
                             token.ThrowIfCancellationRequested();
-                            var loginForm = result == "true";
+                            using var state = JsonDocument.Parse(result);
+                            var loginForm = state.RootElement.GetProperty("login").GetBoolean();
                             if (!visible && loginForm) { completion.TrySetResult(null); return; }
-                            if (SklandParser.HistoryWaitExpired(visible, loginForm, DateTime.UtcNow, ref waitingSince))
+                            if (SklandParser.HistoryWaitExpired(visible, loginForm, DateTime.UtcNow, ref waitingSince,
+                                state.RootElement.GetProperty("loading").GetBoolean(), pageStarted))
                                 throw new SklandException("打不开森空岛，检查一下网络再试。\nTimeoutException: 15 秒内未收到角色绑定。");
                             await Task.Delay(500, token);
                         }

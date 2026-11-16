@@ -54,9 +54,12 @@ public static partial class SklandParser
     }
 
     // 登录表单出现时重置等待起点，登录完成后给页面完整的 15 秒加载时间。
-    internal static bool HistoryWaitExpired(bool visible, bool loginForm, DateTime now, ref DateTime waitingSince)
+    // 森空岛页面先放一段加载动画（「N% COMPLETE」，2026-11 起），网慢时半分钟以上才出登录框：
+    // 加载动画还在时也不计时，但从打开页面算最多等 60 秒（v1.2.0 玩家诊断包：15 秒就报「打不开森空岛」）。
+    internal static bool HistoryWaitExpired(bool visible, bool loginForm, DateTime now, ref DateTime waitingSince,
+        bool loading = false, DateTime started = default)
     {
-        if (visible && loginForm) waitingSince = now;
+        if (visible && loginForm || loading && now - started < TimeSpan.FromSeconds(60)) waitingSince = now;
         return now - waitingSince >= TimeSpan.FromSeconds(15);
     }
 

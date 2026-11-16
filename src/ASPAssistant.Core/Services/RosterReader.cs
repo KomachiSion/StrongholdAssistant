@@ -35,7 +35,7 @@ public sealed class RosterReader
         var timer = Stopwatch.StartNew();
         using var stream = new MemoryStream(frame);
         using var original = new Bitmap(stream);
-        using var image = new Bitmap(original, (int)Math.Round(original.Width * 1080.0 / original.Height), 1080);
+        using var image = RosterCoordinates.Normalize(original);
         using var png = new MemoryStream(); image.Save(png, System.Drawing.Imaging.ImageFormat.Png);
         var bytes = png.ToArray();
         var header = string.Concat((await _ocr.RecognizeRegionAsync(bytes, 250, 10, 485, 90)).Select(l => l.Text.Replace(" ", "")));
@@ -99,12 +99,12 @@ public sealed class RosterReader
         return new(cards.OrderBy(c => c.X).ThenBy(c => c.Y).ToArray(), count, timer.Elapsed.TotalMilliseconds, unknown.ToArray());
     }
 
-    // 由排序文字和相连白底定位选中胶囊，按高度归一到 1080，保留画面宽度；找不到就不点击。
+    // 由排序文字和相连白底定位选中胶囊，按短边归一，保留完整画幅；找不到就不点击。
     public async Task<RosterSort?> ReadSortAsync(byte[] frame)
     {
         using var stream = new MemoryStream(frame);
         using var original = new Bitmap(stream);
-        using var image = new Bitmap(original, (int)Math.Round(original.Width * 1080.0 / original.Height), 1080);
+        using var image = RosterCoordinates.Normalize(original);
         using var png = new MemoryStream(); image.Save(png, System.Drawing.Imaging.ImageFormat.Png);
         int regionLeft = image.Width - 670, regionRight = image.Width - 120;
         var labels = (await _ocr.RecognizeRegionAsync(png.ToArray(), regionLeft, 10, 550, 105))
@@ -197,7 +197,7 @@ public sealed class RosterReader
     {
         using var stream = new MemoryStream(frame);
         using var original = new Bitmap(stream);
-        using var image = new Bitmap(original, (int)Math.Round(original.Width * 1080.0 / original.Height), 1080);
+        using var image = RosterCoordinates.Normalize(original);
         var columns = LocateGrid(image).Select(p => p.X).Distinct().Order().ToArray();
         if (columns.Length < 3)
         {
@@ -219,13 +219,14 @@ public sealed class RosterReader
         }
         // 寻找卡面顶边，并以向下延续的左边框排除技能格、底边和画面内的亮线。
         var edges = new List<(int X, int Y)>();
-        for (int y = 130; y < 700; y++)
+        for (int y = 130; y < 700 + (image.Height - 1080) / 2; y++)
         {
             int start = -1;
             for (int x = 0; x < image.Width; x++)
             {
                 if (Border(x, y)) { if (start < 0) start = x; }
-                else if (start >= 0)
+                // 白框与蓝色角标交界经重采样会留下单像素暗缝，仍属于同一条顶边。
+                else if (start >= 0 && !(x + 1 < image.Width && Border(x + 1, y)))
                 {
                     int width = x - start;
                     if (start >= 2 && width is >= 100 and <= 145 &&

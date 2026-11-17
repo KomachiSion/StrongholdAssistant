@@ -21,11 +21,12 @@ export function evaluateLineup(lineup: Pick<Lineup, 'members' | 'goals' | 'group
       if (names.length) substitutes.push(`组${i + 1}：${names.join('、')}被禁，但仍满足任${need}`)
       continue
     }
-    // 组选项可以互换，缺口按组中最高配置优先级提示，不把每名被禁候选都算一次。
-    const p = Math.max(0, ...members.map(priority))
-    if (p === 2) groupKeyLoss += deficit
-    else if (p === 1) groupRecommendedLoss += deficit
-    else groupOtherLoss += deficit
+    // 只计算补足缺口所需的最少受限候选；仍可用的关键成员不能抬高缺口等级。
+    const missingPriorities = members.filter(m => banned.has(m.name)).map(priority).sort((a, b) => a - b).slice(0, deficit)
+    groupKeyLoss += missingPriorities.filter(p => p === 2).length
+    groupRecommendedLoss += missingPriorities.filter(p => p === 1).length
+    groupOtherLoss += missingPriorities.filter(p => p === 0).length
+    const p = Math.max(0, ...missingPriorities)
     groupWarnings.push(`组${i + 1}（${p === 2 ? '关键' : p === 1 ? '推荐' : '普通'}）：需${need}，剩${available.length}，缺${deficit}`)
   }
   const keyBans = missing.filter(m => priority(m) === 2).map(m => m.name)

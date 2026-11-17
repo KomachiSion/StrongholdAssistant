@@ -20,10 +20,19 @@ test('banned key candidate in a satisfied choose-N group is not a missing core',
 })
 test('group shortages counted by deficit not banned candidate count',()=>{
  const r=risk(lineup([],[{need:2,members:[{name:'key',key:true},{name:'alt'},{name:'available'}]}]),match)
- assert.equal(r.keyLoss,1);assert.equal(r.groupWarnings.length,1)
+ assert.equal(r.keyLoss,0);assert.equal(r.otherLoss,1);assert.equal(r.groupWarnings.length,1)
 })
 test('no scan or incomplete scans are marked uncertain, no false safe label',()=>{
  assert.equal(risk(lineup(),{...match,source:'none'}).uncertain,true)
  assert.equal(risk(lineup(),{...match,banGroups:[]}).uncertain,true)
  assert.equal(risk(lineup(),match).uncertain,false)
+})
+
+test('available key does not promote missing ordinary alternatives to key loss',()=>{
+ const r=risk(lineup([],[{need:2,members:[{name:'available',key:true},{name:'normal'},{name:'alt'}]}]),match)
+ assert.equal(r.keyLoss,0);assert.equal(r.otherLoss,1)
+})
+test('group counts key loss only when no lower-priority replacement can fill deficit',()=>{
+ const r=risk(lineup([],[{need:2,members:[{name:'key',key:true},{name:'rec',recommended:true},{name:'normal'}]}]),match)
+ assert.equal(r.keyLoss,0);assert.equal(r.recommendedLoss,1);assert.equal(r.otherLoss,1)
 })

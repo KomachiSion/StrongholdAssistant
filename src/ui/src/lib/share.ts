@@ -13,13 +13,14 @@
 //   SA4（v1.0.1，「一组」干员和升本计划）在 SA3 那段后面接着：成型阵容的组 + 每个阶段的组（按阶段顺序）+ 升本计划。
 //             组 = 组个数 + 每组（need + 干员个数 + 每个干员序号 + 关键标记位图 + 每名 1 字节精锐技能模组 + 候选装备（同 SA2））；
 //             升本计划 = 步数 + 每步（回合 + 等级）
+//   SA5 在每段干员关键标记位图后增加推荐标记位图；仅存在推荐干员时使用，旧版会明确提示升级。
 // 有回合阶段才编 SA3，有组或升本计划才编 SA4；没有阶段、没有候选装备时仍编 SA1，旧版助手也能导入。
 //
 // 指纹只算普通干员：自选干员（Operator.diy，v0.7.0）排在干员表最后，不进指纹，所以加了自选干员后指纹不变，
 // 新旧版本的码互相能导；码里用到自选干员时，旧版助手会提示码不完整。
 import type { Catalog, Lineup, LineupGroup, LineupMember, LineupStage, CovenantGoal } from './api'
 
-const VERSION = 4
+const VERSION = 5
 const MAX_NAME = 60
 
 /** 当期数据的指纹：盟约 id、普通干员名、装备名、策略 id 按顺序算 FNV-1a，取低 16 位。序号就是按这个顺序数的 */
@@ -63,10 +64,12 @@ export function encodeLineup(l: Lineup, c: Catalog): string {
   }
   const stages = l.stages ?? []
   const v4 = !!(l.groups?.length || l.upgrades?.length || stages.some((s) => s.groups?.length))
-  const v = v4 ? 4 : stages.length || l.members.some((m) => m.elite || m.skill || m.module !== undefined) ? 3 : l.members.some((m) => m.equipment?.length) ? 2 : 1
+  const hasRecommended = [l, ...stages].some((p) => [...p.members, ...(p.groups ?? []).flatMap((g) => g.members)].some((m) => !m.key && m.recommended))
+  const v = hasRecommended ? 5 : v4 ? 4 : stages.length || l.members.some((m) => m.elite || m.skill || m.module !== undefined) ? 3 : l.members.some((m) => m.equipment?.length) ? 2 : 1
   const part = (p: Part) => [
     p.goals.length, ...p.goals.map((g) => ((g.level - 1) << 7) | cov.get(g.id)!),
     p.members.length, ...p.members.map((m) => op.get(m.name)!), ...bits(p.members.map((m) => !!m.key)),
+    ...(v >= 5 ? bits(p.members.map((m) => !m.key && !!m.recommended)) : []),
     p.equipment.length, ...p.equipment.map((n) => eq.get(n)!),
     ...(v >= 3 ? p.members.map(cfg) : []),
   ]
@@ -77,7 +80,7 @@ export function encodeLineup(l: Lineup, c: Catalog): string {
     })
   const groups = (list: LineupGroup[] = []) => [
     list.length,
-    ...list.flatMap((g) => [g.need, g.members.length, ...g.members.map((m) => op.get(m.name)!), ...bits(g.members.map((m) => !!m.key)), ...g.members.map(cfg), ...memberEq(g)]),
+    ...list.flatMap((g) => [g.need, g.members.length, ...g.members.map((m) => op.get(m.name)!), ...bits(g.members.map((m) => !!m.key)), ...(v >= 5 ? bits(g.members.map((m) => !m.key && !!m.recommended)) : []), ...g.members.map(cfg), ...memberEq(g)]),
   ]
   const name = utf8(l.name, MAX_NAME)
   const fp = fingerprint(c)
@@ -146,7 +149,11 @@ export function decodeLineup(text: string, c: Catalog): Decoded {
   const memberList = (): LineupMember[] => {
     const names = Array.from({ length: next() }, () => pick(c.operators, next()).name)
     const keys = Array.from({ length: Math.ceil(names.length / 8) }, next)
-    return names.map((n, i) => ({ name: n, ...((keys[i >> 3] >> (i & 7)) & 1 && { key: true }) }))
+    const recommended = v >= 5 ? Array.from({ length: Math.ceil(names.length / 8) }, next) : []
+    return names.map((name, i) => {
+      const key = !!((keys[i >> 3] >> (i & 7)) & 1)
+      return { name, ...(key ? { key: true } : (recommended[i >> 3] >> (i & 7)) & 1 ? { recommended: true } : {}) }
+    })
   }
   // 精锐、技能、模组：广场目录不带技能模组时只留精锐
   const config = (members: LineupMember[]) => {

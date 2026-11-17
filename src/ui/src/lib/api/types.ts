@@ -532,6 +532,8 @@ export interface LineupMember {
   name: string
   /** 关键干员（如关键叠层）：待购里排在前面，商店标记和其他想抓的干员一样 */
   key?: boolean
+  /** 推荐干员；与 key 同时存在时以关键为准。未指定时仍为普通。 */
+  recommended?: boolean
   /** 旧版规划器给这名干员加的转职盟约；新建的阵容不再产生 */
   transform?: CovenantId
   /**
@@ -1613,6 +1615,7 @@ export interface Api {
    */
   onDeepLink(cb: (url: string) => void): () => void
   /** 后端推送：识别到新的开局信息 */
+  onSessionReset(cb: (s: Session) => void): () => void
   onMatch(cb: (m: MatchInfo) => void): () => void
   /** 后端推送：游戏窗口找到 / 丢失 / 尺寸或全屏变化 */
   onConnection(cb: (c: Connection) => void): () => void

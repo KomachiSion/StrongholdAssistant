@@ -1,3 +1,4 @@
+import { evaluateLineup, compareLineupRisk } from './lineup-risk'
 // 界面状态：从 api 取数据，派生出各页要用的视图
 import { api } from './api'
 import { shareText } from './share'
@@ -173,6 +174,7 @@ export class AppState {
       })
     })
     // 宿主识别到新的开局信息页时推送
+    api.onSessionReset((s) => (this.session = s))
     api.onMatch((m) => (this.match = m))
     api.onConnection((c) => (this.connection = c))
     api.onScan((s) => {
@@ -274,12 +276,8 @@ export class AppState {
   bannedIn(l: { members: LineupMember[] }) {
     return l.members.filter((m) => this.banned.has(m.name))
   }
-  /** 本局适不适合用这套阵容：名单半数以上被禁的垫底（没设目标盟约的阵容也不例外），其次目标盟约阵容不完整的个数，再次被禁人数；越小越好 */
-  lineupPenalty(l: Lineup) {
-    const banned = this.bannedIn(l).length
-    return (banned * 2 >= l.members.length && banned > 0 ? 1000 : 0)
-      + l.goals.filter((g) => this.matchCovenant(g.id)?.incomplete).length * 100 + banned
-  }
+  lineupRisk(l: Lineup) { return evaluateLineup(l, this.match) }
+  compareLineups(a: Lineup, b: Lineup) { return compareLineupRisk(this.lineupRisk(a), this.lineupRisk(b)) }
 
   private save() {
     api.saveSession({ ...$state.snapshot(this.session), owned: [] })

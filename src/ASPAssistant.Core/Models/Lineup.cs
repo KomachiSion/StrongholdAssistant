@@ -74,6 +74,10 @@ public class LineupSlot
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? Key { get; set; }
 
+    [JsonPropertyName("recommended")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Recommended { get; set; }
+
     /// <summary>规划器为该干员临时追加的转职盟约。</summary>
     [JsonPropertyName("transformedCovenant")]
     public string TransformedCovenant { get; set; } = "";

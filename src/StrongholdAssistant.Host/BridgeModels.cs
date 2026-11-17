@@ -8,6 +8,8 @@ public sealed record LineupMember(string Name,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] bool? Key = null)
 {
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Recommended { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? Elite { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Skill { get; init; }

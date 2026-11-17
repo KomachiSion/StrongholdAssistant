@@ -21,6 +21,9 @@ public sealed partial class HostApi
 
     public async Task<object> CheckUpdateAsync()
     {
+#if FORK_PREVIEW
+        return ReportUpdate(new { state = "error", message = "Fork 试用版请到 KomachiSion/StrongholdAssistant Releases 手动更新，避免被上游版本覆盖。" });
+#else
         if (Volatile.Read(ref _downloadStatus) is { } downloading) return downloading;
         if (UpdatePrepared && _availableUpdate is { } prepared) return ReportUpdate(new { state = "ready", version = prepared.Version });
         Updater.GetUpdateProxy = () => Settings.UpdateProxy;
@@ -41,6 +44,7 @@ public sealed partial class HostApi
         status["source"] = info.Source;
         if (info.Notes is { } notes) status["notes"] = notes;
         return ReportUpdate(status);
+#endif
     }
 
     /// <summary>

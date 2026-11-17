@@ -126,7 +126,7 @@
   const shown = $derived(
     st.sort === 'match' && isAll
       ? [...cards].sort((a, b) => (pageOf.get(a.it.id) ?? 0) - (pageOf.get(b.it.id) ?? 0)
-          || (a.sk ? app.lineupPenalty(a.sk.lineup) : 1e9) - (b.sk ? app.lineupPenalty(b.sk.lineup) : 1e9))
+          || (a.sk && b.sk ? app.compareLineups(a.sk.lineup, b.sk.lineup) : Number(!!b.sk) - Number(!!a.sk)))
       : cards,
   )
   const num = (n: number) => (n >= 10000 ? `${(n / 10000).toFixed(1)}万` : String(n))

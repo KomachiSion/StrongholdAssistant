@@ -331,6 +331,7 @@ const mockDownload = () =>
 
 const scanListeners = new Set<(s: ScanStatus) => void>()
 const windowListeners = new Set<(e: 'closing') => void>()
+const sessionResetListeners = new Set<(s: Session) => void>()
 const matchListeners = new Set<(m: MatchInfo) => void>()
 const wait = <T>(v: T, ms = 120) => new Promise<T>((r) => setTimeout(() => r(structuredClone(v)), ms))
 
@@ -572,6 +573,14 @@ export const mockApi: Api = {
   },
   roundEnemyOptions: () => wait(match.economy?.round === intel.round ? (intel as unknown as RoundEnemyOptions) : null, 120),
   resetMatch: () => {
+    const target = lineups.find((l) => l.id === session.targetLineupId)
+    const views = target ? [target, ...(target.stages ?? [])] : []
+    const members = views.flatMap((v) => [...v.members, ...(v.groups ?? []).flatMap((g) => g.members)])
+    const names = new Set(members.map((m) => m.name))
+    const equipment = new Set([...views.flatMap((v) => v.equipment), ...members.flatMap((m) => (m.equipment ?? []).map((e) => e.name))])
+    session = { ...session, targetLineupId: null, stage: null, owned: [],
+      tracked: session.tracked.filter((n) => !names.has(n)), trackedEquipment: session.trackedEquipment.filter((n) => !equipment.has(n)) }
+    for (const cb of sessionResetListeners) cb(structuredClone(session))
     roundEnemies = null
     incomplete.clear()
     manualBan.clear()
@@ -889,6 +898,10 @@ export const mockApi: Api = {
   onUpdate: (cb) => {
     updateListeners.add(cb)
     return () => updateListeners.delete(cb)
+  },
+  onSessionReset: (cb) => {
+    sessionResetListeners.add(cb)
+    return () => sessionResetListeners.delete(cb)
   },
   onMatch: (cb) => {
     matchListeners.add(cb)

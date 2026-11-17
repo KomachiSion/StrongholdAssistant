@@ -178,6 +178,7 @@ public sealed partial class HostApi
         if (newMatch)
         {
             lock (_historyGate) CompleteHistory();
+            ResetTargetForNewMatch();
             _avatarBans.Clear();
             _manualBans.Clear();
             _banGroups.Clear();

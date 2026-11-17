@@ -123,8 +123,8 @@
     sort === 'match'
       ? posts
           .filter((p) => p.current)
-          .map((p) => ({ p, pen: app.lineupPenalty(postToLineup(p)) }))
-          .sort((a, b) => a.pen - b.pen)
+          .map((p) => ({ p, lineup: postToLineup(p) }))
+          .sort((a, b) => app.compareLineups(a.lineup, b.lineup))
           .map((x) => x.p)
       : posts,
   )

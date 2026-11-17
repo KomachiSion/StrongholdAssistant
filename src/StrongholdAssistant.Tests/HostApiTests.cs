@@ -99,7 +99,7 @@ public sealed class HostApiTests : IDisposable
         var input = loaded with
         {
             Name = "改名", Source = "planned", Note = "备注",
-            Members = [new(names[1], "yan"), new(names[0], "siracusa"), new(names[2])]
+            Members = [new(names[1], "yan") { Recommended = true }, new(names[0], "siracusa", true) { Recommended = true }, new(names[2])]
         };
         var response = await api.InvokeAsync("saveLineup", [JsonSerializer.SerializeToElement(input, HostApi.JsonOptions)]);
         var saved = Assert.IsType<LineupDto>(response);
@@ -115,6 +115,15 @@ public sealed class HostApiTests : IDisposable
         Assert.Equal(JsonSerializer.Serialize(original.SupportSlots), JsonSerializer.Serialize(persisted.SupportSlots));
         Assert.Equal(JsonSerializer.Serialize(original.Strategies), JsonSerializer.Serialize(persisted.Strategies));
         Assert.Equal(input.Members.Select(m => m.Name), persisted.Slots.Select(s => s.OperatorName));
+        Assert.True(persisted.Slots[0].Recommended);
+        Assert.Null(persisted.Slots[1].Recommended); // key takes precedence
+        Assert.True(persisted.Slots[1].Key);
+        Assert.Null(persisted.Slots[2].Recommended);
+        var restarted = await CreateApi();
+        var afterRestart = Assert.Single(await restarted.LineupsAsync());
+        Assert.True(afterRestart.Members[0].Recommended);
+        Assert.Null(afterRestart.Members[1].Recommended);
+        Assert.True(afterRestart.Members[1].Key);
         foreach (var previous in original.Slots)
         {
             var current = persisted.Slots.Single(s => s.OperatorName == previous.OperatorName);

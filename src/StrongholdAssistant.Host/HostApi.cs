@@ -166,12 +166,13 @@ public sealed partial class HostApi
 
     private LineupMember ToMember(LineupSlot s) => new(s.OperatorName,
         s.TransformedCovenant.Length == 0 ? null : _ids[s.TransformedCovenant], s.Key)
-        { Equipment = s.Equipment, Elite = s.Elite, Skill = s.Skill, Module = s.Module };
+        { Recommended = s.Key == true ? null : s.Recommended, Equipment = s.Equipment, Elite = s.Elite, Skill = s.Skill, Module = s.Module };
 
     private LineupSlot ToSlot(LineupMember m, LineupSlot? old = null)
     {
         var slot = old ?? new LineupSlot { OperatorName = m.Name };
         slot.Key = m.Key;
+        slot.Recommended = m.Key == true ? null : m.Recommended;
         slot.Equipment = m.Equipment.DistinctBy(e => e.Name).ToArray();
         slot.TransformedCovenant = m.Transform is null ? "" : CovenantName(m.Transform);
         slot.Elite = m.Elite;
@@ -375,6 +376,7 @@ public sealed partial class HostApi
         await _scanGate.WaitAsync();
         try
         {
+            ResetTargetForNewMatch();
             ResetMatchReading();
             ResetField();
             lock (_historyGate)

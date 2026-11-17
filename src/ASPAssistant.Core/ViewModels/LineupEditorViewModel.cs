@@ -259,6 +259,12 @@ public partial class LineupEditorViewModel : ObservableObject
     private static LineupSlot CloneSlot(LineupSlot s) => new()
     {
         OperatorName = s.OperatorName,
+        Key = s.Key,
+        Recommended = s.Key == true ? null : s.Recommended,
+        Elite = s.Elite,
+        Skill = s.Skill,
+        Module = s.Module,
+        Equipment = [.. s.Equipment],
         TransformedCovenant = s.TransformedCovenant,
         Equipments   = [.. s.Equipments],
         CoreEquipments = [.. s.CoreEquipments],

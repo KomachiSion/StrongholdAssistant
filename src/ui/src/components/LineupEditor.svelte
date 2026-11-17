@@ -124,7 +124,8 @@
   }
   const maxNeed = (g: LineupGroup) => Math.max(1, g.members.length - 1)
   const setNeed = (gi: number, d: number) => (e!.groups = e!.groups!.map((g, i) => (i === gi ? { ...g, need: Math.min(maxNeed(g), Math.max(1, g.need + d)) } : g)))
-  const toggleKey = (n: string) => mapMember(n, (m) => ({ ...m, key: !m.key }))
+  const setPriority = (n: string, priority: 'key' | 'recommended' | 'normal') =>
+    mapMember(n, (m) => ({ ...m, key: priority === 'key' ? true : undefined, recommended: priority === 'recommended' ? true : undefined }))
 
   // 升本计划（v1.0.1）：整套阵容一份，和回合阶段无关；按回合排，等级要越来越高
   let upRound = $state(3)
@@ -255,7 +256,9 @@
       title: n,
       sub: '这套阵容里',
       items: [
-        { label: '关键干员', icon: 'star', on: !!m.key, run: () => toggleKey(n) },
+        { label: '关键干员', icon: 'star', on: !!m.key, run: () => setPriority(n, 'key') },
+        { label: '推荐干员', icon: 'star', on: !m.key && !!m.recommended, run: () => setPriority(n, 'recommended') },
+        { label: '普通干员', icon: 'subtract', on: !m.key && !m.recommended, run: () => setPriority(n, 'normal') },
         { label: '候选装备、技能、模组…', icon: 'pencil', run: () => sel !== n && pickMember(n) },
         { label: '查看详情', icon: 'arrowRight', run: () => (app.detail = { kind: 'operator', name: n }) },
         'sep',
@@ -380,11 +383,12 @@
     </div>
 
     <div class="sec">
-      <div class="lbl">想抓的干员 <b class="term">{e.members.length}</b><em>不限人数；点已选的头像设「关键」和候选装备</em></div>
+      <div class="lbl">想抓的干员 <b class="term">{e.members.length}</b><em>不限人数；点已选的头像设「关键 / 推荐 / 普通」和候选装备</em></div>
       <div class="chosen">
         {#each e.members as m (m.name)}
           <span class="mt" class:sel={sel === m.name}>
             <OpTile name={m.name} transform={m.transform} isKey={m.key} elite={!!m.elite} skill={customSkill(m, app.op(m.name), my)} size={34} tier showName={false} oncontext={(ev) => memberMenu(ev, m.name)} onclick={() => pickMember(m.name)} />
+            {#if !m.key && m.recommended}<b class="recommended-badge" title="推荐干员：被禁时影响体验，但不是套路核心">荐</b>{/if}
             {#if priCount(m)}<b class="pc" title="{priCount(m)} 件优先装备">{priCount(m)}</b>{:else if m.equipment?.length}<b class="pc soft" title="{m.equipment.length} 件候选装备">{m.equipment.length}</b>{/if}
           </span>
         {:else}
@@ -408,7 +412,8 @@
             {#each g.members as m (m.name)}
               <span class="mt" class:sel={sel === m.name}>
                 <OpTile name={m.name} transform={m.transform} isKey={m.key} elite={!!m.elite} skill={customSkill(m, app.op(m.name), my)} size={34} tier showName={false} oncontext={(ev) => memberMenu(ev, m.name)} onclick={() => pickMember(m.name)} />
-                {#if priCount(m)}<b class="pc" title="{priCount(m)} 件优先装备">{priCount(m)}</b>{:else if m.equipment?.length}<b class="pc soft" title="{m.equipment.length} 件候选装备">{m.equipment.length}</b>{/if}
+                {#if !m.key && m.recommended}<b class="recommended-badge" title="推荐干员：被禁时影响体验，但不是套路核心">荐</b>{/if}
+            {#if priCount(m)}<b class="pc" title="{priCount(m)} 件优先装备">{priCount(m)}</b>{:else if m.equipment?.length}<b class="pc soft" title="{m.equipment.length} 件候选装备">{m.equipment.length}</b>{/if}
               </span>
             {:else}
               <span class="muted">{grp === gi ? '在下面点头像加进这一组' : '点「加人」，再在下面点头像'}</span>
@@ -427,7 +432,9 @@
             <b>{selM.name}</b>
             <span class="slots">{slotText(selOp)}</span>
             <span class="spacer"></span>
-            <button class="kt" class:on={selM.key} onclick={() => toggleKey(selM.name)}>{selM.key ? '★ 关键' : '☆ 设为关键'}</button>
+            <button class="kt" class:on={!!selM.key} onclick={() => setPriority(selM.name, 'key')}>★ 关键</button>
+            <button class="kt" class:on={!selM.key && !!selM.recommended} onclick={() => setPriority(selM.name, 'recommended')}>◇ 推荐</button>
+            <button class="kt" class:on={!selM.key && !selM.recommended} onclick={() => setPriority(selM.name, 'normal')}>普通</button>
             <button class="x2" aria-label="收起" onclick={() => (sel = null)}><Icon name="close" size={13} /></button>
           </div>
           <!-- 精锐 · 技能 · 模组：默认就够用，只改想改的；带「默认」角标的是不写时用的那个 -->
@@ -607,6 +614,7 @@
   .desc::placeholder {
     color: var(--fg-4);
   }
+  .recommended-badge { position: absolute; left: 0; top: 0; z-index: 1; background: #246c8c; color: white; border-radius: 3px; font-size: 10px; padding: 0 2px; pointer-events: none; }
   .mt {
     position: relative;
     display: inline-flex;
@@ -749,6 +757,7 @@
   }
   .mph {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 8px;
     font-size: var(--fs-base);

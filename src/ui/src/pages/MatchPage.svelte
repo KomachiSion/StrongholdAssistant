@@ -91,8 +91,8 @@
   const wide = $derived(app.workbench && pageW >= 960)
   const usable = $derived(
     app.lineups
-      .map((l) => ({ l, bad: app.session.targetLineupId === l.id ? -Infinity : app.lineupPenalty(l) }))
-      .sort((a, b) => a.bad - b.bad)
+      .map((l) => ({ l }))
+      .sort((a, b) => +(app.session.targetLineupId === b.l.id) - +(app.session.targetLineupId === a.l.id) || app.compareLineups(a.l, b.l))
       .slice(0, 3),
   )
 

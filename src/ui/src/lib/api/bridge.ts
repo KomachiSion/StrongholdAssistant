@@ -109,6 +109,7 @@ export const bridgeApi: Api = {
   pickBackup: call('pickBackup'),
   importData: call('importData'),
   onUpdate: listen('update'),
+  onSessionReset: listen('sessionReset'),
   onMatch: listen('match'),
   onConnection: listen('connection'),
   onScan: listen('scan'),

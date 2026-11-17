@@ -174,11 +174,19 @@ public sealed partial class HostApi
         bool covenantsChanged = currentCovenants.Count > 0 && next.Covenants.Any(c =>
             !currentCovenants.TryGetValue(c.Id, out var current) || current.Incomplete != c.Incomplete);
         bool newMatch = opening || enemyChanged || covenantsChanged;
+        // 目标清理比上游的记录分段更保守：补读原先缺失的 Boss / 盟约不代表换局。
+        // 只有明确开局，或两次都已读到的信息互相冲突，才取消用户选择。
+        bool resetTarget = opening
+            || (Match.BossId is not null && next.BossId is not null && next.BossId != Match.BossId)
+            || (Match.EnemyTypes.Length > 0 && next.EnemyTypes.Length > 0
+                && !next.EnemyTypes.ToHashSet().SetEquals(Match.EnemyTypes))
+            || next.Covenants.Any(c => currentCovenants.TryGetValue(c.Id, out var current)
+                && current.Incomplete != c.Incomplete);
         var previous = newMatch ? new HashSet<string>() : Match.BannedOperators.ToHashSet();
         if (newMatch)
         {
             lock (_historyGate) CompleteHistory();
-            ResetTargetForNewMatch();
+            if (resetTarget) ResetTargetForNewMatch();
             _avatarBans.Clear();
             _manualBans.Clear();
             _banGroups.Clear();

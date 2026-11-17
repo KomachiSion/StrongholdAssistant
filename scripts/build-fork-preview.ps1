@@ -22,7 +22,7 @@ $zip = Join-Path $release "StrongholdAssistant-v$version-win-x64.zip"
 $verify = [IO.Path]::GetFullPath('out/fork-verify')
 Expand-Archive $zip $verify
 if ((Get-FileHash (Join-Path $verify 'StrongholdAssistant.exe')).Hash -ne (Get-FileHash (Join-Path $publish 'StrongholdAssistant.exe')).Hash) { throw 'Archive executable checksum mismatch' }
-$proc = Start-Process (Join-Path $verify 'StrongholdAssistant.exe') -WorkingDirectory $verify -PassThru
+$proc = Start-Process (Join-Path $verify 'StrongholdAssistant.exe') -WorkingDirectory $verify -ArgumentList '--no-game' -PassThru
 Start-Sleep 15
 $proc.Refresh()
 if ($proc.HasExited) { throw "Startup smoke test exited early: $($proc.ExitCode)" }

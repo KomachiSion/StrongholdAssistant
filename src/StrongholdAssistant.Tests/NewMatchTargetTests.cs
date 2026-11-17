@@ -15,7 +15,7 @@ public sealed class NewMatchTargetTests
     {
         var dir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
         var api = await Create(dir);
-        api.ApplyRecognizedMatch(api.Match, [], opening: true);
+        api.ApplyRecognizedMatch(api.Match with { BossId = "old-boss" }, [], opening: true);
         var target = await api.SaveLineupAsync(new("", "目标", [new("芬")], "user", null, DateTime.UtcNow));
         await api.SaveSessionAsync(new(target.Id, [], ["芬", "泡泡"]) { Stage = 0 });
         SessionDto? pushed = null;
@@ -29,6 +29,31 @@ public sealed class NewMatchTargetTests
         Assert.DoesNotContain("芬", api.TrackedNames);
         Assert.Null((await (await Create(dir)).SessionAsync()).TargetLineupId);
         Assert.Contains(await api.LineupsAsync(), l => l.Id == target.Id);
+    }
+
+    [Theory]
+    [InlineData("boss")]
+    [InlineData("covenant")]
+    public async Task SupplementingPreviouslyUnreadInformationKeepsTarget(string supplement)
+    {
+        var api = await Create(Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N")));
+        var full = api.Match;
+        api.ApplyRecognizedMatch(full with { BossId = null, Covenants = full.Covenants.Take(1).ToArray() }, [], opening: true);
+        var target = await api.SaveLineupAsync(new("", "目标", [new("芬")], "user", null, DateTime.UtcNow));
+        await api.SaveSessionAsync(new(target.Id, [], ["芬"]) { Stage = 0 });
+        var resets = 0;
+        api.Changed += (name, _) => { if (name == "sessionReset") resets++; };
+        api.ApplyRecognizedMatch(api.Match with
+        {
+            BossId = supplement == "boss" ? "recognized-boss" : null,
+            Covenants = supplement == "covenant" ? full.Covenants : api.Match.Covenants
+        }, []);
+        var session = await api.SessionAsync();
+        Assert.Equal(target.Id, session.TargetLineupId);
+        Assert.Equal(0, session.Stage);
+        Assert.Contains("芬", session.Tracked);
+        Assert.Contains("芬", api.TrackedNames);
+        Assert.Equal(0, resets);
     }
 
     [Fact]

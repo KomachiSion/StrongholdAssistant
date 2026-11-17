@@ -10,7 +10,11 @@ public static class RosterCoordinates
     public static Bitmap Normalize(Bitmap image)
     {
         double scale = Scale(image.Width, image.Height);
-        return new Bitmap(image, (int)Math.Round(image.Width / scale), (int)Math.Round(image.Height / scale));
+        var normalized = new Bitmap((int)Math.Round(image.Width / scale), (int)Math.Round(image.Height / scale));
+        using var graphics = Graphics.FromImage(normalized);
+        graphics.DrawImage(image, new Rectangle(0, 0, normalized.Width, normalized.Height),
+            new Rectangle(0, 0, image.Width, image.Height), GraphicsUnit.Pixel);
+        return normalized;
     }
 
     public static Point ToScreen(int x, int y, int width, int height)

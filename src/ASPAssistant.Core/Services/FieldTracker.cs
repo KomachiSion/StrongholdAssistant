@@ -12,6 +12,11 @@ public sealed partial class FieldTracker
 
     public FieldState? State { get; private set; }
     private readonly Dictionary<FieldCell, FieldUnit> _units = new();
+    private readonly Dictionary<FieldCell, FieldSummon> _summons = new();
+    private SummonDefinition[] _summonDefinitions = [];
+    public void ConfigureSummons(SummonDefinition[] definitions) => _summonDefinitions = definitions;
+    // 尚未被占用识别证实的手动添加，不参与漏读过期。
+    private readonly HashSet<FieldCell> _manualOnly = [];
     private readonly List<FieldEvent> _log = [];
     private IReadOnlyDictionary<int, string>? _shop;
     private DateTimeOffset _shopAt;
@@ -32,17 +37,36 @@ public sealed partial class FieldTracker
         ResetTriggers();
         _money = _dragMoney = null; _battle = false;
         _tierChanges.Clear();
+        _manualOnly.Clear();
+        _summons.Clear();
     }
 
     public bool SetOperator(FieldCell cell, string? name, DateTimeOffset at)
     {
-        // TODO(design): 确认未识别到占用的格子能否手动建人；当前只允许给已有占用指定身份。
-        if (!_units.TryGetValue(cell, out var unit)) throw new ArgumentException("这格还没有识别到干员。");
+        if (!(cell.Zone == "bench" && cell.Col is >= 1 and <= 10 && cell.Row == 0
+            || cell.Zone == "board" && cell.Col is >= 0 and <= 6 && cell.Row is >= 0 and <= 4))
+            throw new ArgumentException("格坐标无效。");
+        if (cell.Zone == "board" && _maps?.Find(_knownMap ?? State?.MapId ?? "") is { } map
+            && !GarrisonMap.CanDeploy(map.At(new(cell.Col, cell.Row)), false))
+            throw new ArgumentException("这格不能放置干员。");
+        if (name is null && _manualOnly.Remove(cell))
+        {
+            _units.Remove(cell);
+            return Publish(State?.MapId, State?.Round, at);
+        }
+        if (!_units.TryGetValue(cell, out var unit))
+        {
+            if (name is null) throw new ArgumentException("这格还没有识别到干员。");
+            unit = new(cell.Zone, cell.Col, cell.Row, _identityOperators.Single(o => o.Name == name).Tier, null, null);
+            _manualOnly.Add(cell);
+            _missing.Remove(cell); _history.Remove(cell); _pictures.Remove(cell); _anchors.Remove(cell);
+            _gainSources.Remove(cell); _gainContexts.Remove(cell);
+        }
         _units[cell] = unit with { Operator = name, Source = name is null ? null : "manual", Status = name is null ? "unknown" : "sure", Candidates = [] };
         if (name is not null && _purchaseCandidates.Remove(cell, out var names) && names.Contains(name))
             Add(at, "buy", name, null, cell);
         ConfirmIdentity(cell, name, at);
-        return Publish(State!.MapId, State.Round, at);
+        return Publish(State?.MapId, State?.Round, at);
     }
 
     public bool Observe(FieldObservation o, bool recognize = true, bool force = false)
@@ -57,15 +81,18 @@ public sealed partial class FieldTracker
             foreach (var cell in _units.Keys.Concat(_missing.Keys).Concat(_history.Keys).Where(Blocked).Distinct().ToArray())
             {
                 pruned |= _units.Remove(cell);
+                _manualOnly.Remove(cell);
                 _missing.Remove(cell); _history.Remove(cell); _pictures.Remove(cell); _anchors.Remove(cell);
                 _beforeDrag?.Remove(cell); _purchaseCandidates.Remove(cell);
                 _gains.RemoveAll(g => g.Cell == cell);
             }
+            foreach (var cell in _summons.Keys.Where(Blocked).ToArray()) pruned |= _summons.Remove(cell);
             o = o with { Cells = o.Cells.Where(p => !Blocked(p.Key)).ToDictionary(p => p.Key, p => p.Value) };
         }
         if (pruned) Publish(_knownMap, o.Round, o.At);
         var preDragCells = new Dictionary<FieldCell, int>(_lastCells);
         bool triggered = ObserveTriggers(o) | force | pruned;
+        triggered |= _manualOnly.Any(c => o.Cells.GetValueOrDefault(c) > 0);
         if (!recognize)
         {
             ObservePurchasesOnly(o, triggered);
@@ -82,7 +109,8 @@ public sealed partial class FieldTracker
                 // 拖动前已观测到的占用变化不能归给随后开始的拖动。
                 foreach (var (cell, tier) in preDragCells)
                 {
-                    if (tier == 0) _beforeDrag.Remove(cell);
+                    if (tier == 0 && !_manualOnly.Contains(cell)) _beforeDrag.Remove(cell);
+                    else if (tier == 0) continue;
                     else if (!_beforeDrag.TryGetValue(cell, out var unit) || unit.Tier != tier)
                         _beforeDrag[cell] = new(cell.Zone, cell.Col, cell.Row, tier, null, null);
                 }
@@ -99,10 +127,16 @@ public sealed partial class FieldTracker
             // 详情或短暂遮挡不代表刷新；购买段按观测时间让历史过期。
             return (ApplyEquipment(o) && Publish(State?.MapId, o.Round, o.At)) || pruned;
         }
+        if (o.Summons is not null)
+        {
+            foreach (var cell in o.Cells.Keys) _summons.Remove(cell);
+            foreach (var summon in o.Summons)
+                _summons[new(summon.Zone, summon.Col, summon.Row)] = summon;
+        }
         if (!triggered)
         {
             if (o.Shop is { } shop) { _shop = shop; _shopAt = o.At; }
-            return false;
+            return o.Summons is not null && Publish(o.MapId ?? State?.MapId, o.Round, o.At);
         }
         foreach (var cell in _purchaseCandidates.Keys.ToArray())
             if (o.Cells.TryGetValue(cell, out int tier) && tier != (_units.GetValueOrDefault(cell)?.Tier ?? 0))
@@ -114,9 +148,13 @@ public sealed partial class FieldTracker
         var added = o.Cells.Where(p => p.Value > 0 && !before.ContainsKey(p.Key)).Select(p => p.Key).ToList();
         foreach (var (cell, tier) in o.Cells)
         {
-            if (tier == 0) _units.Remove(cell);
-            else if (!_units.TryGetValue(cell, out var old) || old.Tier != tier)
-                _units[cell] = new(cell.Zone, cell.Col, cell.Row, tier, null, null);
+            if (tier == 0) { if (!_manualOnly.Contains(cell)) _units.Remove(cell); }
+            else
+            {
+                _manualOnly.Remove(cell);
+                if (!_units.TryGetValue(cell, out var old) || old.Tier != tier)
+                    _units[cell] = new(cell.Zone, cell.Col, cell.Row, tier, null, null);
+            }
         }
         if (!_battle && _drag is { } name)
         {
@@ -234,7 +272,11 @@ public sealed partial class FieldTracker
 
     private void Add(DateTimeOffset at, string kind, string? name, FieldCell? from, FieldCell? to)
     {
-        if (from is not null && kind is "move" or "sell") _missing.Remove(from);
+        if (from is not null && kind is "move" or "sell")
+        {
+            _missing.Remove(from);
+            if (_manualOnly.Remove(from)) _units.Remove(from);
+        }
         TrackRosterEvent(at, kind, name, to);
         _log.Add(new(at.ToString("O"), kind, name, from, to));
         _log.Sort((a, b) => string.CompareOrdinal(b.At, a.At));
@@ -249,8 +291,15 @@ public sealed partial class FieldTracker
     private bool Publish(string? map, int? round, DateTimeOffset at)
     {
         var units = _units.Values.OrderBy(u => u.Zone == "bench" ? 0 : 1).ThenBy(u => u.Row).ThenBy(u => u.Col).ToArray();
-        if (State is { } old && old.MapId == map && old.Round == round && SameUnits(old.Units, units) && old.Log.SequenceEqual(_log) && old.Roster.SequenceEqual(_roster.Values)) return false;
-        State = new(map, round, at.ToString("O"), units, _log.ToArray()) { Roster = _roster.Values.ToArray() };
+        var summons = _summons.Values.Where(s => !units.Any(u => u.Zone == s.Zone && u.Col == s.Col && u.Row == s.Row))
+            .Select(s => {
+                var owners = _summonDefinitions.Where(d => d.Name == s.Name).SelectMany(d => d.Owners)
+                    .Where(name => units.Any(u => u.Operator == name && u.Status is "sure" or "auto")).Distinct().ToArray();
+                return s with { Owner = owners.Length == 1 ? owners[0] : null };
+            }).OrderBy(s => s.Zone).ThenBy(s => s.Row).ThenBy(s => s.Col).ToArray();
+        if (State is { } old && old.MapId == map && old.Round == round && SameUnits(old.Units, units) && old.Log.SequenceEqual(_log) && old.Roster.SequenceEqual(_roster.Values)
+            && (old.Summons ?? []).SequenceEqual(summons)) return false;
+        State = new(map, round, at.ToString("O"), units, _log.ToArray()) { Roster = _roster.Values.ToArray(), Summons = summons };
         return true;
     }
 }

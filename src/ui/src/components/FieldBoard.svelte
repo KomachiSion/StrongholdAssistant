@@ -104,6 +104,8 @@
   // ── 人：推演后的位置；推荐里有、但人不在推荐格上的，画成虚影
   let showPlan = $state(true)
   const atCell = (c: FieldCell) => field.layout.find((x) => sameCell(x.at, c))
+  // 召唤物（任务 291，如鸟笼）：不是干员，画成淡色的圆，写名字第一个字；推演拖人时那格照样当有东西
+  const summonAt = (c: FieldCell) => st?.summons?.find((s) => sameCell(s, c))
   // 推荐：每条 move 按 from 认人；人现在（含推演）不在推荐格上的，在推荐格上画虚影
   const placed = (m: PlacementMove) => field.layout.some((x) => sameCell(x.unit, m.from) && sameCell(x.at, m.to))
   const ghosts = $derived(showPlan && field.plan ? field.plan.moves.filter((m) => !placed(m)).map((m) => ({ ...m.to, operator: m.operator, facing: m.facing })) : [])
@@ -161,7 +163,7 @@
     const d = drag
     drag = null
     if (!d.moved) return pick(d.unit)
-    if (d.over && placeable(b, d.over)) field.move(d.unit, d.over)
+    if (d.over && placeable(b, d.over) && !summonAt(d.over)) field.move(d.unit, d.over)
   }
 
   // ── 点选确认：点一格打开下面的面板；前 3 名 + 「都不是」（这一阶全部干员，可搜索）
@@ -171,8 +173,41 @@
   const selUnit = $derived(field.units.find((u) => cellKey(u) === sel) ?? null)
   function pick(u: FieldUnit) {
     sel = sel === cellKey(u) ? null : cellKey(u)
+    addCell = null
     all = false
     q = ''
+  }
+
+  // ── 手动加人（任务 278）：认不出的空格子点一下，从本局名单或全部干员里选一个放进去
+  let addCell = $state<FieldCell | null>(null)
+  let addTier = $state<number | null>(null)
+  function addAt(c: FieldCell) {
+    addCell = addCell && sameCell(addCell, c) ? null : c
+    sel = null
+    addTier = null
+    q = ''
+  }
+  // 本局名单里还没在场上的人（买过、送的、确认过的）
+  const addRoster = $derived.by(() => {
+    const onField = new Set(field.units.map((u) => u.operator))
+    return [...new Set((st?.roster ?? []).filter((r) => !r.sold && !onField.has(r.operator)).map((r) => r.operator))].slice(0, 8)
+  })
+  const addAll = $derived(
+    addCell
+      ? app.catalog.operators
+          .filter((o) => (addTier === null || o.tier === addTier) && (!q.trim() || o.name.toLowerCase().includes(q.trim().toLowerCase())))
+          .map((o) => o.name)
+      : [],
+  )
+  async function confirmAdd(name: string) {
+    const c = addCell
+    if (!c) return
+    try {
+      await field.confirm(c, name)
+      addCell = null
+    } catch (e) {
+      app.showToast((e as Error).message, true)
+    }
   }
   const pickNext = () => {
     const next = field.pending.find((u) => cellKey(u) !== sel) ?? field.pending[0]
@@ -250,8 +285,13 @@
 
 {#snippet slotBody(c: FieldCell)}
   {@const x = atCell(c)}
-  {@const g = !x ? ghostAt(c) : undefined}
-  {#if x}
+  {@const s = !x ? summonAt(c) : undefined}
+  {@const g = !x && !s ? ghostAt(c) : undefined}
+  {#if s}
+    <span class="summon" title="召唤物：{s.name}{s.owner ? `（${s.owner} 的）` : ''}。不是干员，站位推荐不会往这格放人">
+      <b>{[...s.name][0]}</b>
+    </span>
+  {:else if x}
     <button
       class="unit"
       class:moved={!sameCell(x.at, x.unit)}
@@ -266,11 +306,22 @@
       {@render unitFace(x.unit)}
       {#if x.at.zone === 'board' && facingOf(x.unit, x.at)}<i class="dir {facingOf(x.unit, x.at)}"></i>{/if}
     </button>
-  {:else if g}
-    <span class="plan" title="推荐：{g.operator}{g.facing ? `，朝${FACE[g.facing]}` : ''}">
-      <img src={asset.operator(g.operator)} alt="" draggable="false" />
-      {#if g.facing}<i class="dir {g.facing}"></i>{/if}
-    </span>
+  {:else if c.zone === 'bench' || placeable(b, c)}
+    <button
+      class="add"
+      class:sel={!!addCell && sameCell(addCell, c)}
+      onclick={() => addAt(c)}
+      title="{g ? `推荐：${g.operator}${g.facing ? `，朝${FACE[g.facing]}` : ''}。` : ''}这格有人但没认出来？点一下加上"
+    >
+      {#if g}
+        <span class="plan">
+          <img src={asset.operator(g.operator)} alt="" draggable="false" />
+          {#if g.facing}<i class="dir {g.facing}"></i>{/if}
+        </span>
+      {:else}
+        <Icon name="add" size={12} />
+      {/if}
+    </button>
   {/if}
 {/snippet}
 
@@ -429,7 +480,45 @@
               </div>
               <button class="back" onclick={() => (all = false)}><Icon name="arrowLeft" size={13} />回到候选</button>
             {/if}
-            {#if selUnit.operator}<button class="clear" onclick={() => confirm(null)}>改成不知道是谁</button>{/if}
+            {#if selUnit.operator}<button class="clear" onclick={() => confirm(null)}>{selUnit.source === 'manual' ? '移除（这格其实没人，或改成不知道是谁）' : '改成不知道是谁'}</button>{/if}
+          </div>
+        {:else if addCell}
+          <div class="pick" transition:slide={sl}>
+            <div class="ph">
+              <span class="pt"><b>{where(addCell)} · 加一个人</b><small>认不出的格子，选这里站的是谁；之后识别看不到也会留着，看到别人才换</small></span>
+              <button class="x" onclick={() => (addCell = null)} aria-label="关闭"><Icon name="close" size={14} /></button>
+            </div>
+            {#if addRoster.length}
+              <div class="cands">
+                {#each addRoster as name (name)}
+                  <button class="cand" onclick={() => confirmAdd(name)}>
+                    <img src={asset.operator(name)} alt="" />
+                    <span>{name}</span>
+                    <em>本局有</em>
+                  </button>
+                {/each}
+              </div>
+            {/if}
+            <div class="tiers">
+              <button class:on={addTier === null} onclick={() => (addTier = null)}>全部</button>
+              {#each [1, 2, 3, 4, 5, 6] as t (t)}
+                <button class:on={addTier === t} style:--c="var(--tier-{t})" onclick={() => (addTier = t)}>{ROMAN[t]}</button>
+              {/each}
+            </div>
+            <label class="sr">
+              <Icon name="search" size={13} />
+              <input placeholder="搜干员" bind:value={q} />
+            </label>
+            <div class="alllist">
+              {#each addAll as name (name)}
+                <button class="mini" onclick={() => confirmAdd(name)} title={name}>
+                  <img src={asset.operator(name)} alt="" loading="lazy" />
+                  <span>{name}</span>
+                </button>
+              {:else}
+                <p class="empty">没有叫这个的干员</p>
+              {/each}
+            </div>
           </div>
         {/if}
         <!-- 推演、推荐 -->
@@ -894,6 +983,51 @@
     opacity: 0.25;
   }
   /* 推荐的虚影 */
+  /* 空格子：平时看不见，鼠标移上去露出「+」，点开手动加人 */
+  .add {
+    display: grid;
+    place-items: center;
+    width: 100%;
+    height: 100%;
+    color: transparent;
+  }
+  .add:hover,
+  .add.sel {
+    color: var(--fg-3);
+    background: color-mix(in srgb, var(--mint) 10%, transparent);
+  }
+  .add.sel {
+    outline: 1px solid var(--mint);
+    outline-offset: -1px;
+  }
+  .tiers {
+    display: flex;
+    gap: 4px;
+  }
+  .tiers button {
+    flex: 1;
+    padding: 3px 0;
+    font-size: var(--fs-xs);
+    color: var(--fg-2);
+    box-shadow: inset 0 0 0 1px var(--line);
+  }
+  .tiers button.on {
+    color: var(--fg-0);
+    box-shadow: inset 0 0 0 1px var(--c, var(--mint));
+    background: color-mix(in srgb, var(--c, var(--mint)) 18%, transparent);
+  }
+  .summon {
+    display: grid;
+    place-items: center;
+    width: 70%;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    border: 1px dashed var(--fg-2);
+    background: color-mix(in srgb, var(--fg-2) 22%, transparent);
+    color: var(--fg-1);
+    font-size: var(--fs-xs);
+    cursor: default;
+  }
   .plan {
     position: relative;
     display: block;

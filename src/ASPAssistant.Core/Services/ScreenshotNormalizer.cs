@@ -45,7 +45,7 @@ public static class ScreenshotNormalizer
         {
             graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
             graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
-            graphics.DrawImage(source, 0, 0, targetW, targetH);
+            graphics.DrawImage(source, new Rectangle(0, 0, targetW, targetH), new Rectangle(0, 0, source.Width, source.Height), GraphicsUnit.Pixel);
         }
 
         using var buffer = new MemoryStream();

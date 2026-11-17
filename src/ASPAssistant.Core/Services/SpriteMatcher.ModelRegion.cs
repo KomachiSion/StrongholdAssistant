@@ -9,8 +9,8 @@ public sealed partial class SpriteMatcher
         IReadOnlyDictionary<string, string?>? skins)
     {
         if (!UsesPhysicalScale || target.Geometry is not { } g) return target;
-        var templates = _source.Where(t => candidates.Contains(t.Name) && t.Tier == tier
-            && (skins?.GetValueOrDefault(t.Name) is not { } skin || t.SkinId == "default" || t.SkinId == skin)).ToArray();
+        var templates = _source.Where(t => t.Tier == tier && candidates.Any(n => AppearanceName(n, skins) == t.Name
+            && AllowsSkin(t.SkinId, skins?.GetValueOrDefault(n)))).ToArray();
         if (templates.Length == 0) return target;
         using var image = Cv2.ImDecode(target.TemplateRegion?.Image ?? target.Image, ImreadModes.Color);
         using var blocked = new Mat(image.Size(), MatType.CV_8UC1, Scalar.All(255));

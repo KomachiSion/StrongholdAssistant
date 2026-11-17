@@ -41,6 +41,13 @@ public class MuMuFallbackTests
     }
 
     [Theory]
+    [InlineData("192.168.8.125:16384", "192.168.8.125:5555")]
+    [InlineData("127.0.0.1:16416", "127.0.0.1:16416")]
+    [InlineData("emulator-5554", "emulator-5554")]
+    public void BridgedMuMuSerialUsesVmPort5555(string serial, string expected) =>
+        Assert.Equal(expected, MuMuFallback.BridgedSerial(serial));
+
+    [Theory]
     [InlineData(true)]
     [InlineData(false)]
     public void UsesFallbackOnlyWhenToolkitHasNoMuMu(bool found)

@@ -178,10 +178,12 @@
     box-shadow: inset 0 0 0 1px var(--mint-lo);
     vertical-align: middle;
   }
+  /* 推荐策略图标放大到 22px，好在游戏的策略列表里对着找（v1.2.7 两位群友反馈 14px 太小） */
   .st img {
-    width: 14px;
-    height: 14px;
+    width: 22px;
+    height: 22px;
     object-fit: cover;
+    box-shadow: 0 0 0 1px var(--line);
   }
   .badge {
     flex: none;

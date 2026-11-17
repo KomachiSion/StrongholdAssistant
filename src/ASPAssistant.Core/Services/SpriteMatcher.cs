@@ -16,7 +16,7 @@ public sealed record SpriteMatch(IReadOnlyList<SpriteCandidate> Candidates, doub
 public sealed partial class SpriteMatcher : IDisposable
 {
     public const double AutoFillGap = 0.04592923876191826;
-    private sealed record Template(string Name, string SkinId, int Tier, int Size, Mat Color, Mat Mask, Point2d? Origin);
+    private sealed record Template(string Name, string SkinId, int Tier, int Size, Mat Color, Mat Mask, Point2d? Origin, int Variant = 0);
     private readonly double _resolution;
     private readonly bool _hasOrigins;
     private readonly double _pixelsPerUnit;
@@ -59,13 +59,13 @@ public sealed partial class SpriteMatcher : IDisposable
             System.Runtime.InteropServices.Marshal.Copy(pixels, 0, color.Data, pixels.Length);
             pixels = new byte[width * height]; reader.BaseStream.ReadExactly(pixels);
             System.Runtime.InteropServices.Marshal.Copy(pixels, 0, mask.Data, pixels.Length);
-            _source.Add(new(name, skinId, tier, 0, color, mask, origin));
+            _source.Add(new(name, skinId, tier, 0, color, mask, origin, i));
         }
     }
 
     /// <summary>按人工标定的脚点和格宽匹配，并排除前排遮挡轮廓。</summary>
     public SpriteMatch MatchCellWidth(FieldSpritePatch patch, int tier, IReadOnlyCollection<string> candidates,
-        IReadOnlyDictionary<string, string?>? skins = null)
+        IReadOnlyDictionary<string, string?>? skins = null, int searchRadius = 3, bool quick = false)
     {
         if (!UsesPhysicalScale || patch.Geometry is not { } g)
             throw new ArgumentException("格宽匹配需要真实比例模板及本帧格子几何。");
@@ -76,18 +76,18 @@ public sealed partial class SpriteMatcher : IDisposable
         var anchor = new Point((int)Math.Round(90 + g.BadgeFootX + dx - Math.Round(g.BadgeFootX)) + (region?.OffsetX ?? 0),
             (int)Math.Round((patch.Bench ? 180 : 156) + g.BadgeFootY + dy - Math.Round(g.BadgeFootY)) + (region?.OffsetY ?? 0));
         using var blocked = patch.OcclusionMask is null ? new Mat() : Cv2.ImDecode(patch.OcclusionMask, ImreadModes.Grayscale);
-        return MatchCropCore(crop, patch.Bench, tier, candidates, anchor, skins, g.CellWidth * .00271, blocked, patch);
+        return MatchCropCore(crop, patch.Bench, tier, candidates, anchor, skins, g.CellWidth * .00271, blocked, patch, searchRadius, quick);
     }
 
     /// <summary>离线裁块入口。默认180×204；自定义锚点为相对裁块的脚点（旧包为外框底部）。</summary>
     public SpriteMatch MatchCrop(Mat crop, bool bench, int tier, IReadOnlyCollection<string> candidates,
         Point? searchAnchor = null, IReadOnlyDictionary<string, string?>? skins = null,
-        double? screenPixelsPerUnit = null, Mat? occlusion = null)
-        => MatchCropCore(crop, bench, tier, candidates, searchAnchor, skins, screenPixelsPerUnit, occlusion, null);
+        double? screenPixelsPerUnit = null, Mat? occlusion = null, int searchRadius = 3)
+        => MatchCropCore(crop, bench, tier, candidates, searchAnchor, skins, screenPixelsPerUnit, occlusion, null, searchRadius, false);
 
     private SpriteMatch MatchCropCore(Mat crop, bool bench, int tier, IReadOnlyCollection<string> candidates,
         Point? searchAnchor, IReadOnlyDictionary<string, string?>? skins,
-        double? screenPixelsPerUnit, Mat? occlusion, FieldSpritePatch? fieldPatch)
+        double? screenPixelsPerUnit, Mat? occlusion, FieldSpritePatch? fieldPatch, int searchRadius, bool quick)
     {
         using var timing = FieldRecognitionTiming.Measure("templates");
         if (crop.Empty() || crop.Type() != MatType.CV_8UC3)
@@ -100,7 +100,7 @@ public sealed partial class SpriteMatcher : IDisposable
         // 旧包保留冻结的外框底边口径，新包直接对齐骨骼原点。
         var anchor = searchAnchor ?? new Point(90, _hasOrigins ? (bench ? 180 : 156) : (bench ? 176 : 180));
         int bottom = (int)(anchor.Y * _resolution);
-        int radius = (int)((UsesPhysicalScale ? 3 : 16) * _resolution);
+        int radius = (int)((UsesPhysicalScale ? searchRadius : 16) * _resolution);
         using var blocked = new Mat();
         if (occlusion is { } && !occlusion.Empty())
         {
@@ -113,7 +113,7 @@ public sealed partial class SpriteMatcher : IDisposable
         using var neighbor = fieldPatch?.NeighborMask is { } bytes
             ? Cv2.ImDecode(bytes, ImreadModes.Grayscale) : new Mat();
         var work = candidates.Distinct(StringComparer.Ordinal).Select(name => (Name: name,
-            Templates: Templates(name, screenPixelsPerUnit), Skin: skins?.GetValueOrDefault(name),
+            Templates: Templates(AppearanceName(name, skins), screenPixelsPerUnit), Skin: skins?.GetValueOrDefault(name),
             Excluded: neighbor.Empty() ? new Mat() : NeighborExclusion(fieldPatch!, neighbor, tier, [name], skins))).ToArray();
         var ranked = new SpriteCandidate?[work.Length];
         Parallel.For(0, work.Length, new ParallelOptions { MaxDegreeOfParallelism = 4 }, index =>
@@ -131,9 +131,14 @@ public sealed partial class SpriteMatcher : IDisposable
             using var scores = new Mat(); using var difference = new Mat();
             var values = new float[(radius * 2 + 1) * (radius * 2 + 1)];
             double best = -2;
+            // 召唤物预筛每套皮肤仅取首尾外观和标定尺度；干员路径保持原样。
+            var limits = quick ? templates.GroupBy(t => t.SkinId).ToDictionary(g => g.Key,
+                g => (First: g.Min(t => t.Variant), Last: g.Max(t => t.Variant))) : null;
             foreach (var template in templates)
             {
-                if (skin is not null && template.SkinId != "default" && template.SkinId != skin) continue;
+                if (limits is not null && (template.Size != 100 || template.Variant != limits[template.SkinId].First
+                    && template.Variant != limits[template.SkinId].Last)) continue;
+                if (!AllowsSkin(template.SkinId, skin)) continue;
                 if (template.Tier != tier || (!UsesPhysicalScale && (bench ? template.Size == 104 : template.Size == 168))) continue;
                 var a = template.Color; var mask = template.Mask;
                 int w = a.Width, h = a.Height;
@@ -244,7 +249,7 @@ public sealed partial class SpriteMatcher : IDisposable
                     Point2d? origin = source.Origin is { } p
                         ? new Point2d((flip ? color.Width - p.X : p.X) * target.Width / color.Width,
                             p.Y * target.Height / color.Height) : null;
-                    result.Add(new(name, source.SkinId, source.Tier, size, a, b, origin));
+                    result.Add(new(name, source.SkinId, source.Tier, size, a, b, origin, source.Variant));
                 }
             }
         _scaled.Add(key, result);

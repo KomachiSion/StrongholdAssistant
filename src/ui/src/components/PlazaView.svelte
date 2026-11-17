@@ -6,6 +6,7 @@
   import LineupCard from './LineupCard.svelte'
   import Icon from './Icon.svelte'
   import BondIcon from './BondIcon.svelte'
+  import BondPick from './BondPick.svelte'
   import StrategyGrid from './StrategyGrid.svelte'
   import { asset } from '../lib/assets'
 
@@ -37,8 +38,6 @@
   const count = $derived(f.covenants.length + (f.strategy ? 1 : 0) + (f.author ? 1 : 0))
   const cov = (id: string) => app.catalog.covenants.find((c) => c.id === id)
   const toggleCov = (id: string) => (f.covenants = f.covenants.includes(id) ? f.covenants.filter((x) => x !== id) : [...f.covenants, id])
-  const cores = app.catalog.covenants.filter((c) => c.kind === 'core')
-  const extras = app.catalog.covenants.filter((c) => c.kind === 'extra')
   // 目标阵容当前阶段的目标盟约：一键填进筛选
   const targetCovs = $derived(app.active?.goals.map((g) => g.id) ?? [])
   const sameAsTarget = $derived(targetCovs.length > 0 && targetCovs.length === f.covenants.length && targetCovs.every((id) => f.covenants.includes(id)))
@@ -222,16 +221,7 @@
       <span>盟约<em>选多个时要全部包含</em></span>
       {#if targetCovs.length && !sameAsTarget}<button class="link" onclick={() => (f.covenants = [...targetCovs])}>用目标阵容的</button>{/if}
     </div>
-    {#each [cores, extras] as group, gi (gi)}
-      <div class="bonds">
-        {#each group as c (c.id)}
-          <button class="bond" class:on={f.covenants.includes(c.id)} title={c.name} onclick={() => toggleCov(c.id)}>
-            <BondIcon id={c.id} size={22} on={f.covenants.includes(c.id)} />
-            <span>{c.name}</span>
-          </button>
-        {/each}
-      </div>
-    {/each}
+    <BondPick state={(id) => ({ on: f.covenants.includes(id) })} onpick={toggleCov} />
     <!-- 策略：和本局页选策略一样，点开是策略网格（可搜），点头像选上并收起；再点已选的那个取消 -->
     <div class="fh"><span>策略</span></div>
     {#if pickingSt}
@@ -461,35 +451,6 @@
     font-style: normal;
     font-weight: var(--fw-base);
     color: var(--fg-4);
-  }
-  .bonds {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
-    gap: 2px;
-  }
-  .bond {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    min-width: 0;
-    height: 28px;
-    padding: 0 4px;
-    font-size: var(--fs-sm);
-    color: var(--fg-3);
-  }
-  .bond span {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .bond:hover {
-    color: var(--fg-1);
-    background: var(--bg-2);
-  }
-  .bond.on {
-    color: var(--fg-0);
-    background: var(--mint-tint);
-    box-shadow: inset 0 0 0 1px var(--mint-lo);
   }
   .sph {
     display: flex;

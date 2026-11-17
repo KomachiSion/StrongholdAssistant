@@ -12,7 +12,7 @@ public sealed record FieldOverlayGeometry(BoardProjection Projection,
     IReadOnlyDictionary<FieldCell, FieldBadge> Badges);
 
 /// <summary>角标决定占用；名字只读拖动详情。模板匹配不使用小人身份特征。</summary>
-public sealed partial class FieldReader
+public sealed partial class FieldReader : IDisposable
 {
     private readonly IOcrEngine _ocr;
     private readonly FieldEquipmentReader _equipment;
@@ -32,6 +32,12 @@ public sealed partial class FieldReader
 
     public FieldReader(string directory, IOcrEngine ocr, IEnumerable<string> names)
     {
+        _summonDefinitions = SummonCatalog.Load(directory);
+        _summonMatcher = new(Path.Combine(directory, "summon-templates.bin.gz"));
+        _operatorPackage = Path.Combine(directory, "sprite-templates.bin.gz");
+        using (var catalog = System.Text.Json.JsonDocument.Parse(File.ReadAllText(Path.Combine(directory, "operators.json"))))
+            _operatorTiers = catalog.RootElement.GetProperty("operators").EnumerateArray()
+                .Select(o => (o.GetProperty("name").GetString()!, o.GetProperty("tier").GetInt32())).ToArray();
         _equipment = new(directory, ocr);
         _ocr = ocr; _names = names.OrderByDescending(n => n.Length).ToArray();
         _board = new(directory);
@@ -53,13 +59,13 @@ public sealed partial class FieldReader
                 using var glyph = (Bitmap)image.Clone();
                 using var border = new Bitmap(Path.Combine(directory, "field", "tier-3.png"));
                 using var g = Graphics.FromImage(image);
-                g.DrawImageUnscaled(border, 0, 0);
+                g.DrawImage(border, new Rectangle(0, 0, border.Width, border.Height), new Rectangle(0, 0, border.Width, border.Height), GraphicsUnit.Pixel);
                 g.DrawImage(glyph, new Rectangle(5, 5, 30, 30), new Rectangle(8, 8, 24, 24), GraphicsUnit.Pixel);
             }
             foreach (int size in new[] { 34, 40, 44 })
             {
                 using var scaled = new Bitmap(size, size);
-                using (var g = Graphics.FromImage(scaled)) { g.Clear(Color.Black); g.DrawImage(image, 0, 0, size, size); }
+                using (var g = Graphics.FromImage(scaled)) { g.Clear(Color.Black); g.DrawImage(image, new Rectangle(0, 0, size, size), new Rectangle(0, 0, image.Width, image.Height), GraphicsUnit.Pixel); }
                 var px = new Pixels(scaled);
                 var values = Sample(px, 0, 0, size);
                 Normalize(values);
@@ -71,7 +77,8 @@ public sealed partial class FieldReader
         }
     }
 
-    public void Reset() { _boards.Clear(); _round = null; _lastMap = null; KnownMap = null; _shopCards.Clear(); }
+    public void Dispose() { _summonMatcher?.Dispose(); _summonOperatorMatcher?.Dispose(); }
+    public void Reset() { _boards.Clear(); _round = null; _lastMap = null; KnownMap = null; _shopCards.Clear(); Summons = []; }
 
     // 就绪控件可能露在外部窗口旁；棋盘中大面积连续的中性纯色不是地形纹理。
     internal static (bool Obscured, bool Detail, bool ConfirmationCandidate) InspectSurface(byte[] frame)
@@ -139,7 +146,7 @@ public sealed partial class FieldReader
         if (dragging || !mainScreen)
             return new(at, true, null, economy.Round, new Dictionary<FieldCell, int>(), Money: economy.Money, DragOperator: dragging ? drag : null, MainScreen: false)
                 { PanelOperator = drag, Equipment = equipment };
-        // 宽屏的棋盘按高度等比显示；只转换棋盘，详情和商店控件仍在原画面读取。
+        // 棋盘按短边等比、居中显示；只转换棋盘，详情和商店控件仍在原画面读取。
         var (boardFrame, viewport) = NormalizeBoardViewport(frame, bitmap.Width, bitmap.Height);
         using var boardStream = ReferenceEquals(boardFrame, frame) ? null : new MemoryStream(boardFrame);
         using var normalizedBitmap = boardStream is null ? null : new Bitmap(boardStream);
@@ -161,11 +168,11 @@ public sealed partial class FieldReader
             (float)i.CardRegion.Width, (float)i.CardRegion.Height)).ToList();
         if (panel) hidden.Add(new(0, .17f, .33f, .75f));
         if (cursorRegion is { } cursor) hidden.Add(cursor);
-        if (viewport.Width != 1)
+        if (viewport.Width != 1 || viewport.Height != 1)
             hidden = hidden.Select(r => new RectangleF((r.X - viewport.X) / viewport.Width,
-                r.Y, r.Width / viewport.Width, r.Height)).ToList();
+                (r.Y - viewport.Y) / viewport.Height, r.Width / viewport.Width, r.Height / viewport.Height)).ToList();
         var cells = ReadCells(boardBitmap, board, shopVisible, hidden);
-        if (viewport.Width != 1 && OverlayGeometry is { } overlay)
+        if ((viewport.Width != 1 || viewport.Height != 1) && OverlayGeometry is { } overlay)
             OverlayGeometry = RestoreBoardViewport(overlay, viewport);
         if (panel) OverlayGeometry = null;
         Dictionary<int, string>? cards = null;
@@ -180,7 +187,7 @@ public sealed partial class FieldReader
         else if (readShop) _shopCards.Clear();
         return new(at, true, _lastMap, economy.Round, cells,
             cards, economy.Money) { PanelOperator = drag, Equipment = equipment,
-                Sprites = ReadSprites(boardFrame, cells), Geometry = _frameGeometry };
+                Sprites = ReadSprites(boardFrame, cells), Geometry = _frameGeometry, Summons = Summons };
     }
 
     private static bool HasDetailPanel(Bitmap bitmap, double scale)
@@ -247,6 +254,8 @@ public sealed partial class FieldReader
     {
         var px = new Pixels(bitmap);
         _spriteFeet.Clear();
+        _summonFeet.Clear();
+        _summonHints.Clear();
         _cellGeometry.Clear();
         var cells = new Dictionary<FieldCell, int>();
         bool expanded = board?.Camera == BoardCamera.Expanded || board is null && shopVisible;
@@ -317,8 +326,10 @@ public sealed partial class FieldReader
             var p = anchors[cell];
             var badge = ReadBadge(px, bitmap.Width, bitmap.Height, p.X, p.Y, cell.Zone == "board");
             if (badge is null) continue;
+            _summonFeet[cell] = (badge.X * 1920 / width + 35,
+                badge.Y * 1080 / height + (cell.Zone == "bench" ? 132 : 112));
             if (badge.X + 90 * width / 1920 < width && badge.Y + 150 * width / 1920 < height && (cell.Zone == "bench" ? HasSummonCount(px, badge, width / 1920)
-                : HasSummonTriangle(px, badge, width / 1920))) continue;
+                : HasSummonTriangle(px, badge, width / 1920))) { _summonHints.Add(cell); continue; }
             // 全片仍有无法凭令牌分类的过渡/遮挡候选，保留原人体证据门槛。
             if (!HasUnitEvidence(px, badge, width, height, cell.Zone == "board")) continue;
             cells[cell] = badge.Tier;
@@ -333,6 +344,8 @@ public sealed partial class FieldReader
             if (hidden?.Any(r => r.IntersectsWith(area)) == true) cells.Remove(cell);
         }
         OverlayGeometry = new(projection, anchors.ToDictionary(p => p.Key, p => (p.Value.X / width, p.Value.Y / height)), matchedBadges);
+        ReadSummons(bitmap, cells);
+        foreach (var summon in Summons) matchedBadges.Remove(new(summon.Zone, summon.Col, summon.Row));
         return cells;
     }
 
@@ -527,7 +540,7 @@ public sealed partial class FieldReader
         public Pixels(Bitmap source)
         {
             using var bitmap = new Bitmap(source.Width, source.Height, PixelFormat.Format24bppRgb);
-            using (var g = Graphics.FromImage(bitmap)) g.DrawImageUnscaled(source, 0, 0);
+            using (var g = Graphics.FromImage(bitmap)) g.DrawImage(source, new Rectangle(0, 0, source.Width, source.Height), new Rectangle(0, 0, source.Width, source.Height), GraphicsUnit.Pixel);
             var data = bitmap.LockBits(new(0, 0, bitmap.Width, bitmap.Height), ImageLockMode.ReadOnly, PixelFormat.Format24bppRgb);
             _stride = data.Stride; _bytes = new byte[_stride * bitmap.Height];
             Marshal.Copy(data.Scan0, _bytes, 0, _bytes.Length); bitmap.UnlockBits(data);

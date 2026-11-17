@@ -2,6 +2,7 @@
   import { app } from '../lib/state.svelte'
   import { asset, ROMAN } from '../lib/assets'
   import Icon from './Icon.svelte'
+  import TierBadge from './TierBadge.svelte'
   import { openMenu, operatorMenu } from '../lib/menu.svelte'
 
   // 小头像格：阵容、禁用列表里用。点一下切换「已持有」或看详情，由调用方决定
@@ -26,8 +27,10 @@
     onclick?: (e: MouseEvent) => void
     /** 被禁时变灰、描红；禁用列表里全是被禁的，关掉只留角标 */
     banLook?: boolean
+    /** 左上角等阶角标（v1.2.7）：想抓的人、编辑器挑人这类要看阶数的地方开；开了以后关键干员的金三角挪到右上角 */
+    tier?: boolean
   }
-  let { name, size = 48, owned = false, dim = false, transform, showName = true, isKey = false, elite = false, skill = null, menu = true, oncontext, onclick, banLook = true }: Props = $props()
+  let { name, size = 48, owned = false, dim = false, transform, showName = true, isKey = false, elite = false, skill = null, menu = true, oncontext, onclick, banLook = true, tier = false }: Props = $props()
   const op = $derived(app.op(name))
   const banned = $derived(app.banned.has(name))
   const focus = $derived(app.focusOps.has(name))
@@ -38,7 +41,8 @@
     <img class="av" src={asset.operator(name)} alt="" loading="lazy" />
     {#if owned}<span class="check"><Icon name="check" size={11} /></span>{/if}
     {#if banned}<img class="ban" src={asset.stage('img_chess_banned')} alt="禁用" />{/if}
-    {#if isKey}<span class="key" title="关键干员"></span>{/if}
+    {#if isKey}<span class="key" class:right={tier} title="关键干员"></span>{/if}
+    {#if tier}<span class="tr"><TierBadge tier={op.tier} size={Math.max(12, Math.round(size * 0.3))} /></span>{/if}
     {#if focus}<span class="fav" title="特别关注"><Icon name="heartFill" size={9} /></span>{/if}
     <!-- 精锐：游戏图鉴里精锐状态的标签，贴在头像左下角 -->
     {#if elite}<img class="el" src={asset.card('icon_golden')} alt="精锐" title="目标精锐" />{/if}
@@ -153,6 +157,19 @@
     height: 11px;
     background: var(--gold);
     clip-path: polygon(0 0, 100% 0, 0 100%);
+  }
+  .key.right {
+    left: auto;
+    right: 0;
+    clip-path: polygon(0 0, 100% 0, 100% 100%);
+  }
+  .tr {
+    position: absolute;
+    left: 1px;
+    top: 1px;
+    z-index: 2;
+    display: flex;
+    filter: drop-shadow(0 0 1px rgb(var(--shade-rgb) / 0.8));
   }
   /* 素材是图鉴的标签底板（60×27），双箭头在横向第 10～37 像素，右边留给游戏写字。
      只框出第 4～43 像素（图案居中，左右各留 6 像素） */

@@ -384,7 +384,7 @@
       <div class="chosen">
         {#each e.members as m (m.name)}
           <span class="mt" class:sel={sel === m.name}>
-            <OpTile name={m.name} transform={m.transform} isKey={m.key} elite={!!m.elite} skill={customSkill(m, app.op(m.name), my)} size={34} showName={false} oncontext={(ev) => memberMenu(ev, m.name)} onclick={() => pickMember(m.name)} />
+            <OpTile name={m.name} transform={m.transform} isKey={m.key} elite={!!m.elite} skill={customSkill(m, app.op(m.name), my)} size={34} tier showName={false} oncontext={(ev) => memberMenu(ev, m.name)} onclick={() => pickMember(m.name)} />
             {#if priCount(m)}<b class="pc" title="{priCount(m)} 件优先装备">{priCount(m)}</b>{:else if m.equipment?.length}<b class="pc soft" title="{m.equipment.length} 件候选装备">{m.equipment.length}</b>{/if}
           </span>
         {:else}
@@ -407,7 +407,7 @@
           <div class="chosen">
             {#each g.members as m (m.name)}
               <span class="mt" class:sel={sel === m.name}>
-                <OpTile name={m.name} transform={m.transform} isKey={m.key} elite={!!m.elite} skill={customSkill(m, app.op(m.name), my)} size={34} showName={false} oncontext={(ev) => memberMenu(ev, m.name)} onclick={() => pickMember(m.name)} />
+                <OpTile name={m.name} transform={m.transform} isKey={m.key} elite={!!m.elite} skill={customSkill(m, app.op(m.name), my)} size={34} tier showName={false} oncontext={(ev) => memberMenu(ev, m.name)} onclick={() => pickMember(m.name)} />
                 {#if priCount(m)}<b class="pc" title="{priCount(m)} 件优先装备">{priCount(m)}</b>{:else if m.equipment?.length}<b class="pc soft" title="{m.equipment.length} 件候选装备">{m.equipment.length}</b>{/if}
               </span>
             {:else}
@@ -550,7 +550,7 @@
       {#if poolKind === 'op'}
         <div class="pool">
           {#each pool as o (o.name)}
-            <span class="pi"><OpTile name={o.name} size={44} owned={inLineup(o.name)} menu={false} onclick={() => add(o.name)} /></span>
+            <span class="pi"><OpTile name={o.name} size={44} tier owned={inLineup(o.name)} menu={false} onclick={() => add(o.name)} /></span>
           {/each}
         </div>
       {:else if poolKind === 'st'}

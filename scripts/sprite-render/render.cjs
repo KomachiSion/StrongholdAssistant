@@ -16,8 +16,13 @@ const assets = path.join(root, 'docs/research/refs/spine');
 // 所有干员、皮肤和帧共用骨骼单位比例，禁止按各自外框归一。
 const pixelsPerUnit = 0.5;
 const read = p => JSON.parse(fs.readFileSync(p, 'utf8').replace(/^\uFEFF/, ''));
-const operators = read(path.join(root, 'data/operators.json')).operators;
-const extra = read(path.join(root, 'data/codex_extra.json')).operators;
+const summonOnly = args.includes('--summons');
+const prototypeOnly = args.includes('--prototypes') || summonOnly;
+const prototypes = summonOnly ? read(path.join(root, 'data/summons.json')).summons.map(s => ({ ...s, name: s.charId }))
+  : prototypeOnly ? read(path.join(root, 'data/prototypes.json')).prototypes : [];
+const operators = prototypeOnly ? prototypes : read(path.join(root, 'data/operators.json')).operators;
+const extra = prototypeOnly ? Object.fromEntries(prototypes.map(p => [p.name, { ...p, skins: [] }]))
+  : read(path.join(root, 'data/codex_extra.json')).operators;
 fs.mkdirSync(output, { recursive: true });
 fs.mkdirSync(assets, { recursive: true });
 
@@ -68,8 +73,9 @@ async function renderModel(meta, model, directory, prefix) {
     done(new BaseTexture(null, { width: image.width, height: image.height }));
   });
   const data = new SkeletonBinary(new AtlasAttachmentLoader(atlas)).readSkeletonData(bytes);
-  const animation = data.animations.find(a => /^idle$/i.test(a.name)) ?? data.animations.find(a => /idle/i.test(a.name));
-  if (!animation) throw Error(`没有 Idle: ${model.file}`);
+  const animation = data.animations.find(a => /^idle$/i.test(a.name)) ?? data.animations.find(a => /idle/i.test(a.name))
+    ?? (summonOnly ? data.animations.find(a => /^loop$/i.test(a.name)) : null);
+  if (!animation) throw Error(`没有 Idle: ${model.file} (${data.animations.map(a => a.name).join(', ')})`);
   const files = [];
   const origins = {};
   for (let frame = 0; frame < 4; frame++) {
@@ -139,7 +145,7 @@ async function renderModel(meta, model, directory, prefix) {
 async function main() {
   const priority = new Set(['暴躁铁皮']);
   const cache = option('--cache', path.join(root,'out/211/cache'));
-  for await (const line of readline.createInterface({ input:fs.createReadStream(path.join(cache,'observations.jsonl')) }))
+  if (!prototypeOnly) for await (const line of readline.createInterface({ input:fs.createReadStream(path.join(cache,'observations.jsonl')) }))
     for (const name of Object.values(JSON.parse(line).Observation?.Shop ?? {})) priority.add(name);
   const list = operators.map(o => ({...o,name:o.name.replace(/[“”]/g,'')})).sort((a,b) => Number(priority.has(b.name))-Number(priority.has(a.name)));
   const selected = args.includes('--priority-only') ? list.filter(o => priority.has(o.name)) : list;
@@ -147,14 +153,16 @@ async function main() {
   const manifest = fs.existsSync(manifestFile) ? read(manifestFile) : { operators:{}, errors:{} };
   if (manifest.pixelsPerUnit !== pixelsPerUnit) manifest.operators = {};
   for (const op of selected) {
-    if (manifest.pixelsPerUnit === pixelsPerUnit && manifest.operators[op.name]?.records.every(r => r.origins)) continue;
+    if (manifest.pixelsPerUnit === pixelsPerUnit && manifest.operators[op.name]?.records.every(r => r.origins)
+        && (!summonOnly || manifest.operators[op.name].allSkins)) continue;
     try {
       const details = extra[op.name] ?? extra[`“${op.name}”`];
       const directory = path.join(assets,details.charId);
       const meta = JSON.parse(await download(`https://torappu.prts.wiki/assets/char_spine/${details.charId}/meta.json`,path.join(directory,'meta.json')));
       const records = [];
       for (const [skinName, directions] of Object.entries(meta.skin)) {
-        const skinId = skinName === '默认' ? 'default' : details.skins.find(s => s.name === skinName)?.id;
+        if (prototypeOnly && !summonOnly && skinName !== '默认') continue;
+        const skinId = skinName === '默认' ? 'default' : summonOnly ? skinName : details.skins.find(s => s.name === skinName)?.id;
         if (!skinId) throw Error(`皮肤编号未映射: ${op.name}/${skinName}`);
         for (const [direction, model] of Object.entries(directions)) {
           if (!['正面','背面','战斗'].includes(direction)) continue;
@@ -165,7 +173,7 @@ async function main() {
         }
       }
       if (!records.some(r => r.skinId === 'default')) throw Error('没有默认战斗模型');
-      manifest.operators[op.name] = { charId:details.charId, records }; delete manifest.errors[op.name];
+      manifest.operators[op.name] = { charId:details.charId, records, ...(summonOnly ? { allSkins: true } : {}) }; delete manifest.errors[op.name];
       console.log(`${Object.keys(manifest.operators).length}/${selected.length} ${op.name} ${records.length} models`);
     } catch (error) { manifest.errors[op.name] = error.message; console.error(`${op.name}: ${error.message}`); }
     manifest.pixelsPerUnit = pixelsPerUnit;

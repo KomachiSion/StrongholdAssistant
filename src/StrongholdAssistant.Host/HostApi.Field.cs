@@ -66,7 +66,9 @@ public sealed partial class HostApi
 
     public void InitializeField(string directory, IOcrEngine ocr)
     {
+        _fieldReader?.Dispose();
         _fieldReader = new(directory, ocr, _operators.Select(o => o.Name));
+        _fieldTracker.ConfigureSummons(SummonCatalog.Load(directory));
         using var maps = System.Text.Json.JsonDocument.Parse(File.ReadAllText(Path.Combine(directory, "garrison_maps.json")));
         _fieldTracker.ConfigureMaps(ASPAssistant.Core.Placement.GarrisonBoardStore.Parse(maps.RootElement));
         _fieldSprites?.Dispose();
@@ -75,14 +77,15 @@ public sealed partial class HostApi
         _fieldSprites = new(Path.Combine(directory, "sprite-templates.bin.gz"));
         _fieldTracker.ConfigureIdentity(_operators, (patch, tier, names) =>
         {
-            var skins = ReadRoster().Operators.ToDictionary(o => o.Name, o => o.Skin, StringComparer.Ordinal);
+            var skins = FieldAppearances();
             return _fieldSprites.MatchCellWidth(patch, tier, names, skins);
         }, _fieldSpriteModel, (patch, foreground) =>
         {
-            var skins = ReadRoster().Operators.ToDictionary(o => o.Name, o => o.Skin, StringComparer.Ordinal);
+            var skins = FieldAppearances();
             return _fieldSprites.WithNeighbors(_fieldSprites.WithOcclusion(patch, foreground, skins), foreground, skins);
         }, (patch, tier, names) => _fieldSprites.MaskNeighbors(patch, tier, names,
-            ReadRoster().Operators.ToDictionary(o => o.Name, o => o.Skin, StringComparer.Ordinal)));
+            FieldAppearances()));
+        InitializeFieldPrototypes(directory);
         _shopReader!.ReadUntracked = true;
     }
 
@@ -181,7 +184,10 @@ public sealed partial class HostApi
         {
             RecomputeTracking();
             FieldOverlayChanged?.Invoke(state, _fieldOverlayGeometry);
-            Changed?.Invoke("field", state);
+            _publishingManualField = true;
+            try { Changed?.Invoke("field", state); }
+            finally { _publishingManualField = false; }
+            SchedulePlacementCore(force: true);
         }
         return state;
     }

@@ -78,8 +78,8 @@ public sealed partial class SpriteMatcher
         double footX = f.BadgeFootX + f.CellWidth * .061382994597481755 - left;
         double footY = f.BadgeFootY + f.CellWidth * .1774000064377288 - top;
         string? skin = skins?.GetValueOrDefault(name);
-        foreach (var template in Templates(name, f.CellWidth * .00271).Where(t => t.Size == 100
-            && t.Tier == tier && (skin is null || t.SkinId == "default" || t.SkinId == skin)))
+        foreach (var template in Templates(AppearanceName(name, skins), f.CellWidth * .00271).Where(t => t.Size == 100
+            && t.Tier == tier && AllowsSkin(t.SkinId, skin)))
         {
             using var mask = new Mat();
             Cv2.Resize(template.Mask, mask, new Size((int)Math.Round(template.Mask.Width / _resolution),

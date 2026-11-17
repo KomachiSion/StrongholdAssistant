@@ -222,7 +222,7 @@ public sealed partial class FieldTracker
     private void ResolveIdentity(FieldObservation o, Dictionary<FieldCell, FieldUnit> before, bool force)
     {
         if (o.Sprites is null || _matchSprite is null) return;
-        var gone = before.Values.Where(u => o.Cells.GetValueOrDefault(u.Cell, -1) == 0).ToList();
+        var gone = before.Values.Where(u => o.Cells.GetValueOrDefault(u.Cell, -1) == 0 && !_manualOnly.Contains(u.Cell)).ToList();
 
         var ordered = o.Sprites.OrderByDescending(p => _occlusion is null ? 0 : p.Value.Geometry?.BadgeFootY ?? 0).ToArray();
         int rowEnd = 0;
@@ -278,6 +278,15 @@ public sealed partial class FieldTracker
                 SetIdentity(cell, unit with { Operator = old.Operator, Source = "merge", Status = old.Status == "sure" && gone.Where(u => u.Operator == old.Operator && u.Tier == old.Tier).All(u => u.Status == "sure") ? "sure" : "auto", Candidates = old.Candidates, Elite = true }, patch, force: force);
                 continue;
             }
+            var names = MatchCandidates()
+                .Distinct().Where(n => HasTier(n, unit.Tier)).OrderBy(n => _roster.GetValueOrDefault(n)?.Sold ?? false).ToArray();
+            var prototype = _unknownPrototype?.Invoke(patch, unit.Tier, names) ?? [];
+            if (prototype.Length > 0)
+            {
+                SetIdentity(cell, unit with { Operator = prototype[0].Name, Source = "sprite", Status = "pending",
+                    Candidates = prototype.Select(p => new FieldCandidate(p.Name, p.Score)).ToArray() }, patch, save: false, force: force);
+                continue;
+            }
             // 跨扫描挪格、短暂漏读及换镜头后，先找本局已确认或自动认出的个人图块。
             var remembered = _learned.Where(p => p.Patch.OcclusionRatio < SpriteMatcher.OcclusionLearningThreshold
                 && patch.OcclusionRatio < SpriteMatcher.OcclusionLearningThreshold && p.Unit.Tier == unit.Tier
@@ -292,8 +301,6 @@ public sealed partial class FieldTracker
             if (!reidentify && old is null && _history.TryGetValue(cell, out var previous) && previous.Unit.Status == "pending"
                 && previous.Unit.Tier == unit.Tier && SpriteSimilarity(previous.Patch, patch) >= SameSpriteScore)
             { SetIdentity(cell, previous.Unit, previous.Patch, force: force); continue; }
-            var names = MatchCandidates()
-                .Distinct().Where(n => HasTier(n, unit.Tier)).OrderBy(n => _roster.GetValueOrDefault(n)?.Sold ?? false).ToArray();
             // 无卡赠送新格不能被“本阶唯一”强填；它可能根本不在本局名单里。
             var active = names.Where(n => !(_roster.GetValueOrDefault(n)?.Sold ?? false)).ToArray();
             // 本阶唯一仍需图像支持；训练侧真名最低分约0.336，门槛取0.30留余量。
@@ -356,7 +363,7 @@ public sealed partial class FieldTracker
         // 资金增加提供卖出证据，不把这些消失重新解释为挪格。
         if (!_battle && o.Money > _money)
         {
-            foreach (var from in removed.Where(c => !merged.Contains(c)).ToArray())
+            foreach (var from in removed.Where(c => !merged.Contains(c) && !_manualOnly.Contains(c)).ToArray())
             {
                 Add(o.At, "sell", before[from].Operator, from, null);
                 removed.Remove(from);
@@ -391,6 +398,7 @@ public sealed partial class FieldTracker
             Add(o.At, "move", from.Operator, from.Cell, to);
             removed.Remove(from.Cell); added.Remove(to);
         }
+        removed.RemoveAll(c => _manualOnly.Contains(c));
         // 没有图块的观测同样保留短暂漏读身份。
         if (o.Sprites is null || _matchSprite is null)
             foreach (var cell in removed.Where(c => !merged.Contains(c)))
@@ -493,6 +501,12 @@ public sealed partial class FieldTracker
 
     private RankResult ComputeRank(FieldSpritePatch patch, int tier, string[] names, string[] sourceNames, Dictionary<string, double> personal)
     {
+        // 分类模型没有原型外观训练类；本阶含已知替代时直接使用模板，避免预筛删掉真名或把概率投给原外观。
+        if (names.Concat(sourceNames).Any(n => _usesPrototype?.Invoke(n) == true))
+        {
+            var rank = _matchSprite!(patch, tier, names.Concat(sourceNames).Distinct().ToArray()).Candidates.ToArray();
+            return new(rank, rank, null);
+        }
         float[]? logits = null;
         if (_spriteModel is not null)
         {
@@ -528,7 +542,7 @@ public sealed partial class FieldTracker
     private void Remember(FieldUnit unit, FieldSpritePatch patch, bool force = false)
     {
         if (patch.OcclusionRatio >= SpriteMatcher.OcclusionLearningThreshold) return;
-        if (unit.Operator is null || !(unit.Status == "auto" || unit.Status == "sure" && unit.Source != "only")) return;
+        if (unit.Operator is null || _usesPrototype?.Invoke(unit.Operator) == true || !(unit.Status == "auto" || unit.Status == "sure" && unit.Source != "only")) return;
         if (unit.Status == "sure") _confirmed.Add((unit.Operator, unit.Tier));
         int existing = _learned.FindIndex(p => p.Unit.Operator == unit.Operator && p.Unit.Tier == unit.Tier
             && SpriteSimilarity(p.Patch, patch) >= SameSpriteScore);

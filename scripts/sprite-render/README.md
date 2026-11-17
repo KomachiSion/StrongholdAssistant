@@ -28,4 +28,24 @@ SPRT0003 解压布局（均为小端）：魔数 8 字节、归一边长 uint16�
 
 工具依赖固定为 `@pixi-spine/runtime-3.8@4.0.6`、`@napi-rs/canvas@0.1.80`，仅用于开发期离线渲染，不进入产品。资源来源与归属见仓库 `ASSETS.md`；游戏美术归上海鹰角网络所有。
 
+原型外观使用 `node scripts/generate-prototypes.cjs <游戏表目录>` 生成 `data/prototypes.json`，
+再运行 `node scripts/sprite-render/render.cjs --prototypes --out out/279/rendered`。
+该模式不读取对局缓存，只渲染游戏表列出的默认外观。把每个原型的 `tiers` 展开为
+`{"operators":[{"name":"Sharp","tier":5}, ...]}` 作为生成器的 `--operators` 输入。
+`--append data/sprite-templates.bin.gz --output out/279/combined.bin.gz` 将新记录追加到已有包，
+要求相同 SPRT0004 比例；原记录逐字节保留。输出采用独立路径，避免重复追加；通过回归后才替换产品包。
+
+召唤物使用独立的零阶模板包，避免进入干员候选池：
+
+```powershell
+node scripts/generate-summons.cjs docs/research/refs/gamedata
+node scripts/sprite-render/render.cjs --summons --out out/291/rendered
+python scripts/generate-sprite-templates.py --rendered out/291/rendered --operators data/summons.json --allow-partial --output data/summon-templates.bin.gz
+```
+
+召唤物清单以 token ID 为模板键、游戏名称为展示名；渲染所有可用皮肤，仍使用统一比例及骨骼原点。
+没有 Idle 但有 Loop 的召唤物使用 Loop。资源缺失或解码失败保留在 manifest.errors，不以其他角色代替。
+`--allow-partial` 仅用于明确列出的资源缺口，不能表示已覆盖全部召唤物；291 的覆盖和缺口见
+`docs/research/truth/291/resources.json`。本包独立于干员包，原干员模板不重写。
+
 SPRT0004 在分辨率 uint16 后增加 float32 像素/骨骼单位，其余记录布局同 SPRT0003。固定比例清单在 `--size 60` 时整体缩小一半，120 时保持原尺寸，禁止按单张外框归一。旧清单仍生成 SPRT0003。新包匹配必须显式传入以 1920×1080 为口径的 `screenPixelsPerUnit`，可通过 `searchAnchor` 指定裁块内骨骼原点；尺度只取标定值的 95%、100%、105%，位置搜索为 ±4 像素。旧包继续使用冻结参数。223 尚未通过两局门槛，产品包仍保留原版；标定参数和试验包留在 `out/223/`，不得直接用于发布。

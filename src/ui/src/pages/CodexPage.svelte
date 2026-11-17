@@ -60,6 +60,13 @@
   let tiers = $state<number[]>([])
   let bonds = $state<string[]>([])
   let onlyTracked = $state(false)
+  // 从顶栏追踪的「N 项」点进来：切到干员、只看追踪中
+  $effect(() => {
+    if (!app.codexTracked) return
+    app.codexTracked = false
+    kind = 'operator'
+    onlyTracked = true
+  })
   let onlyFocus = $state(false)
   let hideBanned = $state(false)
   // 我的干员（任务 163）：只看没认全的
@@ -118,6 +125,7 @@
       .filter((g) => (kind === 'operator' ? g.ops.length : g.eqs.length)),
   )
   const cur = $derived(app.detail)
+  const moreOpen = $derived(!!app.folded['codex.more'])
   const filtered = $derived(tiers.length + bonds.length + timings.length + (onlyTracked ? 1 : 0) + (onlyFocus ? 1 : 0) + (hideBanned ? 1 : 0) + (onlyIncomplete ? 1 : 0) + (cat ? 1 : 0) + (q ? 1 : 0) + (bKind ? 1 : 0) + (bCoin !== null ? 1 : 0))
 </script>
 
@@ -206,19 +214,28 @@
       {#if kind === 'operator'}
         <button class="chip" class:on={onlyFocus} onclick={() => (onlyFocus = !onlyFocus)}>关注</button>
         <button class="chip" class:on={hideBanned} onclick={() => (hideBanned = !hideBanned)}>隐藏禁用</button>
+        <!-- 时机和盟约收进「更多筛选」，默认收起、记住开合，免得筛选区占半屏（v1.2.7 群友反馈太长） -->
+        <button class="chip more" class:open={moreOpen} aria-expanded={moreOpen} onclick={() => app.toggleFold('codex.more')}>
+          更多筛选{#if timings.length + bonds.length}<em>{timings.length + bonds.length}</em>{/if}<span class="chev"><Icon name="arrowDown" size={11} /></span>
+        </button>
       {/if}
     </div>
     {#if kind === 'operator'}
-      <!-- 按效果时机：选几个就列出带其中任一个的干员 -->
-      <div class="chips timing">
-        <span class="clbl">时机</span>
-        {#each timingChips as t (t)}
-          <button class="chip" class:on={timings.includes(t)} onclick={() => (timings = toggle(timings, t))}>{t === OTHER ? t : `<${t}>`}</button>
-        {/each}
-      </div>
-      <BondPick state={(id) => ({ on: bonds.includes(id) })} onpick={(id) => (bonds = toggle(bonds, id))} />
-      {#if bonds.length}
-        <div class="picked">盟约：{bonds.map((b) => app.cov(b).name).join(' + ')}</div>
+      {#if moreOpen}
+        <!-- 按效果时机：选几个就列出带其中任一个的干员 -->
+        <div class="chips timing">
+          <span class="clbl">时机</span>
+          {#each timingChips as t (t)}
+            <button class="chip" class:on={timings.includes(t)} onclick={() => (timings = toggle(timings, t))}>{t === OTHER ? t : `<${t}>`}</button>
+          {/each}
+        </div>
+        <BondPick state={(id) => ({ on: bonds.includes(id) })} onpick={(id) => (bonds = toggle(bonds, id))} />
+      {:else if timings.length + bonds.length}
+        <!-- 收起时也看得到筛了什么，点 × 单个去掉 -->
+        <div class="chips picked">
+          {#each timings as t (t)}<button class="chip on" title="去掉这个时机" onclick={() => (timings = toggle(timings, t))}>{t === OTHER ? t : `<${t}>`}<Icon name="close" size={10} /></button>{/each}
+          {#each bonds as b (b)}<button class="chip on" title="去掉这个盟约" onclick={() => (bonds = toggle(bonds, b))}>{app.cov(b).name}<Icon name="close" size={10} /></button>{/each}
+        </div>
       {/if}
     {:else}
       <div class="chips">
@@ -537,9 +554,30 @@
   .timing .chip {
     font-size: var(--fs-sm);
   }
-  .picked {
-    font-size: var(--fs-sm);
-    color: var(--mint);
+  .chip.more {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    margin-left: auto;
+  }
+  .chip.more em {
+    font-style: normal;
+    font-size: var(--fs-xs);
+    padding: 0 4px;
+    color: var(--mint-ink);
+    background: var(--mint);
+  }
+  .chip.more .chev {
+    display: inline-flex;
+    transition: transform var(--t-fast);
+  }
+  .chip.more.open .chev {
+    transform: rotate(180deg);
+  }
+  .picked .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
   }
   .ghead {
     display: flex;

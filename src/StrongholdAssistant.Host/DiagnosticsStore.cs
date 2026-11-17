@@ -132,7 +132,10 @@ public sealed class DiagnosticsStore(string directory)
     private static byte[] DiagnosticPng(Bitmap image)
     {
         double ratio = Math.Min(1, 1920.0 / Math.Max(image.Width, image.Height));
-        using var small = new Bitmap(image, Math.Max(1, (int)(image.Width * ratio)), Math.Max(1, (int)(image.Height * ratio)));
+        using var small = new Bitmap(Math.Max(1, (int)(image.Width * ratio)), Math.Max(1, (int)(image.Height * ratio)));
+        using (var graphics = Graphics.FromImage(small))
+            graphics.DrawImage(image, new Rectangle(0, 0, small.Width, small.Height),
+                new Rectangle(0, 0, image.Width, image.Height), GraphicsUnit.Pixel);
         using var encoded = new MemoryStream();
         small.Save(encoded, ImageFormat.Png);
         return encoded.ToArray();

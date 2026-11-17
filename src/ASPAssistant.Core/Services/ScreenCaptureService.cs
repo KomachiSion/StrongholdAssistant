@@ -185,7 +185,7 @@ public class ScreenCaptureService
         {
             using var graphics = Graphics.FromImage(resized);
             graphics.InterpolationMode = InterpolationMode.Bilinear;
-            graphics.DrawImage(raw, 0, 0, resized.Width, resized.Height);
+            graphics.DrawImage(raw, new Rectangle(0, 0, resized.Width, resized.Height), new Rectangle(0, 0, raw.Width, raw.Height), GraphicsUnit.Pixel);
         }
         // 识别循环直接用缩放后的截图生成指纹，避免编码后再解码同一张 PNG。
         inspect?.Invoke(resized ?? raw);

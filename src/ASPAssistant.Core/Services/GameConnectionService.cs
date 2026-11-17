@@ -54,7 +54,7 @@ public sealed class GameConnectionService : IDisposable
             .Select(d => new EmulatorDevice(
                 System.Text.RegularExpressions.Regex.Replace(d.Name, @"-MuMuPlayer\d*$", "",
                     System.Text.RegularExpressions.RegexOptions.IgnoreCase),
-                d.AdbPath, d.AdbSerial, d.Config,
+                d.AdbPath, MuMuFallback.BridgedSerial(d.AdbSerial), d.Config,
                 "mumu")).ToArray();
         return MuMuFallback.UseIfMissing(devices, MuMuFallback.DiscoverDevices)
             .Concat(LdPlayerWindows.DiscoverDevices()).ToArray();

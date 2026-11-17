@@ -4,7 +4,7 @@
   import Changelog from './pages/Changelog.svelte'
   import Faq from './pages/Faq.svelte'
   import About from './pages/About.svelte'
-  import logo from '../static/icon-192.png'
+  import logo from '../static/icon-64.webp'
   import { LATEST, LINKS, type PageId } from './data'
 
   let { page }: { page: PageId } = $props()

@@ -54,7 +54,7 @@ public sealed class BanAvatarRecognizer
                     g.Clear(Color.White);
                     g.TranslateTransform(64, 64);
                     g.ScaleTransform(.94f, .94f);
-                    g.DrawImage(bitmap, -64, -64, 128, 128);
+                    g.DrawImage(bitmap, new Rectangle(-64, -64, 128, 128), new Rectangle(0, 0, bitmap.Width, bitmap.Height), GraphicsUnit.Pixel);
                 }
                 variants.Add(Vector(transformed, new Rectangle(0, 0, 128, 128)));
             }

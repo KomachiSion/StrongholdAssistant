@@ -63,6 +63,8 @@ export class AppState {
   lineups = $state<Lineup[]>(lineups)
   session = $state<Session>(session)
   tab = $state<Tab>((location.hash.slice(1) as Tab) || 'match')
+  /** 顶栏追踪的「N 项」点进图鉴时置 true，图鉴页打开「追踪中」后清掉（v1.2.7） */
+  codexTracked = $state(false)
   lineupView = $state<LineupView>('target')
   detail = $state<Detail>(null)
   /** 正在编辑的阵容草稿；新建时 id 为空串 */
@@ -272,9 +274,11 @@ export class AppState {
   bannedIn(l: { members: LineupMember[] }) {
     return l.members.filter((m) => this.banned.has(m.name))
   }
-  /** 本局适不适合用这套阵容：目标盟约阵容不完整的个数优先，其次名单被禁人数；越小越好 */
+  /** 本局适不适合用这套阵容：名单半数以上被禁的垫底（没设目标盟约的阵容也不例外），其次目标盟约阵容不完整的个数，再次被禁人数；越小越好 */
   lineupPenalty(l: Lineup) {
-    return l.goals.filter((g) => this.matchCovenant(g.id)?.incomplete).length * 100 + this.bannedIn(l).length
+    const banned = this.bannedIn(l).length
+    return (banned * 2 >= l.members.length && banned > 0 ? 1000 : 0)
+      + l.goals.filter((g) => this.matchCovenant(g.id)?.incomplete).length * 100 + banned
   }
 
   private save() {

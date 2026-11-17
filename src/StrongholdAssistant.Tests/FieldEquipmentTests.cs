@@ -14,7 +14,7 @@ public sealed class FieldEquipmentTests(EnemyRecognitionFixture fixture)
     {
         using var panel = new Bitmap(path);
         using var frame = new Bitmap(1920, 1080);
-        using (var g = Graphics.FromImage(frame)) g.DrawImageUnscaled(panel, 0, 180);
+        using (var g = Graphics.FromImage(frame)) g.DrawImage(panel, new Rectangle(0, 180, panel.Width, panel.Height), new Rectangle(0, 0, panel.Width, panel.Height), GraphicsUnit.Pixel);
         using var stream = new MemoryStream(); frame.Save(stream, ImageFormat.Png); return stream.ToArray();
     }
 

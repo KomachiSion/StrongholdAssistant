@@ -21,6 +21,7 @@
   import LineupCard from './LineupCard.svelte'
   import Icon from './Icon.svelte'
   import BondIcon from './BondIcon.svelte'
+  import BondPick from './BondPick.svelte'
   import StrategyGrid from './StrategyGrid.svelte'
 
   // 阵容页的「森空岛」分段（v0.9.2，099）：森空岛上的卫戍协议攻略。宿主在隐藏的官方攻略页里取数据，一次一页（10 条），
@@ -98,8 +99,6 @@
   // 筛选（只有攻略大全能筛）：核心盟约单选、附加盟约多选（都要包含）、策略单选
   let panel = $state(false)
   const count = $derived((st.core ? 1 : 0) + st.extras.length + (st.strategy ? 1 : 0))
-  const cores = app.catalog.covenants.filter((c) => c.kind === 'core')
-  const extras = app.catalog.covenants.filter((c) => c.kind === 'extra')
   const cov = (id: string) => app.catalog.covenants.find((c) => c.id === id)
   const toggleExtra = (id: string) => (st.extras = st.extras.includes(id) ? st.extras.filter((x) => x !== id) : [...st.extras, id])
   // 目标阵容当前阶段的盟约：核心取第一个，附加全带上
@@ -203,21 +202,9 @@
         <span>核心盟约<em>选一个</em></span>
         {#if targetGoals.length}<button class="link" onclick={useTarget}>用目标阵容的</button>{/if}
       </div>
-      <div class="bonds">
-        {#each cores as c (c.id)}
-          <button class="bond" class:on={st.core === c.id} title={c.name} onclick={() => (st.core = st.core === c.id ? null : c.id)}>
-            <BondIcon id={c.id} size={22} on={st.core === c.id} /><span>{c.name}</span>
-          </button>
-        {/each}
-      </div>
+      <BondPick kind="core" state={(id) => ({ on: st.core === id })} onpick={(id) => (st.core = st.core === id ? null : id)} />
       <div class="fh"><span>附加盟约<em>选多个时要全部包含</em></span></div>
-      <div class="bonds">
-        {#each extras as c (c.id)}
-          <button class="bond" class:on={st.extras.includes(c.id)} title={c.name} onclick={() => toggleExtra(c.id)}>
-            <BondIcon id={c.id} size={22} on={st.extras.includes(c.id)} /><span>{c.name}</span>
-          </button>
-        {/each}
-      </div>
+      <BondPick kind="extra" state={(id) => ({ on: st.extras.includes(id) })} onpick={toggleExtra} />
       <div class="fh"><span>策略</span></div>
       {#if pickingSt}
         <div class="sph">
@@ -455,35 +442,6 @@
     font-style: normal;
     font-weight: var(--fw-base);
     color: var(--fg-4);
-  }
-  .bonds {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
-    gap: 2px;
-  }
-  .bond {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    min-width: 0;
-    height: 28px;
-    padding: 0 4px;
-    font-size: var(--fs-sm);
-    color: var(--fg-3);
-  }
-  .bond span {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .bond:hover {
-    color: var(--fg-1);
-    background: var(--bg-2);
-  }
-  .bond.on {
-    color: var(--fg-0);
-    background: var(--mint-tint);
-    box-shadow: inset 0 0 0 1px var(--mint-lo);
   }
   .sph {
     display: flex;

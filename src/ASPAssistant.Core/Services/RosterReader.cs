@@ -8,21 +8,27 @@ using System.Text.Json.Serialization;
 namespace ASPAssistant.Core.Services;
 
 public sealed record RosterOperator(string Name, string? Skin, string? Skill, string? Module, int? Potential,
-    string ReadAt, [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string[]? Edited = null);
+    string ReadAt, [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string[]? Edited = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Prototype = null);
 public sealed record Roster(string? ReadAt, RosterOperator[] Operators, string[] CustomSquad);
 public sealed record RosterCard(RosterOperator Operator, bool Custom, int X, int Y, double SkinScore, double SkinMargin, string PotentialClass, double ModuleScore, string? SkinCandidate, string? ModuleCandidate);
 public sealed record RosterReading(RosterCard[] Cards, int? SquadCount, double Milliseconds, string[] UnknownNames);
 public sealed record RosterSort(string Mode, int X, int Y);
 
 /// <summary>物资调配页两排完整卡片；输入归一到样图坐标，边缘残卡不参与识别。</summary>
-public sealed class RosterReader
+public sealed partial class RosterReader
 {
     private readonly IOcrEngine _ocr;
     private readonly Dictionary<string, JsonElement> _operators;
     private readonly Dictionary<string, Dictionary<string, double[]>> _templates;
+    private readonly PrototypeCatalog _prototypes;
+    private readonly Dictionary<string, byte[]> _prototypeBonds;
     public RosterReader(IOcrEngine ocr, string data)
     {
         _ocr = ocr;
+        _prototypes = new(data);
+        _prototypeBonds = Directory.GetFiles(Path.Combine(data, "prototype-bonds"), "*.png")
+            .ToDictionary(p => Path.GetFileNameWithoutExtension(p) + "Ship", File.ReadAllBytes);
         using var extra = JsonDocument.Parse(File.ReadAllText(Path.Combine(data, "codex_extra.json")));
         _operators = extra.RootElement.GetProperty("operators").EnumerateObject().ToDictionary(p => p.Name, p => p.Value.Clone());
         _templates = JsonSerializer.Deserialize<Dictionary<string, Dictionary<string, double[]>>>(File.ReadAllText(Path.Combine(data, "roster_templates.json")))!;
@@ -47,25 +53,33 @@ public sealed class RosterReader
         int? count = countMatch.Success ? int.Parse(countMatch.Groups[1].Value) : null;
         var cards = new List<RosterCard>();
         var unknown = new List<string>();
-        foreach (var (sourceX, sourceY, scale) in LocateGrid(image))
+        var grid = LocateGrid(image).OrderBy(p => p.X).ThenBy(p => p.Y).ToArray();
+        var pending = new List<PrototypeCard>();
+        foreach (var (sourceX, sourceY, scale) in grid)
         {
             // 先按画面测得的网格比例还原单卡；后续坐标仅描述卡内布局。
             const int x = 52, y = 0;
-            using var cardImage = new Bitmap(260, 290);
+            using var cardImage = new Bitmap(260, 350);
             using (var graphics = Graphics.FromImage(cardImage))
             {
                 graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
                 graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
-                graphics.DrawImage(image, new Rectangle(0, 0, 260, 290),
-                    (float)(sourceX - x * scale), sourceY, (float)(260 * scale), (float)(290 * scale), GraphicsUnit.Pixel);
+                graphics.DrawImage(image, new Rectangle(0, 0, 260, 350),
+                    (float)(sourceX - x * scale), sourceY, (float)(260 * scale), (float)(350 * scale), GraphicsUnit.Pixel);
             }
             using var cardPng = new MemoryStream(); cardImage.Save(cardPng, ImageFormat.Png);
             var cardBytes = cardPng.ToArray();
             var labels = await _ocr.RecognizeRegionAsync(cardBytes, x - 45, y + 248, 170, 34);
             string text = string.Concat(labels.Select(l => l.Text.Replace(" ", "")));
-            if (!_operators.ContainsKey(text))
+            if (!_operators.ContainsKey(text) && !_prototypes.IsPrototype(text))
                 text = string.Concat((await _ocr.RecognizeLineAsync(cardBytes, x - 35, y + 249, 160, 30)).Select(l => l.Text.Replace(" ", "")));
             text = text.Replace("タ", "夕").Replace("傑", "杰");
+            if (_prototypes.IsPrototype(text))
+            {
+                pending.Add(new(text, sourceX, sourceY, Array.FindIndex(grid, g => g.X == sourceX && g.Y == sourceY),
+                    await ReadPrototypeTier(cardBytes), ReadPrototypeBonds(cardImage)));
+                continue;
+            }
             if (!_operators.ContainsKey(text))
             {
                 var suffixes = _operators.Keys.Where(n => n.Length >= 2 && text.EndsWith(n, StringComparison.Ordinal)).OrderByDescending(n => n.Length).ToArray();
@@ -96,6 +110,7 @@ public sealed class RosterReader
             cards.Add(new(new(text, skin.Score >= .75 && skin.Margin >= .10 ? skin.Id : null, skill,
                 moduleId, potential, DateTimeOffset.UtcNow.ToString("O")), custom, sourceX, sourceY, skin.Score, skin.Margin, potentialClass, module.Score, skin.Id, module.Id));
         }
+        if (pending.Count > 0) ResolvePrototypeCards(pending, cards, grid, (await ReadSortAsync(frame))?.Mode == "tier", unknown);
         return new(cards.OrderBy(c => c.X).ThenBy(c => c.Y).ToArray(), count, timer.Elapsed.TotalMilliseconds, unknown.ToArray());
     }
 

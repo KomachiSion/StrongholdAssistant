@@ -61,6 +61,9 @@ public sealed partial class FieldTracker
             var added = o.Cells.Where(p => p.Value > 0 && !_units.ContainsKey(p.Key)).Select(p => p.Key).ToList();
             foreach (var (cell, tier) in o.Cells)
             {
+                if (_manualOnly.Contains(cell) && tier == 0) continue;
+                _manualOnly.Remove(cell);
+                if (_units.TryGetValue(cell, out var manual) && manual.Source == "manual" && manual.Tier == tier) continue;
                 if (tier == 0) { _units.Remove(cell); _purchaseCandidates.Remove(cell); }
                 else
                 {
@@ -70,7 +73,8 @@ public sealed partial class FieldTracker
             }
             if (!_battle) ResolvePurchases(o, added);
             foreach (var (cell, unit) in _units.ToArray())
-                _units[cell] = unit with { Operator = null, Source = null, Status = "unknown", Candidates = [] };
+                if (unit.Source != "manual")
+                    _units[cell] = unit with { Operator = null, Source = null, Status = "unknown", Candidates = [] };
             _purchaseCandidates.Clear();
             _battle = false;
         }

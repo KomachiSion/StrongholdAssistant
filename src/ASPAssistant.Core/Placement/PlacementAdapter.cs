@@ -11,7 +11,10 @@ public sealed record PlacementUnit(string Zone, int Col, int Row, string? Operat
 {
     public FieldCell Cell => new(Zone, Col, Row);
 }
-public sealed record PlacementField(string? MapId, string UpdatedAt, PlacementUnit[] Units);
+public sealed record PlacementField(string? MapId, string UpdatedAt, PlacementUnit[] Units)
+{
+    public FieldSummon[]? Summons { get; init; }
+}
 public sealed record PlacementLayers(string Id, int? Layers);
 public sealed record PlacementInput(PlacementField Field, int? Round, string? Mode, bool Solo,
     string? BossId, string[] EnemyTypes, string[]? RoundEnemyNames, PlacementLayers[]? CovenantBar,
@@ -36,6 +39,7 @@ public sealed class PlacementAdapter
     private readonly EnemyRouteStore _routes;
     private readonly GarrisonSpawnStore _spawns;
     private readonly PlacementPlanner _planner;
+    private SummonDefinition[] _summons = [];
 
     public string[]? GetCells(string mapId) => _board.Find(mapId)?.CellRows;
 
@@ -62,7 +66,8 @@ public sealed class PlacementAdapter
         var ids = JsonSerializer.Deserialize<Dictionary<string, string>>(
             await File.ReadAllTextAsync(Path.Combine(directory, "covenant_ids.json")))!;
         return new(operators, ids, transforms, await CombatEffectStore.LoadAsync(directory), (await GarrisonBoardStore.LoadAsync(directory))!,
-            EnemyRouteStore.Load(directory), GarrisonSpawnStore.Load(directory)!, new(operators, covenants));
+            EnemyRouteStore.Load(directory), GarrisonSpawnStore.Load(directory)!, new(operators, covenants))
+            { _summons = SummonCatalog.Load(directory) };
     }
 
     public PlacementResult? Compute(PlacementInput input, CancellationToken cancel = default)
@@ -178,6 +183,17 @@ public sealed class PlacementAdapter
             Round = input.Round, TotalRounds = _routes.RoundCount(routeMode), Routes = routes,
             Streams = streams, CovenantLayers = layers, Potentials = potentials, Potential = 0, Start = current,
             Strategy = strategy,
+            OccupiedCells = (field.Summons ?? []).Where(s => s.Zone == "board")
+                .Select(s => new BoardCell(s.Col, s.Row)).ToHashSet(),
+            FixedSummonNames = (field.Summons ?? []).Where(s => s.Zone == "board").Select(s => s.Name).ToHashSet(),
+            FixedSummons = (field.Summons ?? []).Where(s => s.Zone == "board")
+                .Select(s => (Summon: s, Definition: _summons.FirstOrDefault(d => d.Name == s.Name)))
+                .Where(p => p.Definition is not null).Select(p => {
+                    var d = p.Definition!;
+                    // TODO(design): 动态阻挡缺少实例状态字段；暂用基础值，狼影数量和流形复制对象需另定协议。
+                    return new SimUnit($"summon:{p.Summon.Col},{p.Summon.Row}", new(p.Summon.Col, p.Summon.Row), [],
+                        d.BaseBlock > 0, d.BaseBlock, false, 0, 1, false, d.Hp, d.Defense, false) { Res = d.Resistance };
+                }).ToArray(),
             Iterations = 5000, Restarts = 1, SimulationIterations = 1000, MaxStreams = 6
         };
         cancel.ThrowIfCancellationRequested();
@@ -189,6 +205,7 @@ public sealed class PlacementAdapter
         var placed = recommended.Placed.ToDictionary(p => p.Key);
         var occupiedBench = field.Units.Where(u => u.Zone == "bench" && !origins.Any(p => p.Value == u && placed.ContainsKey(p.Key)))
             .Select(u => u.Col).ToHashSet();
+        occupiedBench.UnionWith((field.Summons ?? []).Where(s => s.Zone == "bench").Select(s => s.Col));
         var moves = pool.Select(c =>
         {
             var from = origins[c.Key].Cell;

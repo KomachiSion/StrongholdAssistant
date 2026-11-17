@@ -353,6 +353,7 @@ let field: FieldState = {
     sure('board', 5, 1, 1, '拜松', 'merge'),
     sure('board', 3, 0, 3, '极光', 'carry'),
   ],
+  summons: [{ zone: 'board', col: 4, row: 3, name: '鸟笼', owner: null }],
   roster: [
     { operator: '灰喉', source: 'purchase', at: '2026-11-14T10:00:45Z', sold: false },
     { operator: '慕斯', source: 'purchase', at: '2026-11-14T10:00:47Z', sold: false },
@@ -524,7 +525,13 @@ export const mockApi: Api = {
     field = {
       ...field,
       updatedAt: new Date().toISOString(),
-      units: field.units.map((u) => (u.zone === cell.zone && u.col === cell.col && u.row === cell.row ? { ...u, operator, source: operator ? 'manual' : null, status: operator ? 'sure' : 'unknown', candidates: [] } : u)),
+      units: field.units.some((u) => u.zone === cell.zone && u.col === cell.col && u.row === cell.row)
+        ? field.units
+            .filter((u) => !(u.zone === cell.zone && u.col === cell.col && u.row === cell.row && u.source === 'manual' && !operator))
+            .map((u) => (u.zone === cell.zone && u.col === cell.col && u.row === cell.row ? { ...u, operator, source: operator ? 'manual' : null, status: operator ? 'sure' : 'unknown', candidates: [] } : u))
+        : operator
+          ? [...field.units, { ...cell, tier: catalog.operators.find((o) => o.name === operator)!.tier, operator, source: 'manual', status: 'sure', candidates: [], elite: null, equipment: null }]
+          : field.units,
     }
     fieldListeners.forEach((cb) => cb(structuredClone(field)))
     return wait(field, 0)

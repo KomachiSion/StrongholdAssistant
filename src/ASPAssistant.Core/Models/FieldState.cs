@@ -10,7 +10,11 @@ public sealed partial record FieldUnit(string Zone, int Col, int Row, int Tier, 
     public FieldCell Cell => new(Zone, Col, Row);
 }
 public sealed record FieldEvent(string At, string Kind, string? Operator, FieldCell? From, FieldCell? To);
-public sealed partial record FieldState(string? MapId, int? Round, string UpdatedAt, FieldUnit[] Units, FieldEvent[] Log);
+public sealed record FieldSummon(string Zone, int Col, int Row, string Name, string? Owner);
+public sealed partial record FieldState(string? MapId, int? Round, string UpdatedAt, FieldUnit[] Units, FieldEvent[] Log)
+{
+    public FieldSummon[]? Summons { get; init; }
+}
 
 // 缺失的格子代表不可见；明确的 0 才代表空格。拖动期间冻结占用。
 public sealed partial record FieldObservation(DateTimeOffset At, bool IsRest, string? MapId, int? Round,
@@ -19,4 +23,5 @@ public sealed partial record FieldObservation(DateTimeOffset At, bool IsRest, st
 {
     public string? PanelOperator { get; init; }
     public FieldEquipment[]? Equipment { get; init; }
+    public FieldSummon[]? Summons { get; init; }
 }

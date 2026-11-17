@@ -24,6 +24,34 @@ public class PlacementPlannerTests
 
     private static PlacementOptions Fast(int seed = 1) => new() { Iterations = 3000, Restarts = 3, Seed = seed };
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task PalaceRecommendationAvoidsBombardmentIncludingStartingAndPinnedCells(bool simulate)
+    {
+        var (planner, board) = await LoadAsync();
+        var map = board.Find("m10")!;
+        var pool = new[] { "拉普兰德", "角峰", "夏栎" }.Select(n => new PlacementCandidate(n, false)).ToList();
+        var start = new Dictionary<string, (BoardCell Cell, Facing Facing)>
+        {
+            ["拉普兰德"] = (new(3, 3), Facing.Right),
+            ["角峰"] = (new(2, 2), Facing.Right),
+            ["夏栎"] = (new(4, 3), Facing.Right),
+        };
+        var options = new PlacementOptions
+        {
+            FieldCount = 3, Start = start, Simulate = simulate, Iterations = 100, SimulationIterations = 50,
+            Pins = new Dictionary<string, PlacementPin> { ["拉普兰德"] = new(new(3, 3), Facing.Right) }
+        };
+        var plan = planner.Plan(map, pool, options);
+        plan.Placed.Should().HaveCount(3);
+        plan.Placed.Should().OnlyContain(p => Math.Abs(p.Cell.Col - 3) > 1 || Math.Abs(p.Cell.Row - 3) > 1);
+        // 评价当前摆法仍保留原格子，不能把玩家实际站在伤害区的人从输入中删除。
+        var current = planner.Evaluate(map, pool, start, options with { Simulate = false });
+        current.Placed.Should().HaveCount(3);
+        foreach (var p in current.Placed) p.Cell.Should().Be(start[p.Key].Cell);
+    }
+
     [Fact]
     public async Task Plan_PicksEightFromTwelveAndHoldsBothRoutes()
     {

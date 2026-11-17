@@ -22,6 +22,10 @@ public static class MuMuFallback
     public static IReadOnlyList<EmulatorDevice> UseIfMissing(IReadOnlyList<EmulatorDevice> devices,
         Func<IReadOnlyList<EmulatorDevice>> discover) => devices.Count > 0 ? devices : discover();
 
+    // 桥接网络下 MaaToolkit 给的是「模拟器局域网 IP:16384」，但 16384 只在本机转发；桥接时 ADB 要连「模拟器 IP:5555」（诊断包 41，用户实测）
+    public static string BridgedSerial(string serial) =>
+        Regex.Replace(serial, @"^(?!127\.)(\d{1,3}(?:\.\d{1,3}){3}):\d+$", "$1:5555");
+
     public static string? FindAdb(string processPath) => FindFile(processPath, "adb.exe", Path.Combine("shell", "adb.exe"));
 
     private static string? FindFile(string processPath, params string[] names)

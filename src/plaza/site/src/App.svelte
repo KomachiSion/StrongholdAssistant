@@ -10,7 +10,7 @@
   import Admin from './pages/Admin.svelte'
   import Editor from './pages/Editor.svelte'
   import Icon from './components/Icon.svelte'
-  import logo from '../static/icon-64.png'
+  import logo from '../static/icon-64.webp'
   import Tooltip from './components/Tooltip.svelte'
   import PasswordGate from './components/PasswordGate.svelte'
 

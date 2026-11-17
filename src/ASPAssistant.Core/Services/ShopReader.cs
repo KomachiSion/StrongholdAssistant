@@ -75,7 +75,7 @@ public sealed class ShopReader(IOcrEngine engine, IReadOnlyList<string> catalogN
             using var graphics = Graphics.FromImage(enlarged);
             graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
             graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
-            graphics.DrawImage(source, 0, 0, enlarged.Width, enlarged.Height);
+            graphics.DrawImage(source, new Rectangle(0, 0, enlarged.Width, enlarged.Height), new Rectangle(0, 0, source.Width, source.Height), GraphicsUnit.Pixel);
             width = enlarged.Width;
             height = enlarged.Height;
         }

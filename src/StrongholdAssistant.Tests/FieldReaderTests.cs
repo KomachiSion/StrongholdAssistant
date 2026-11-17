@@ -100,7 +100,7 @@ public sealed class FieldReaderTests(EnemyRecognitionFixture fixture)
         {
             g.Clear(Color.Black);
             // 已核实的四阶整备区图块；角标位于图块内约 (35, 49)。
-            g.DrawImageUnscaled(sprite, 219 + shift, 560);
+            g.DrawImage(sprite, new Rectangle(219 + shift, 560, sprite.Width, sprite.Height), new Rectangle(0, 0, sprite.Width, sprite.Height), GraphicsUnit.Pixel);
         }
         using var scaled = new Bitmap(frame, width, width * 1080 / 1920);
         var cells = reader.ReadCells(scaled, null, true);
@@ -118,7 +118,7 @@ public sealed class FieldReaderTests(EnemyRecognitionFixture fixture)
         {
             g.Clear(Color.Black);
             // 历史文件名误称装备；实际是夜莺召唤物，角标旁有 X2 数量标签。
-            g.DrawImageUnscaled(equipment, 218, 560);
+            g.DrawImage(equipment, new Rectangle(218, 560, equipment.Width, equipment.Height), new Rectangle(0, 0, equipment.Width, equipment.Height), GraphicsUnit.Pixel);
         }
         Assert.DoesNotContain(reader.ReadCells(frame, null, true), p => p.Value > 0);
     }
@@ -140,7 +140,7 @@ public sealed class FieldReaderTests(EnemyRecognitionFixture fixture)
         {
             // 仅保留角标与下方召唤物，遮去右侧数量标签，验证棋盘独立判据。
             int x = (int)(anchor.X * 1920) - 35, y = (int)(anchor.Y * 1080) - 48;
-            g.DrawImageUnscaled(summon, x, y);
+            g.DrawImage(summon, new Rectangle(x, y, summon.Width, summon.Height), new Rectangle(0, 0, summon.Width, summon.Height), GraphicsUnit.Pixel);
             g.FillRectangle(Brushes.Black, x + 57, y + 24, 71, 42);
         }
         using var scaled = new Bitmap(frame, width, width * 1080 / 1920);

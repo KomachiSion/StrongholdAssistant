@@ -147,7 +147,7 @@ public sealed class MaaCardDetector : ICardDetector, IDisposable
                 g.InterpolationMode = InterpolationMode.HighQualityBicubic;
                 g.SmoothingMode     = SmoothingMode.HighQuality;
                 g.PixelOffsetMode   = PixelOffsetMode.HighQuality;
-                g.DrawImage(src, 0, 0, newW, newH);
+                g.DrawImage(src, new Rectangle(0, 0, newW, newH), new Rectangle(0, 0, src.Width, src.Height), GraphicsUnit.Pixel);
                 scaled.Save(dstPath, ImageFormat.Png);
 
                 AppLogger.Info("CardDetector",

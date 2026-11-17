@@ -1,4 +1,5 @@
 // 颜色采样、距离截断与裁剪均值改编自 bingyunhe/asp-assistant-arknights BoardRecognizer.cs（Apache-2.0）。
+// 2026-11-17：宽高屏共用场上画幅转换，投影还原到原截图；采样明确使用像素单位。
 // 2026-11-15：首领回合使用本局地图，比较两侧镜头并排除地形变化格。
 // 2026-11-13：支持现有 PNG 截图；按画面拟合镜头的缩放与偏移，输出关卡地图 id 和投影。
 using System.Drawing;
@@ -46,10 +47,13 @@ public sealed class BoardRecognizer
     public BoardRecognition RecognizeDetailed(byte[] image, string? mapId = null, BoardCamera? targetCamera = null, bool bossRound = false, string? playerSide = null)
     {
         using var stream = new MemoryStream(image);
-        using var source = new Bitmap(stream);
+        using var original = new Bitmap(stream);
+        var (boardFrame, viewport) = FieldReader.NormalizeBoardViewport(image, original.Width, original.Height);
+        using var boardStream = new MemoryStream(boardFrame);
+        using var source = new Bitmap(boardStream);
         // 与上游 400 像素宽的颜色样本保持相同采样面积，避免分辨率影响边界颜色。
         using var bitmap = new Bitmap(400, (int)Math.Round(source.Height * 400.0 / source.Width), PixelFormat.Format24bppRgb);
-        using (var g = Graphics.FromImage(bitmap)) g.DrawImage(source, 0, 0, bitmap.Width, bitmap.Height);
+        using (var g = Graphics.FromImage(bitmap)) g.DrawImage(source, new Rectangle(0, 0, bitmap.Width, bitmap.Height), new Rectangle(0, 0, source.Width, source.Height), GraphicsUnit.Pixel);
         var pixels = new Pixels(bitmap);
         bool boss = bossRound && mapId is not null;
         var candidates = new List<Fit>();
@@ -103,8 +107,15 @@ public sealed class BoardRecognizer
         var winner = candidates.MinBy(Rank)!;
         double? gap = mapId is null ? candidates.Where(f => f.Map != winner.Map).Min(f => f.Full) - winner.Full : null;
         string? rejection = winner.Trimmed > (boss ? 40 : 11) ? (boss ? "score>40" : "score>11") : gap < 5 ? "gap<5" : null;
-        BoardMatch? match = rejection is null ? new(winner.Map, winner.Camera, winner.Projection, winner.Trimmed, winner.Side) : null;
-        return new(match, winner.Map, winner.Camera, winner.Trimmed, gap, rejection, source.Width, source.Height,
+        var projection = winner.Projection;
+        if (viewport.Width != 1 || viewport.Height != 1)
+            projection = new BoardProjection(new[] { (0d, 0d), (7d, 0d), (7d, 5d), (0d, 5d) }.Select(p =>
+            {
+                var point = winner.Projection.Project(p.Item1, p.Item2);
+                return (p, (viewport.X + point.X * viewport.Width, viewport.Y + point.Y * viewport.Height));
+            }).ToArray());
+        BoardMatch? match = rejection is null ? new(winner.Map, winner.Camera, projection, winner.Trimmed, winner.Side) : null;
+        return new(match, winner.Map, winner.Camera, winner.Trimmed, gap, rejection, original.Width, original.Height,
             boss ? candidates.Where(f => f.Side == "left").Min(f => (double?)f.Trimmed) : null,
             boss ? candidates.Where(f => f.Side == "right").Min(f => (double?)f.Trimmed) : null);
     }

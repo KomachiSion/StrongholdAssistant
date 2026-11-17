@@ -9,19 +9,7 @@
   import Bond from '../components/Bond.svelte'
   import { FAQ } from '../faq'
   import { FIRST, LATEST, LINKS, RELEASES, STATS, dot } from '../data'
-  import { reveal } from '../lib'
-  import match from '../assets/shots/match.webp'
-  import target from '../assets/shots/target.webp'
-  import plan from '../assets/shots/plan.webp'
-  import roster from '../assets/shots/roster.webp'
-  import field from '../assets/shots/field.webp'
-  import bondShot from '../assets/shots/bonds.webp'
-  import operator from '../assets/shots/operator.webp'
-  import plaza from '../assets/shots/plaza.webp'
-  import ursus from '../assets/shots/skin-ursus.webp'
-  import closure from '../assets/shots/skin-closure.webp'
-  import glass from '../assets/shots/skin-glass.webp'
-  import round from '../assets/shots/skin-round.webp'
+  import { reveal, shot } from '../lib'
 
   let demo = $state(false)
 
@@ -162,7 +150,7 @@
         <ShopStage />
         <div class="cap"><span class="live-dot"></span><span class="lbl">Shop phase · 追踪 3 张卡</span></div>
       </div>
-      <img class="side shot" src={match} alt="助手侧栏：本局页" width="380" height="860" />
+      <img class="side shot" use:shot={'match'} alt="助手侧栏：本局页" width="380" height="860" />
       <span class="tagline lbl"><span class="mint">◆</span> Docked · 贴在游戏右侧</span>
     </div>
   </div>
@@ -204,8 +192,8 @@
       <p class="fd-note">站位推荐是近似推荐：漏怪数是模拟出来的平均值，没有和实战逐局对照过，漏 0 只也不等于一定守住。场上认人是第一版，一局里要你点的次数还偏多，后面会继续减少。</p>
     </div>
     <div class="fd-pics">
-      <figure use:reveal={0}><img class="shot" src={field} alt="本局页「场上」：小棋盘与站位推荐" width="380" height="860" loading="lazy" /><figcaption class="lbl">Field · 小棋盘与站位推荐</figcaption></figure>
-      <figure use:reveal={90}><img class="shot" src={bondShot} alt="本局页「盟约状态」" width="380" height="860" loading="lazy" /><figcaption class="lbl">Covenants · 盟约状态</figcaption></figure>
+      <figure use:reveal={0}><img class="shot" use:shot={'field'} alt="本局页「场上」：小棋盘与站位推荐" width="380" height="860" /><figcaption class="lbl">Field · 小棋盘与站位推荐</figcaption></figure>
+      <figure use:reveal={90}><img class="shot" use:shot={'bonds'} alt="本局页「盟约状态」" width="380" height="860" /><figcaption class="lbl">Covenants · 盟约状态</figcaption></figure>
     </div>
   </div>
 </section>
@@ -241,17 +229,17 @@
             <div class="ch" class:shop={cur === 2}>
               <div class="pic pic-{FEATURES[cur].id}">
                 {#if cur === 0}
-                  <img class="shot s1" src={match} alt="本局页" />
+                  <img class="shot s1" use:shot={'match'} alt="本局页" />
                 {:else if cur === 1}
-                  <img class="shot s1" src={target} alt="阵容：目标" />
-                  <img class="shot s2" src={plan} alt="阵容：编辑" />
+                  <img class="shot s1" use:shot={'target'} alt="阵容：目标" />
+                  <img class="shot s2" use:shot={'plan'} alt="阵容：编辑" />
                 {:else if cur === 2}
                   <div class="hud wide"><ShopStage crop /></div>
                 {:else if cur === 3}
-                  <img class="shot s1" src={roster} alt="图鉴：我的干员" />
-                  <img class="shot s2" src={operator} alt="图鉴：干员详情" />
+                  <img class="shot s1" use:shot={'roster'} alt="图鉴：我的干员" />
+                  <img class="shot s2" use:shot={'operator'} alt="图鉴：干员详情" />
                 {:else}
-                  <img class="shot plz" src={plaza} alt="阵容广场网站" />
+                  <img class="shot plz" use:shot={'plaza'} alt="阵容广场网站" />
                 {/if}
               </div>
               <div class="info">
@@ -276,11 +264,11 @@
           <h3>{f.tag}<span class="dim"> · </span>{f.title}</h3>
           <p>{f.desc}</p>
           <div class="pic">
-            {#if i === 0}<img class="shot" src={match} alt="本局页" loading="lazy" />
-            {:else if i === 1}<img class="shot" src={plan} alt="阵容编辑" loading="lazy" />
+            {#if i === 0}<img class="shot" use:shot={'match'} alt="本局页" />
+            {:else if i === 1}<img class="shot" use:shot={'plan'} alt="阵容编辑" />
             {:else if i === 2}<div class="hud"><ShopStage crop /></div>
-            {:else if i === 3}<img class="shot" src={operator} alt="干员详情" loading="lazy" />
-            {:else}<img class="shot" src={plaza} alt="阵容广场" loading="lazy" />{/if}
+            {:else if i === 3}<img class="shot" use:shot={'operator'} alt="干员详情" />
+            {:else}<img class="shot" use:shot={'plaza'} alt="阵容广场" />{/if}
           </div>
           <ul>{#each f.points as p (p)}<li><Icon name="check" size={15} />{p}</li>{/each}</ul>
           {#if i === 4}<a class="btn sm" href={LINKS.plaza}>打开阵容广场<Icon name="arrow" size={15} /></a>{/if}
@@ -300,11 +288,11 @@
       <button class="btn" onclick={() => (demo = true)}><Icon name="play" size={18} />在演示里切换看看</button>
     </div>
     <div class="sk-pics">
-      <figure use:reveal={0}><img class="shot" src={match} alt="卫戍协议终端主题" width="380" height="860" loading="lazy" /><figcaption class="lbl">Terminal · 终端</figcaption></figure>
-      <figure use:reveal={60}><img class="shot" src={ursus} alt="乌萨斯齐心团主题" width="380" height="860" loading="lazy" /><figcaption class="lbl">Ursus · 乌萨斯</figcaption></figure>
-      <figure use:reveal={120}><img class="shot" src={closure} alt="可露希尔主题" width="380" height="860" loading="lazy" /><figcaption class="lbl">Closure · 可露希尔</figcaption></figure>
-      <figure use:reveal={180}><img class="shot" src={glass} alt="毛玻璃主题（浅色）" width="380" height="860" loading="lazy" /><figcaption class="lbl">Glass · 毛玻璃</figcaption></figure>
-      <figure use:reveal={240}><img class="shot" src={round} alt="圆润主题（深色，换了主题色）" width="380" height="860" loading="lazy" /><figcaption class="lbl">Round · 圆润</figcaption></figure>
+      <figure use:reveal={0}><img class="shot" use:shot={'match'} alt="卫戍协议终端主题" width="380" height="860" /><figcaption class="lbl">Terminal · 终端</figcaption></figure>
+      <figure use:reveal={60}><img class="shot" use:shot={'skin-ursus'} alt="乌萨斯齐心团主题" width="380" height="860" /><figcaption class="lbl">Ursus · 乌萨斯</figcaption></figure>
+      <figure use:reveal={120}><img class="shot" use:shot={'skin-closure'} alt="可露希尔主题" width="380" height="860" /><figcaption class="lbl">Closure · 可露希尔</figcaption></figure>
+      <figure use:reveal={180}><img class="shot" use:shot={'skin-glass'} alt="毛玻璃主题（浅色）" width="380" height="860" /><figcaption class="lbl">Glass · 毛玻璃</figcaption></figure>
+      <figure use:reveal={240}><img class="shot" use:shot={'skin-round'} alt="圆润主题（深色，换了主题色）" width="380" height="860" /><figcaption class="lbl">Round · 圆润</figcaption></figure>
     </div>
   </div>
 </section>

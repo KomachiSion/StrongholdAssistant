@@ -401,6 +401,8 @@
     /* 工作台能拖窄（v0.9.8 起）：面板至少 380px，窗口比这还窄就铺满，不再按 46% 挤成一条（v1.0.1） */
     width: min(440px, max(46%, min(380px, 100%)));
     max-height: none;
+    /* 设置面板自己写死了 86% 高，盖过 top/bottom，底下空出一截（v1.2.7 群友反馈）；工作台里一律从顶铺到底 */
+    height: auto;
     box-shadow:
       -1px 0 0 var(--line),
       -16px 0 32px rgb(var(--shade-rgb) / 0.45);

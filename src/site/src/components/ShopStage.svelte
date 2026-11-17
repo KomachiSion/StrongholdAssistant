@@ -1,5 +1,5 @@
 <script lang="ts">
-  import shop from '../assets/shots/game-shop.webp'
+  import { shot } from '../lib'
 
   // 游戏商店实拍（终端主题，2000×1125）上画助手的商店标记。坐标是原图像素，按容器宽度（cqw）缩放；
   // 标记样式照 docs/readme/marker-mock.html。crop 只看画面右下的商店区域（原图 x 600–2000、y 600–1125）
@@ -19,9 +19,8 @@
 
 <div class="stage" class:play style:aspect-ratio="{box.w} / {box.h}" style:--k={box.w / W}>
   <img
-    src={shop}
+    use:shot={'game-shop'}
     alt="游戏商店画面，三张卡被助手描框标记"
-    loading="lazy"
     style:width={pct(W, box.w)}
     style:left={pct(-box.x, box.w)}
     style:top={pct(-box.y, box.h)}

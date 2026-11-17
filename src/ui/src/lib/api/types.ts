@@ -1127,6 +1127,18 @@ export interface FieldState {
    * 新局、清空本局时清空
    */
   roster: FieldRosterEntry[]
+  /**
+   * 场上的召唤物（任务 291，如鸟笼）：不是干员，不进 units、不算本局名单；占着格子，站位推荐要避开。
+   * 没有这个字段或空数组 = 没认出召唤物（旧宿主同样当作没有）
+   */
+  summons?: FieldSummon[]
+}
+
+export interface FieldSummon extends FieldCell {
+  /** 召唤物名（游戏数据里的名字，如「鸟笼」） */
+  name: string
+  /** 召唤它的干员；推不出来为 null */
+  owner: string | null
 }
 
 export interface FieldRosterEntry {
@@ -1330,6 +1342,12 @@ export interface RosterOperator {
    * 卡上竖着的两个等级数字是模式定死的（用户 2026-11-15 确认），不读
    */
   potential: number | null
+  /**
+   * 原型干员（任务 279）：玩家没有这名干员时，物资调配页上这张卡显示成游戏的默认干员（如 'Sharp'），
+   * 但盟约、技能图标仍是原干员的；读到这种卡时按阶数、位置和盟约图标反推出原干员，这里记顶替它的默认干员名。
+   * 场上这名干员长的是默认干员的样子，小人比对用它的模板。null 或没有这个字段 = 自己有这名干员（或旧数据）
+   */
+  prototype?: string | null
   /** 这一条最近一次读到的时间（ISO）；用户手动改过也更新 */
   readAt: string
   /** 用户手动改过的项；再读一遍时这些项照样用读到的覆盖，并从这里去掉 */
@@ -1358,7 +1376,9 @@ export interface Api {
   field(): Promise<FieldState | null>
   /**
    * 手动指定某格是谁（operator 为 null = 改回未知），source 记为 manual。这格的人被拖走后身份跟着走；
-   * 这格变空后作废。返回更新后的状态，也会推送 field
+   * 这格变空后作废。返回更新后的状态，也会推送 field。
+   * 任务 278 起空格子也能指定（手动加人，阶数按干员表）：识别看不到这格时也保留，看到别人才换；
+   * 对只有手动加、识别从没看到的格子传 null 就是移除
    */
   setFieldOperator(cell: FieldCell, operator: string | null): Promise<FieldState>
   /**

@@ -99,7 +99,10 @@ public sealed class CovenantBarReader(IOcrEngine ocr, string dataDirectory, IRea
     private async Task<string> ReadText(Bitmap bar, Rectangle area)
     {
         using var crop = bar.Clone(area, PixelFormat.Format24bppRgb);
-        using var big = new Bitmap(crop, crop.Width * 3, crop.Height * 3);
+        using var big = new Bitmap(crop.Width * 3, crop.Height * 3);
+        using (var graphics = Graphics.FromImage(big))
+            graphics.DrawImage(crop, new Rectangle(0, 0, big.Width, big.Height),
+                new Rectangle(0, 0, crop.Width, crop.Height), GraphicsUnit.Pixel);
         using var stream = new MemoryStream();
         big.Save(stream, ImageFormat.Png);
         var result = await ocr.RecognizeLineAsync(stream.ToArray(), 0, 0, big.Width, big.Height);

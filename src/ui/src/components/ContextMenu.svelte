@@ -8,6 +8,7 @@
   let box: HTMLElement | undefined = $state()
   let pos = $state({ x: 0, y: 0 })
   let armed = $state<number | null>(null)
+  let view = $state({ w: innerWidth, h: innerHeight })
 
   $effect(() => {
     if (!m || !box) return
@@ -15,8 +16,8 @@
     const pad = 4
     const { width, height } = box.getBoundingClientRect()
     pos = {
-      x: Math.max(pad, Math.min(m.x, innerWidth - width - pad)),
-      y: Math.max(pad, m.y + height > innerHeight - pad ? m.y - height : m.y),
+      x: Math.max(pad, Math.min(m.x, view.w - width - pad)),
+      y: Math.max(pad, m.y + height > view.h - pad ? m.y - height : m.y),
     }
   })
 
@@ -37,7 +38,11 @@
     // 游戏在前台时右键侧栏，窗口这时才被激活，焦点来回切一下会触发失焦；刚弹出的菜单不因此关掉
     if (performance.now() - menu.at > 600) close()
   }}
-  onresize={close}
+  onresize={() => {
+    // 收起时右键会先展开侧栏，刚弹出的菜单跟着新窗口重新定位，不因这次变大关掉
+    view = { w: innerWidth, h: innerHeight }
+    if (performance.now() - menu.at > 800) close()
+  }}
   onpointerdown={(e) => m && !box?.contains(e.target as Node) && close()}
   onwheel={close}
   oncontextmenu={(e) => {

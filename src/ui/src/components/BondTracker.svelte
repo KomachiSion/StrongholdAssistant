@@ -6,6 +6,7 @@
   import { asset } from '../lib/assets'
   import { openMenu, operatorMenu, equipmentMenu, targetMenu } from '../lib/menu.svelte'
   import Icon from './Icon.svelte'
+  import TierBadge from './TierBadge.svelte'
   import { allStages, stageLabel } from '../lib/stages'
   import { field } from '../lib/field.svelte'
 
@@ -55,7 +56,7 @@
           <Icon name="refresh" size={12} />全部追踪<em>{app.untrackedInTarget}</em>
         </button>
       {/if}
-      <span class="count"><b>{total}</b> 项</span>
+      <button class="count" title="在图鉴里看追踪中的干员和装备" onclick={() => (app.setTab('codex'), (app.codexTracked = true))}><b>{total}</b> 项</button>
     </div>
     <div class="row">
       {#each app.trackedOps as n (n)}
@@ -70,6 +71,7 @@
           transition:scale={fx}
         >
           <img src={asset.operator(n)} alt={n} />
+          <span class="tr"><TierBadge tier={app.op(n).tier} size={12} /></span>
           {#if app.banned.has(n)}<img class="ban" src={asset.stage('img_chess_banned')} alt="禁用" />{/if}
           <span class="x"><Icon name="close" size={14} /></span>
         </button>
@@ -80,6 +82,7 @@
           {#each g.members as m (m.name)}
             <span class="av gm" class:got={owned.has(m.name)} class:banned={app.banned.has(m.name)} class:key={m.key}>
               <img src={asset.operator(m.name)} alt={m.name} />
+              <span class="tr"><TierBadge tier={app.op(m.name).tier} size={12} /></span>
               {#if app.banned.has(m.name)}<img class="ban" src={asset.stage('img_chess_banned')} alt="禁用" />{/if}
               {#if owned.has(m.name)}<b class="ok"><Icon name="check" size={11} /></b>{/if}
             </span>
@@ -191,6 +194,10 @@
     color: var(--fg-3);
     white-space: nowrap;
   }
+  .count:hover {
+    color: var(--fg-1);
+    text-decoration: underline;
+  }
   .count b {
     color: var(--mint);
     font-family: var(--font-term);
@@ -262,15 +269,24 @@
     opacity: 1;
   }
   .av.key::after {
-    /* 关键干员：左上角金色三角 */
+    /* 关键干员：右上角金色三角（左上角给等阶，v1.2.7） */
     content: '';
     position: absolute;
     top: 0;
-    left: 0;
+    right: 0;
     width: 9px;
     height: 9px;
     background: var(--gold);
-    clip-path: polygon(0 0, 100% 0, 0 100%);
+    clip-path: polygon(0 0, 100% 0, 100% 100%);
+  }
+  /* 等阶：左上角小角标，打商店时一眼看出几阶（v1.2.7） */
+  .av .tr {
+    position: absolute;
+    left: 0;
+    top: 0;
+    z-index: 1;
+    display: flex;
+    filter: drop-shadow(0 0 1px rgb(var(--shade-rgb) / 0.8));
   }
   /* 「一组」干员：一组框在一起，左边写「任 N」；拿到的打勾，够了整组压暗 */
   .grp {

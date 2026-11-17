@@ -35,9 +35,9 @@ public sealed partial class SpriteMatcher
                 continue;
             }
             string? skin = skins?.GetValueOrDefault(unit.Operator);
-            foreach (var template in Templates(unit.Operator, f.CellWidth * .00271)
+            foreach (var template in Templates(AppearanceName(unit.Operator, skins), f.CellWidth * .00271)
                 .Where(t => t.Size == 100 && t.Tier == unit.Tier
-                    && (skin is null || t.SkinId == "default" || t.SkinId == skin)))
+                    && AllowsSkin(t.SkinId, skin)))
             {
                 // 当前身份的正背面、待机帧及镜像取并集，保留透明轮廓。
                 using var mask = new Mat();

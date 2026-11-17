@@ -131,12 +131,12 @@
         </div>
       {/if}
 
-      <div class="sub">想抓的干员<em>{a!.members.length} 名 · 点头像切换追踪，暗的是没在追踪；左上角金色是关键</em></div>
+      <div class="sub">想抓的干员<em>{a!.members.length} 名 · 点头像切换追踪，暗的是没在追踪；左上角是等阶，右上角金色是关键</em></div>
       <div class="ops">
         {#each a!.members as m (m.name)}
           {@const pe = m.equipment?.filter((x) => x.priority) ?? []}
           <span class="mw" class:later={!own.has(m.name)} title={own.has(m.name) ? undefined : '后面阶段的关键干员，提前追踪'}>
-            <OpTile name={m.name} transform={m.transform} isKey={m.key} elite={!!m.elite} skill={customSkill(m, app.op(m.name), app.settings.operatorDefaults)} size={54} dim={!app.tracked.has(m.name)} onclick={() => app.toggleTracked(m.name)} />
+            <OpTile name={m.name} transform={m.transform} isKey={m.key} elite={!!m.elite} skill={customSkill(m, app.op(m.name), app.settings.operatorDefaults)} size={54} tier dim={!app.tracked.has(m.name)} onclick={() => app.toggleTracked(m.name)} />
             {#if pe.length}
               <span class="pe" title="优先装备：{pe.map((x) => x.name).join('、')}">
                 {#each pe.slice(0, 3) as x (x.name)}<img src={asset.equipment(x.name)} alt="" />{/each}
@@ -161,7 +161,7 @@
         <div class="sub">还能抓<em>目标盟约里没被禁的其他干员 · 点开可加入目标或追踪</em></div>
         <div class="ops">
           {#each picks as o (o.name)}
-            <OpTile name={o.name} size={48} onclick={() => (app.detail = { kind: 'operator', name: o.name })} />
+            <OpTile name={o.name} size={48} tier onclick={() => (app.detail = { kind: 'operator', name: o.name })} />
           {:else}
             <p class="none">没有了。</p>
           {/each}

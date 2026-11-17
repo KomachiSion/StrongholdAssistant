@@ -16,13 +16,17 @@ import cv2
 import numpy as np
 
 
-def generate(rendered, operators, output, size=60, default_only=False, allow_partial=False, skin_frames=4):
+def generate(rendered, operators, output, size=60, default_only=False, allow_partial=False, skin_frames=4, append=None):
     records = []
     covered = set()
     metadata = json.loads((rendered / "manifest.json").read_text(encoding="utf-8"))
     pixels_per_unit = metadata.get("pixelsPerUnit")
     manifest = metadata["operators"]
-    for op in json.loads(operators.read_text(encoding="utf-8-sig"))["operators"]:
+    catalog = json.loads(operators.read_text(encoding="utf-8-sig"))
+    entries = catalog.get("operators")
+    if entries is None:
+        entries = [{"name": s["charId"], "tier": 0} for s in catalog["summons"]]
+    for op in entries:
         name = op["name"].strip("“”")
         seen = set()
         # 清单只包含已完整渲染的干员，失败的半套图不打包。
@@ -58,12 +62,22 @@ def generate(rendered, operators, output, size=60, default_only=False, allow_par
                 skin = skin_id.encode("utf-8")
                 records.append(struct.pack("<H", len(encoded)) + encoded + struct.pack("<H", len(skin)) + skin + payload)
             covered.add(name)
+    previous = b""
+    previous_count = 0
+    if append:
+        previous = gzip.decompress(append.read_bytes())
+        expected = b"SPRT0004" + struct.pack("<Hf", size, pixels_per_unit * size / 120)
+        if previous[:14] != expected:
+            raise ValueError("追加包必须使用相同的真实比例和分辨率")
+        previous_count = struct.unpack_from("<I", previous, 14)[0]
+        previous = previous[18:]
     output.parent.mkdir(parents=True, exist_ok=True)
     with output.open("wb") as raw, gzip.GzipFile(filename="", mode="wb", fileobj=raw, mtime=0, compresslevel=9) as dest:
         if pixels_per_unit is not None:
-            dest.write(b"SPRT0004" + struct.pack("<HfI", size, pixels_per_unit * size / 120, len(records)))
+            dest.write(b"SPRT0004" + struct.pack("<HfI", size, pixels_per_unit * size / 120, previous_count + len(records)))
         else:
             dest.write(b"SPRT0003" + struct.pack("<HI", size, len(records)))
+        dest.write(previous)
         for record in records:
             dest.write(record)
     print(json.dumps(dict(operators=len(covered), templates=len(records), bytes=output.stat().st_size)))
@@ -79,5 +93,6 @@ if __name__ == "__main__":
     parser.add_argument("--skin-frames", type=int, choices=[1, 2, 4], default=4,
                         help="每套非默认皮肤每个朝向均匀取帧；默认服装保留四帧")
     parser.add_argument("--allow-partial", action="store_true", help="仅离线评测使用，产品包必须覆盖全部干员")
+    parser.add_argument("--append", type=Path, help="保留已有真实比例模板的原始记录，追加独立外观")
     args = parser.parse_args()
-    generate(args.rendered, args.operators, args.output, args.size, args.default_only, args.allow_partial, args.skin_frames)
+    generate(args.rendered, args.operators, args.output, args.size, args.default_only, args.allow_partial, args.skin_frames, args.append)

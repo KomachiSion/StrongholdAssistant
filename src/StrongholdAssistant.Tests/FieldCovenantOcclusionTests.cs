@@ -18,7 +18,7 @@ public sealed class FieldCovenantOcclusionTests
         // 2026-11-15 险境录屏的原始游戏裁片，归上海鹰角网络所有；不含昵称。
         using var crop = new Bitmap(Path.Combine(AppContext.BaseDirectory, "TestData", $"field-covenant-{second}.png"));
         using var frame = new Bitmap(1920, 1080);
-        using (var g = Graphics.FromImage(frame)) g.DrawImageUnscaled(crop, 1110, 130);
+        using (var g = Graphics.FromImage(frame)) g.DrawImage(crop, new Rectangle(1110, 130, crop.Width, crop.Height), new Rectangle(0, 0, crop.Width, crop.Height), GraphicsUnit.Pixel);
         var reader = new FieldReader(Data, null!, []);
         var cells = reader.ReadCells(frame, null, true);
         Assert.Equal(5, cells[new("board", 5, 0)]);

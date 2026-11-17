@@ -7,6 +7,9 @@ namespace ASPAssistant.Core.Placement;
 
 public sealed record PlacementOptions
 {
+    public IReadOnlySet<BoardCell> OccupiedCells { get; init; } = new HashSet<BoardCell>();
+    public IReadOnlyList<SimUnit> FixedSummons { get; init; } = [];
+    public IReadOnlySet<string> FixedSummonNames { get; init; } = new HashSet<string>();
     public StrategyEffect? Strategy { get; init; }
     /// <summary>Operators on the field (8 unless the player says 9).</summary>
     public int FieldCount { get; init; } = 8;
@@ -633,11 +636,12 @@ public sealed class PlacementPlanner
         /// </summary>
         private const double GroundDwellTotal = 16, FlyPerGround = 0.5;
 
-        public BoardInfo(GarrisonMap map, RoundRoutes? round, bool flying)
+        public BoardInfo(GarrisonMap map, RoundRoutes? round, bool flying, IReadOnlySet<BoardCell> occupied)
         {
+            Occupied = occupied;
             Map = map;
             Deployable = map.AllCells().Where(c => c.Type is BoardCellType.Ground or BoardCellType.Special or BoardCellType.High)
-                .Select(c => c.Cell).ToArray();
+                .Select(c => c.Cell).Where(c => !occupied.Contains(c)).ToArray();
             Special = map.AllCells().Where(c => c.Type == BoardCellType.Special).Select(c => c.Cell).ToHashSet();
             Tile = Tiles.GetValueOrDefault(map.Id);
             TeleportHazard = map.Id == "m10";
@@ -695,7 +699,11 @@ public sealed class PlacementPlanner
         /// <summary>Cells on the flyers' last stretch before the defence point: whatever is not shot down passes here.</summary>
         public HashSet<BoardCell> FlyEnd { get; }
 
-        public bool Legal(OpInfo op, BoardCell cell) => GarrisonMap.CanDeploy(Map.At(cell), op.Melee);
+        // 宫殿盐坨子炮的已知落点及周围一格属于伤害区，推荐不能仅靠扣分避让。
+        public bool Bombarded(BoardCell cell) => TeleportHazard
+            && Math.Max(Math.Abs(cell.Col - PalaceTeleport.To.Col), Math.Abs(cell.Row - PalaceTeleport.To.Row)) <= 1;
+        private IReadOnlySet<BoardCell> Occupied { get; }
+        public bool Legal(OpInfo op, BoardCell cell) => !Occupied.Contains(cell) && GarrisonMap.CanDeploy(Map.At(cell), op.Melee) && !Bombarded(cell);
         public bool OnMainRoute(BoardCell c) => RouteIndex.Any(d => d.ContainsKey(c));
 
         private static Dictionary<BoardCell, int>[] Index(BoardCell[][] routes) => [.. routes.Select(r =>
@@ -832,7 +840,7 @@ public sealed class PlacementPlanner
             _equipment = _candidates.Values.Where(c => c.Equipment.Count > 0)
                 .ToDictionary(c => c.Key, c => CombatEffect.Combine(c.Equipment));
             // Real streams say whether flyers can come: only when one of the run's types flies.
-            Board = new BoardInfo(map, options.Routes, options.Streams is { Count: > 0 } st ? st.Any(s => s.Flying) : options.ExpectFlying);
+            Board = new BoardInfo(map, options.Routes, options.Streams is { Count: > 0 } st ? st.Any(s => s.Flying) : options.ExpectFlying, options.OccupiedCells);
             _streams = PickStreams(options);
             Info = [];
             _unplaceable = [];
@@ -1084,9 +1092,10 @@ public sealed class PlacementPlanner
             foreach (var (n, v) in boardPl) atBoard[v.Cell] = n;
             var (pl, info, _, _) = Devour(boardPl, atBoard, cov, (_, _) => { });
             info = WithCurrentLayers(info, boardPl.Keys, cov);
-            var units = new List<SimUnit>();
+            var units = new List<SimUnit>(_options.FixedSummons);
             var auras = AurasOn(pl, info);
             var taken = new HashSet<BoardCell>(pl.Values.Select(v => v.Cell));
+            taken.UnionWith(_options.OccupiedCells);
             int eliteCount = _options.Strategy?.Kind == "eliteCount" ? pl.Keys.Count(n => _candidates[n].IsElite) : 0;
             foreach (var (n, v) in pl)
             {
@@ -1214,6 +1223,7 @@ public sealed class PlacementPlanner
         private SimUnit? SummonUnit(string n, OpInfo I, BoardCell cell, Facing facing, HashSet<BoardCell> taken)
         {
             if (I.Summon is not { } s || I.SummonOffsets is not { } offsets) return null;
+            if (_options.FixedSummonNames.Contains(s.Name)) return null;
             var at = cell;
             if (s.Lane)
             {
@@ -1475,7 +1485,7 @@ public sealed class PlacementPlanner
                 LayRoute(Board.Extra[e], Board.ExtraIndex[e], 0.6, "D6 传送");
             if (Board.TeleportHazard)
                 foreach (var (n, v) in pl)
-                    if (Math.Max(Math.Abs(v.Cell.Col - 3), Math.Abs(v.Cell.Row - 3)) <= 1)
+                    if (Board.Bombarded(v.Cell))
                     {
                         comb -= info[n].Role == PlacementRole.Tank ? 2 : 4;
                         Note(n, "在 D6 传送点周围，会周期性受伤");
@@ -2021,7 +2031,8 @@ public sealed class PlacementPlanner
         {
             Func<Dictionary<string, (BoardCell Cell, Facing Facing)>, double> Score = simulate ? SimScore : this.Score;
             var rnd = new Random(_options.Seed);
-            var pins = _options.Pins.Where(kv => Info.ContainsKey(kv.Key)).ToDictionary(kv => kv.Key, kv => kv.Value);
+            var pins = _options.Pins.Where(kv => Info.ContainsKey(kv.Key) && !Board.Bombarded(kv.Value.Cell) && !_options.OccupiedCells.Contains(kv.Value.Cell))
+                .ToDictionary(kv => kv.Key, kv => kv.Value);
             // Kept on the field by the player (anywhere): placed first and never swapped out; kept on the bench: never placed.
             var must = _options.FieldPins.Where(k => Info.ContainsKey(k) && !pins.ContainsKey(k)).ToHashSet();
             var free = _pool.Where(n => !pins.ContainsKey(n) && (!_options.BenchPins.Contains(n) || must.Contains(n))).ToList();
@@ -2035,7 +2046,7 @@ public sealed class PlacementPlanner
             double heat = simulate ? 3.0 : 8.0;
             for (int restart = 0; restart < restarts; restart++)
             {
-                var pl = start is not null ? new Dictionary<string, (BoardCell Cell, Facing Facing)>(start)
+                var pl = start is not null ? start.Where(p => !Board.Bombarded(p.Value.Cell) && !_options.OccupiedCells.Contains(p.Value.Cell)).ToDictionary(p => p.Key, p => p.Value)
                     : new Dictionary<string, (BoardCell Cell, Facing Facing)>();
                 foreach (var (n, p) in pins) pl[n] = (p.Cell, p.Facing);
                 var used = pl.Values.Select(v => v.Cell).ToHashSet();

@@ -21,8 +21,8 @@ jobs:
       - run: npm --prefix src/ui ci
       - run: npm --prefix src/ui test
       - run: npm --prefix src/ui run check
-      - run: dotnet test src/StrongholdAssistant.Tests -c Release
       - run: npm --prefix src/ui run build
+      - run: dotnet test src/StrongholdAssistant.Tests -c Release
       - name: Package and startup smoke test
         shell: pwsh
         run: ./scripts/build-fork-preview.ps1

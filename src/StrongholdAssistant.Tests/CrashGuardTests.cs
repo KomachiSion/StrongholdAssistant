@@ -1,4 +1,4 @@
-using ASPAssistant.Core.Services;
+﻿using ASPAssistant.Core.Services;
 
 namespace StrongholdAssistant.Tests;
 
@@ -46,6 +46,18 @@ public sealed class CrashGuardTests
         CrashGuard.GpuCrashed();
         CrashGuard.Initialize(directory);
         Assert.True(CrashGuard.GpuDisabled);
+        CrashGuard.Initialize(NewDirectory());
+    }
+
+    [Fact]
+    public void OcrGpuFailureIsRememberedForNextStart()
+    {
+        var directory = NewDirectory();
+        CrashGuard.Initialize(directory);
+        Assert.False(CrashGuard.OcrCpu);
+        CrashGuard.OcrGpuFailed();
+        CrashGuard.Initialize(directory);
+        Assert.True(CrashGuard.OcrCpu);
         CrashGuard.Initialize(NewDirectory());
     }
 }

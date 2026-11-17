@@ -1,4 +1,4 @@
-namespace ASPAssistant.Core.Services;
+﻿namespace ASPAssistant.Core.Services;
 
 /// <summary>
 /// 原生代码崩溃时托管层拦不住、日志也留不下（v1.2.5）。用标记文件判断上次是不是在用窗口捕获时异常退出：
@@ -11,6 +11,8 @@ public static class CrashGuard
     private static bool _wgcMarked;
     public static bool WgcDisabled { get; private set; }
     public static bool GpuDisabled { get; private set; }
+    /// <summary>文字识别固定用 CPU：显卡推理读不出字过（v1.2.6）。</summary>
+    public static bool OcrCpu { get; private set; }
 
     private static string PathOf(string name) => Path.Combine(_directory!, name);
 
@@ -29,6 +31,8 @@ public static class CrashGuard
         }
         WgcDisabled = File.Exists(PathOf("wgc-disabled"));
         GpuDisabled = File.Exists(PathOf("gpu-disabled"));
+        OcrCpu = File.Exists(PathOf("ocr-cpu"));
+        if (OcrCpu) AppLogger.Warn("CrashGuard", "显卡推理读不出字过，文字识别固定用 CPU");
         if (WgcDisabled) AppLogger.Warn("CrashGuard", "这台电脑上窗口捕获连续异常退出，截图改用 BitBlt");
         if (GpuDisabled) AppLogger.Warn("CrashGuard", "界面的 GPU 进程崩溃过，已关闭界面硬件加速");
     }
@@ -45,6 +49,13 @@ public static class CrashGuard
     {
         if (_directory is null || GpuDisabled) return;
         File.WriteAllText(PathOf("gpu-disabled"), DateTimeOffset.Now.ToString("O"));
+    }
+
+    public static void OcrGpuFailed()
+    {
+        if (_directory is null) return;
+        File.WriteAllText(PathOf("ocr-cpu"), DateTimeOffset.Now.ToString("O"));
+        OcrCpu = true;
     }
 
     public static void NormalExit()

@@ -1,4 +1,4 @@
-// 2026-11-11：增加启动时的合成图预热，覆盖禁用识别各区域。
+﻿// 2026-11-11：增加启动时的合成图预热，覆盖禁用识别各区域。
 // Modified for ASP Assistant Arknights on 2026-11-09; see NOTICE.
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -62,7 +62,10 @@ public sealed class MaaOcrEngine : IOcrEngine, IDisposable
     /// </summary>
     public float GlyphUpscaleFactor { get; init; } = 2.0f;
 
-    private readonly MaaTasker _tasker;
+    private MaaTasker _tasker;
+    private readonly string _modelPath;
+    /// <summary>推理是否固定在 CPU；默认自动选设备，有显卡时走显卡（快约三成）。</summary>
+    public bool UsesCpu { get; private set; }
     private readonly NullController _nullController;
 
     /// <param name="resourcePath">
@@ -72,15 +75,19 @@ public sealed class MaaOcrEngine : IOcrEngine, IDisposable
     public MaaOcrEngine(string resourcePath)
     {
         _nullController = new NullController();
+        _modelPath = Path.Combine(resourcePath, "model", "ocr");
+        _tasker = CreateTasker(CrashGuard.OcrCpu || CrashGuard.GpuDisabled);
+    }
 
+    private MaaTasker CreateTasker(bool cpu)
+    {
+        UsesCpu = cpu;
         var controller = new MaaCustomController(_nullController);
         controller.LinkStart().Wait();
-
-        var ocrModelPath = Path.Combine(resourcePath, "model", "ocr");
         var resource = new MaaResource();
-        resource.AppendOcrModel(ocrModelPath).Wait();
-
-        _tasker = new MaaTasker(controller, resource, DisposeOptions.All);
+        if (cpu) resource.SetInference_UseCpu();
+        resource.AppendOcrModel(_modelPath).Wait();
+        return new MaaTasker(controller, resource, DisposeOptions.All);
     }
 
     /// <inheritdoc/>
@@ -118,7 +125,19 @@ public sealed class MaaOcrEngine : IOcrEngine, IDisposable
         var bytes = buffer.ToArray();
         // 模型按输入尺寸准备推理资源；覆盖首领、两块盟约面板及头像分组列的尺寸。
         await RecognizeRegionAsync(bytes, 1305, 432, 576, 432);
-        await RecognizeRegionAsync(bytes, 0, 172, 1344, 259);
+        var check = await RecognizeRegionAsync(bytes, 0, 172, 1344, 259);
+        // 有的电脑显卡推理不报错却一个字都读不出（v1.2.5 玩家诊断包：信息页 OCR 全空）。
+        // 预热文字都没读出来就改用 CPU，并记住这台电脑以后都用 CPU（v1.2.6）。
+        if (!UsesCpu && !check.Any(r => r.Text.Contains("核心")))
+        {
+            AppLogger.Warn("OCR", "显卡推理没读出预热文字，文字识别改用 CPU");
+            CrashGuard.OcrGpuFailed();
+            var old = _tasker;
+            _tasker = CreateTasker(true);
+            old.Dispose();
+            await RecognizeRegionAsync(bytes, 1305, 432, 576, 432);
+            await RecognizeRegionAsync(bytes, 0, 172, 1344, 259);
+        }
         await RecognizeRegionAsync(bytes, 0, 464, 1344, 453);
         await RecognizeRegionAsync(bytes, 150, 262, 135, 723);
     });

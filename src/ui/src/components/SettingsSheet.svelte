@@ -785,7 +785,7 @@
     </section>
     {/if}
     {#if tab === 'keys'}
-    <section>
+    <section class="keyrows">
       <h4>快捷键 <small>游戏在前台时也能按</small></h4>
       <!-- 全局快捷键：游戏在前台也能按；点按钮后按下新组合 -->
       <div class="hk">
@@ -1951,8 +1951,14 @@
     gap: 10px;
     margin-top: 10px;
   }
+  /* 标题列定宽，同一块里的控件左边对齐（v1.2.6，群友反馈「快捷键」那行按钮缩进去了） */
   .hkl {
     font-size: var(--fs-md);
+    flex: none;
+    min-width: 4em;
+  }
+  .keyrows .hkl {
+    min-width: 8.5em;
   }
   .rng {
     flex: 1;

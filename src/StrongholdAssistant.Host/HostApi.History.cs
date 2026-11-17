@@ -66,6 +66,20 @@ public sealed partial class HostApi
         SaveHistory();
     }
 
+    // 新局取消旧目标后，玩家会在识别完成后选方案。只在选择改变时记录快照，
+    // 后续编辑同一方案、调整追踪或阶段不能改写历史中的阵容。
+    private void RecordSelectedTarget()
+    {
+        lock (_historyGate)
+        {
+            int index = _history.FindIndex(r => r.Id == _activeRecord);
+            if (index < 0 || _history[index].Local is not { } local || _trackingTarget is null) return;
+            var snapshot = JsonSerializer.Deserialize<LineupDto>(JsonSerializer.Serialize(_trackingTarget, JsonOptions), JsonOptions);
+            _history[index] = _history[index] with { Local = local with { Lineup = snapshot } };
+            SaveHistory();
+        }
+    }
+
     private void RecordRecognizedMatch(bool newMatch, bool opening)
     {
         if (newMatch || opening && !_openingObserved) ResetField();

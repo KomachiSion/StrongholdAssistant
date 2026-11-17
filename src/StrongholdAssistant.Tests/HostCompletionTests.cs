@@ -18,12 +18,11 @@ public sealed class HostCompletionTests : IDisposable
     }
 
     [Fact]
-    public async Task ResetClearsManualAndAccumulatedBansAndPreservesTrackingAndLineups()
+    public async Task ResetClearsBansAndOldTargetButPreservesManualTrackingAndLineups()
     {
         var api = await CreateApi();
         var lineup = await api.SaveLineupAsync(new("", "测试", [new("初雪")], "user", null, default));
-        await api.SaveSessionAsync(new(lineup.Id, [], ["初雪"]));
-        var before = JsonSerializer.Serialize(await api.SessionAsync());
+        await api.SaveSessionAsync(new(lineup.Id, [], ["初雪", "泡泡"]));
         api.ApplyRecognizedMatch(api.Match with { StrategyId = "test", BossId = "boss", EnemyTypes = ["enemy"] }, ["卡达"]);
         api.SetCovenantIncomplete("siracusa", true);
         api.SetOperatorBanned("初雪", true);
@@ -39,9 +38,10 @@ public sealed class HostCompletionTests : IDisposable
         Assert.Empty(match.BannedOperators);
         Assert.All(match.Covenants, c => Assert.False(c.Incomplete));
         Assert.Same(match, pushed);
-        Assert.Equal(before, JsonSerializer.Serialize(await api.SessionAsync()));
+        Assert.Null((await api.SessionAsync()).TargetLineupId);
+        Assert.Null((await api.SessionAsync()).Stage);
         Assert.Equal(lineup.Id, Assert.Single(await api.LineupsAsync()).Id);
-        Assert.Equal(new[] { "初雪" }, api.TrackedNames);
+        Assert.Equal(new[] { "泡泡" }, api.TrackedNames);
         Assert.False(File.Exists(Path.Combine(_directory, "match.json")));
         api.SetOperatorBanned("夜莺", false);
         Assert.Empty(api.Match.BannedOperators);
@@ -77,7 +77,7 @@ public sealed class HostCompletionTests : IDisposable
         {
             await api.SaveLineupAsync(lineup with { Note = new string((char)('a' + i), 10000) });
             Assert.Single(await api.LineupsAsync());
-            await api.SaveSessionAsync(new(lineup.Id, [], ["初雪"]));
+            await api.SaveSessionAsync(new(lineup.Id, [], ["初雪", "泡泡"]));
             Assert.Equal(lineup.Id, (await api.SessionAsync()).TargetLineupId);
         }));
         var saved = Assert.Single(await api.LineupsAsync());

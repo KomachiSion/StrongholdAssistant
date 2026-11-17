@@ -357,10 +357,12 @@ public sealed partial class HostApi
     public async Task SaveSessionAsync(SessionDto session)
     {
         ValidateEquipment(session.TrackedEquipment);
+        var previousTarget = _trackingSession.TargetLineupId;
         await _sessionGate.WaitAsync();
         try { await WriteSessionAsync(session); }
         finally { _sessionGate.Release(); }
         await RefreshTrackingAsync();
+        if (previousTarget != session.TargetLineupId && _trackingTarget is not null) RecordSelectedTarget();
     }
 
     private Task WriteSessionAsync(SessionDto session)

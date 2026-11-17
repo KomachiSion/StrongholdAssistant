@@ -256,11 +256,14 @@ public sealed class EconomyHistoryTests : IDisposable
     {
         var api = await CreateApi();
         var lineup = await api.SaveLineupAsync(new("", "目标甲", [], "user", null, DateTime.UtcNow));
-        await api.SaveSessionAsync(new(lineup.Id, [], []));
         Open(api);
+        Assert.Null(Assert.Single(api.History()).Local!.Lineup);
+        await api.SaveSessionAsync(new(lineup.Id, [], []));
+        Assert.Equal("目标甲", Assert.Single(api.History()).Local!.Lineup!.Name);
         Read(api, 1, 4);
         Read(api, 2, 8);
         await api.SaveLineupAsync(lineup with { Name = "目标乙" });
+        await api.SaveSessionAsync(new(lineup.Id, [], [])); // 保存同一目标的跟踪状态不改历史快照
         var first = Assert.Single(api.History());
         Assert.Equal("目标甲", first.Local!.Lineup!.Name);
         Assert.Equal(2, first.Local.LastRound);
@@ -269,6 +272,8 @@ public sealed class EconomyHistoryTests : IDisposable
         Assert.Equal(2, api.History().Length);
         Assert.Equal(4, api.Match.Economy!.StartMoney);
         await api.ResetMatchAsync();
+        Assert.Null((await api.SessionAsync()).TargetLineupId);
+        Assert.Equal("目标甲", api.History().Single(r => r.Id == first.Id).Local!.Lineup!.Name);
         Assert.Equal(2, api.History().Length);
         string backup = Path.Combine(_directory, "backup.json");
         await api.ExportBackupAsync(backup);
